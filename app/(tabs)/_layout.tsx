@@ -1,6 +1,9 @@
 import { Tabs } from "expo-router"
 import { Ionicons } from "@expo/vector-icons"
+import { THEME_COLORS, RADIUS, SHADOWS, SPACE } from "../../utils/theme"
 
+// Thanh tab nổi: nền trắng, viền mảnh, bo RADIUS.sheet, căn đều hai bên.
+// Chiều cao 72 + cách đáy 20 → nội dung các màn tab cần paddingBottom >= ~110.
 export default function TabLayout() {
   return (
     <Tabs
@@ -8,38 +11,32 @@ export default function TabLayout() {
         headerShown: false,
         tabBarShowLabel: true,
         tabBarLabelStyle: {
-          fontSize: 12,
-          marginTop: 3,
-          fontWeight: '500',
+          fontSize: 11,
+          marginTop: 2,
+          fontWeight: "600",
         },
         tabBarStyle: {
-          position: 'absolute',
-          bottom: 20,
-          left: 65,
-          right: 60,
-          backgroundColor: '#FFB700',
-          borderRadius: 45,
-          height: 80,
-          borderWidth: 1.5,
-          borderColor: '#1054CF',
-          paddingHorizontal: 19,
-          paddingTop: 10,
-          paddingBottom: 10,
-          shadowColor: '#000',
-          shadowOffset: {
-            width: 0,
-            height: 2,
-          },
-          shadowOpacity: 0.25,
-          shadowRadius: 3.84,
-          elevation: 3,
+          position: "absolute",
+          bottom: SPACE.xl,
+          left: SPACE.screen,
+          right: SPACE.screen,
+          backgroundColor: THEME_COLORS.surface,
+          borderRadius: RADIUS.sheet,
+          height: 72,
+          borderWidth: 1,
+          borderTopWidth: 1,
+          borderColor: THEME_COLORS.border,
+          borderTopColor: THEME_COLORS.border,
+          paddingHorizontal: SPACE.sm,
+          paddingTop: SPACE.md,
+          paddingBottom: SPACE.md,
+          ...SHADOWS.tabBar,
         },
-        tabBarActiveTintColor: '#1054CF', // Màu xanh khi tab đang chọn
-        tabBarInactiveTintColor: 'rgba(0, 0, 0, 0.7)', // Dark with opacity for both icon and text
+        tabBarActiveTintColor: THEME_COLORS.primary,
+        tabBarInactiveTintColor: THEME_COLORS.textMuted,
         tabBarItemStyle: {
-          marginHorizontal: -15,
           paddingTop: 0,
-        }
+        },
       }}
     >
       <Tabs.Screen
@@ -47,11 +44,7 @@ export default function TabLayout() {
         options={{
           title: "Trang chủ",
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons 
-              name={focused ? "home" : "home-outline"} 
-              size={29} 
-              color={color} 
-            />
+            <Ionicons name={focused ? "home" : "home-outline"} size={24} color={color} />
           ),
         }}
       />
@@ -60,11 +53,7 @@ export default function TabLayout() {
         options={{
           title: "Xe",
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons 
-              name={focused ? "car" : "car-outline"} 
-              size={34} 
-              color={color} 
-            />
+            <Ionicons name={focused ? "car" : "car-outline"} size={26} color={color} />
           ),
         }}
       />
@@ -73,11 +62,7 @@ export default function TabLayout() {
         options={{
           title: "Chuyến đi",
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons 
-              name={focused ? "calendar" : "calendar-outline"} 
-              size={29} 
-              color={color} 
-            />
+            <Ionicons name={focused ? "calendar" : "calendar-outline"} size={24} color={color} />
           ),
         }}
       />
@@ -86,11 +71,7 @@ export default function TabLayout() {
         options={{
           title: "Tài khoản",
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons 
-              name={focused ? "person" : "person-outline"} 
-              size={29} 
-              color={color} 
-            />
+            <Ionicons name={focused ? "person" : "person-outline"} size={24} color={color} />
           ),
         }}
       />

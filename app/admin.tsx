@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useMemo } from "react"
+import type { StyleProp, TextStyle } from "react-native"
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, Image, Animated, Modal, Platform } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 import { Ionicons } from "@expo/vector-icons"
@@ -13,6 +14,7 @@ import { Dimensions } from "react-native"
 import { formatCurrency, formatDate } from "../utils/helpers"
 import { getBookingStatusLabel, PAYMENT_STATUS_LABELS } from "../utils/constants"
 import { cars as localCars } from "../data/cars"
+import { THEME_COLORS, RADIUS, SPACE, SHADOWS, TYPOGRAPHY, UI, PRESS_OPACITY } from "../utils/theme"
 
 interface Car {
   id: string
@@ -76,7 +78,7 @@ interface Booking {
 }
 
 const adminTabs = [
-  { id: "cars", name: "Quản lý xe", icon: "car" },
+  { id: "cars", name: "Xe", icon: "car" },
   { id: "bookings", name: "Đơn đặt xe", icon: "calendar" },
   { id: "users", name: "Người dùng", icon: "people" },
   { id: "reports", name: "Báo cáo", icon: "analytics" },
@@ -159,7 +161,7 @@ const confirmAction = (title: string, message: string, confirmText: string, onCo
 }
 
 const avatarFor = (name: string) =>
-  `https://ui-avatars.com/api/?name=${encodeURIComponent(name || "U")}&background=4169e1&color=fff`
+  `https://ui-avatars.com/api/?name=${encodeURIComponent(name || "U")}&background=1054CF&color=fff`
 
 // Nhận diện chuỗi giá kiểu "1.200.000" / "1 200 000" / "1200000"
 const parsePriceInput = (value: string): number => {
@@ -169,16 +171,68 @@ const parsePriceInput = (value: string): number => {
 }
 
 const screenWidth = Dimensions.get("window").width
+// Chiều rộng biểu đồ = màn hình - lề màn hình - padding thẻ - viền thẻ
+const chartWidth = screenWidth - SPACE.screen * 2 - SPACE.lg * 2 - 2
 const chartConfig = {
-  backgroundColor: "#ffffff",
-  backgroundGradientFrom: "#ffffff",
-  backgroundGradientTo: "#ffffff",
-  color: (opacity = 1) => `rgba(65, 105, 225, ${opacity})`,
-  labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
+  backgroundColor: "#FFFFFF",
+  backgroundGradientFrom: "#FFFFFF",
+  backgroundGradientTo: "#FFFFFF",
+  color: (opacity = 1) => `rgba(16, 84, 207, ${opacity})`, // primary #1054CF
+  labelColor: (opacity = 1) => `rgba(148, 163, 184, ${opacity})`, // textMuted #94A3B8
   strokeWidth: 2,
-  barPercentage: 0.7,
+  barPercentage: 0.6,
   propsForLabels: {
-    fontSize: 12
+    fontSize: 11,
+  },
+  propsForBackgroundLines: {
+    stroke: THEME_COLORS.border,
+    strokeDasharray: "4 6",
+  },
+  propsForDots: {
+    r: "4",
+    strokeWidth: "2",
+    stroke: "#FFFFFF",
+  },
+}
+
+// Cặp màu nền soft + chữ đậm cho badge trạng thái
+// `info` (Đang thuê) không có trong utils/theme.ts nên định nghĩa cục bộ
+const TONES = {
+  success: { bg: THEME_COLORS.successSoft, fg: THEME_COLORS.success },
+  danger: { bg: THEME_COLORS.dangerSoft, fg: THEME_COLORS.danger },
+  warning: { bg: THEME_COLORS.warningSoft, fg: THEME_COLORS.warning },
+  primary: { bg: THEME_COLORS.primarySoft, fg: THEME_COLORS.primary },
+  info: { bg: "#ECFEFF", fg: "#0E7490" },
+  neutral: { bg: THEME_COLORS.surfaceMuted, fg: THEME_COLORS.textSecondary },
+}
+type Tone = keyof typeof TONES
+
+const getBookingTone = (status?: string): Tone => {
+  switch (normalizeStatus(status)) {
+    case "cancelled":
+      return "danger"
+    case "pending":
+      return "warning"
+    case "upcoming":
+      return "primary"
+    case "active":
+      return "info"
+    case "completed":
+      return "success"
+    default:
+      return "neutral"
+  }
+}
+
+const getCarTone = (status?: string): Tone => {
+  switch ((status || "").toLowerCase()) {
+    case "available":
+      return "success"
+    case "unavailable":
+    case "rented":
+      return "danger"
+    default:
+      return "neutral"
   }
 }
 
@@ -214,6 +268,9 @@ export default function AdminScreen() {
   const [userFilter, setUserFilter] = useState("all")
   const [showUserFilters, setShowUserFilters] = useState(false)
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null)
+
+  // Ô nhập đang focus (để áp UI.inputFocused)
+  const [focusedField, setFocusedField] = useState<string | null>(null)
 
   // Add these animation states at the top of AdminScreen
   const [fadeAnim] = useState(new Animated.Value(0));
@@ -724,31 +781,42 @@ export default function AdminScreen() {
     )
   }
 
-  const renderStatusBadge = (status: string) => {
-    const s = normalizeStatus(status)
-    const badgeStyle =
-      s === "cancelled" ? styles.cancelledBadge :
-      s === "pending" ? styles.pendingBadge :
-      s === "upcoming" ? styles.upcomingBadge :
-      s === "completed" ? styles.completedBadge :
-      styles.activeBadge
-    const textStyle =
-      s === "cancelled" ? styles.cancelledText :
-      s === "pending" ? styles.pendingText :
-      s === "upcoming" ? styles.upcomingText :
-      s === "completed" ? styles.completedText :
-      styles.activeText
-    return (
-      <View style={[styles.statusBadge, badgeStyle]}>
-        <Text style={[styles.statusText, textStyle]}>{getBookingStatusLabel(status) || "Không rõ"}</Text>
-      </View>
-    )
-  }
+  const renderBadge = (label: string, tone: Tone) => (
+    <View style={[styles.statusBadge, { backgroundColor: TONES[tone].bg }]}>
+      <Text style={[styles.statusText, { color: TONES[tone].fg }]} numberOfLines={1}>{label}</Text>
+    </View>
+  )
+
+  const renderStatusBadge = (status: string) =>
+    renderBadge(getBookingStatusLabel(status) || "Không rõ", getBookingTone(status))
 
   const renderEmpty = (icon: string, text: string) => (
     <View style={styles.emptyState}>
-      <Ionicons name={icon as any} size={40} color="#c0c0c0" />
+      <View style={styles.emptyIconWrap}>
+        <Ionicons name={icon as any} size={28} color={THEME_COLORS.textMuted} />
+      </View>
       <Text style={styles.emptyStateText}>{text}</Text>
+    </View>
+  )
+
+  // Ô thống kê: icon tròn primarySoft, nhãn overline, số liệu lớn
+  const renderStatCard = (icon: string, label: string, value: string | number, small = false) => (
+    <Animated.View style={[styles.statCard, { transform: [{ scale: scaleAnim }] }]}>
+      <View style={styles.statIconWrap}>
+        <Ionicons name={icon as any} size={18} color={THEME_COLORS.primary} />
+      </View>
+      <Text style={styles.statLabel} numberOfLines={1}>{label}</Text>
+      <Text style={[styles.statNumber, small && styles.statNumberSmall]} numberOfLines={1} adjustsFontSizeToFit>
+        {value}
+      </Text>
+    </Animated.View>
+  )
+
+  // Hàng thông tin: nhãn (caption) – giá trị (bodyStrong)
+  const renderInfoRow = (label: string, value: string, valueStyle?: any) => (
+    <View style={styles.infoRow}>
+      <Text style={styles.infoLabel}>{label}</Text>
+      <Text style={[styles.infoValue, valueStyle]} numberOfLines={1}>{value}</Text>
     </View>
   )
 
@@ -764,39 +832,66 @@ export default function AdminScreen() {
     return booking.duration ? `${booking.duration} ngày` : "Chưa có"
   }
 
+  // Props focus/blur cho ô nhập
+  const focusProps = (field: string) => ({
+    onFocus: () => setFocusedField(field),
+    onBlur: () => setFocusedField((prev) => (prev === field ? null : prev)),
+  })
+
+  const inputStyle = (field: string, hasError = false): StyleProp<TextStyle> => [
+    styles.input,
+    focusedField === field && (styles.inputFocused as TextStyle),
+    hasError && styles.inputError,
+  ]
+
   const renderCarCard = (car: Car) => (
     <View key={car.id} style={styles.carCard}>
-      {car.image ? (
-        <Image
-          source={{ uri: car.image }}
-          style={styles.carImage}
-          resizeMode="cover"
-        />
-      ) : null}
-      <View style={styles.carInfo}>
-        <Text style={styles.carName}>{car.name}</Text>
-        <Text style={styles.carBrand}>{car.brand}{car.year ? ` · ${car.year}` : ""}</Text>
-        <Text style={styles.carPrice}>{formatCurrency(car.pricePerDay)}/ngày</Text>
-        <View style={styles.carStats}>
-          <Text style={styles.carStat}>Loại xe: {car.type}</Text>
-          <Text style={styles.carStat}>Số chỗ: {car.seats}</Text>
-          <Text style={styles.carStat}>Nhiên liệu: {car.fuel}</Text>
-        </View>
-        <View style={styles.carStatus}>
-          <Text>Trạng thái: {getCarStatusLabel(car.status)}</Text>
-          <Text>Lượt đặt: {car.bookings ?? 0}</Text>
-        </View>
+      <View style={styles.carImageWrap}>
+        {car.image ? (
+          <Image
+            source={{ uri: car.image }}
+            style={styles.carImage}
+            resizeMode="cover"
+          />
+        ) : (
+          <Ionicons name="car-outline" size={36} color={THEME_COLORS.textMuted} />
+        )}
       </View>
-      <View style={styles.carActions}>
-        <TouchableOpacity style={styles.editButton} onPress={() => openEditCarForm(car)}>
-          <Ionicons name="pencil" size={16} color="#4169e1" />
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.deleteButton}
-          onPress={() => handleDeleteCar(car)}
-        >
-          <Ionicons name="trash" size={16} color="#ff4444" />
-        </TouchableOpacity>
+      <View style={styles.carInfo}>
+        <View style={styles.cardTitleRow}>
+          <View style={styles.flex1}>
+            <Text style={styles.carName} numberOfLines={1}>{car.name}</Text>
+            <Text style={styles.carBrand}>{car.brand}{car.year ? ` · ${car.year}` : ""}</Text>
+          </View>
+          {renderBadge(getCarStatusLabel(car.status), getCarTone(car.status))}
+        </View>
+        <Text style={styles.carPrice}>{formatCurrency(car.pricePerDay)}/ngày</Text>
+
+        <View style={styles.infoBlock}>
+          {renderInfoRow("Loại xe", car.type)}
+          {renderInfoRow("Số chỗ", String(car.seats))}
+          {renderInfoRow("Nhiên liệu", car.fuel)}
+          {renderInfoRow("Lượt đặt", String(car.bookings ?? 0))}
+        </View>
+
+        <View style={styles.cardActions}>
+          <TouchableOpacity
+            style={[styles.smallButton, styles.smallSecondaryButton]}
+            onPress={() => openEditCarForm(car)}
+            activeOpacity={PRESS_OPACITY}
+          >
+            <Ionicons name="pencil-outline" size={16} color={THEME_COLORS.textPrimary} />
+            <Text style={styles.smallSecondaryText}>Sửa</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.smallButton, styles.smallDangerButton]}
+            onPress={() => handleDeleteCar(car)}
+            activeOpacity={PRESS_OPACITY}
+          >
+            <Ionicons name="trash-outline" size={16} color={THEME_COLORS.danger} />
+            <Text style={styles.smallDangerText}>Xoá</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     </View>
   );
@@ -808,8 +903,8 @@ export default function AdminScreen() {
     <View style={styles.tabContent}>
       <View style={styles.tabHeader}>
         <Text style={styles.tabTitle}>Quản lý xe</Text>
-        <TouchableOpacity style={styles.addButton} onPress={openAddCarForm}>
-          <Ionicons name="add" size={20} color="#ffffff" />
+        <TouchableOpacity style={styles.addButton} onPress={openAddCarForm} activeOpacity={PRESS_OPACITY}>
+          <Ionicons name="add" size={20} color="#FFFFFF" />
           <Text style={styles.addButtonText}>Thêm xe</Text>
         </TouchableOpacity>
       </View>
@@ -821,10 +916,12 @@ export default function AdminScreen() {
           <View style={styles.inputGroup}>
             <Text style={styles.inputLabel}>Tên xe *</Text>
             <TextInput
-              style={[styles.input, formErrors.name ? styles.inputError : null]}
+              style={inputStyle("name", !!formErrors.name)}
               placeholder="VD: BMW X5"
+              placeholderTextColor={THEME_COLORS.textMuted}
               value={newCar.name}
               onChangeText={(text) => updateField("name", text)}
+              {...focusProps("name")}
             />
             {renderFieldError("name")}
           </View>
@@ -832,10 +929,12 @@ export default function AdminScreen() {
           <View style={styles.inputGroup}>
             <Text style={styles.inputLabel}>Hãng xe *</Text>
             <TextInput
-              style={[styles.input, formErrors.brand ? styles.inputError : null]}
+              style={inputStyle("brand", !!formErrors.brand)}
               placeholder="VD: BMW"
+              placeholderTextColor={THEME_COLORS.textMuted}
               value={newCar.brand}
               onChangeText={(text) => updateField("brand", text)}
+              {...focusProps("brand")}
             />
             {renderFieldError("brand")}
           </View>
@@ -843,58 +942,72 @@ export default function AdminScreen() {
           <View style={styles.inputGroup}>
             <Text style={styles.inputLabel}>Giá thuê/ngày (VND) *</Text>
             <TextInput
-              style={[styles.input, formErrors.price ? styles.inputError : null]}
+              style={inputStyle("price", !!formErrors.price)}
               placeholder="VD: 1200000"
+              placeholderTextColor={THEME_COLORS.textMuted}
               value={newCar.price}
               onChangeText={(text) => updateField("price", text)}
               keyboardType="numeric"
+              {...focusProps("price")}
             />
             {renderFieldError("price")}
           </View>
 
-          <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Loại xe</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="VD: SUV, Sedan"
-              value={newCar.type}
-              onChangeText={(text) => updateField("type", text)}
-            />
+          <View style={styles.inputRow}>
+            <View style={[styles.inputGroup, styles.flex1]}>
+              <Text style={styles.inputLabel}>Loại xe</Text>
+              <TextInput
+                style={inputStyle("type")}
+                placeholder="VD: SUV, Sedan"
+                placeholderTextColor={THEME_COLORS.textMuted}
+                value={newCar.type}
+                onChangeText={(text) => updateField("type", text)}
+                {...focusProps("type")}
+              />
+            </View>
+
+            <View style={[styles.inputGroup, styles.flex1]}>
+              <Text style={styles.inputLabel}>Nhiên liệu</Text>
+              <TextInput
+                style={inputStyle("fuel")}
+                placeholder="VD: Xăng, Dầu diesel"
+                placeholderTextColor={THEME_COLORS.textMuted}
+                value={newCar.fuel}
+                onChangeText={(text) => updateField("fuel", text)}
+                {...focusProps("fuel")}
+              />
+            </View>
           </View>
 
-          <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Nhiên liệu</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="VD: Xăng, Dầu diesel"
-              value={newCar.fuel}
-              onChangeText={(text) => updateField("fuel", text)}
-            />
-          </View>
+          <View style={styles.inputRow}>
+            <View style={[styles.inputGroup, styles.flex1]}>
+              <Text style={styles.inputLabel}>Số chỗ ngồi *</Text>
+              <TextInput
+                style={inputStyle("seats", !!formErrors.seats)}
+                placeholder="VD: 5"
+                placeholderTextColor={THEME_COLORS.textMuted}
+                value={newCar.seats}
+                onChangeText={(text) => updateField("seats", text)}
+                keyboardType="numeric"
+                {...focusProps("seats")}
+              />
+              {renderFieldError("seats")}
+            </View>
 
-          <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Số chỗ ngồi *</Text>
-            <TextInput
-              style={[styles.input, formErrors.seats ? styles.inputError : null]}
-              placeholder="VD: 5"
-              value={newCar.seats}
-              onChangeText={(text) => updateField("seats", text)}
-              keyboardType="numeric"
-            />
-            {renderFieldError("seats")}
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Năm sản xuất</Text>
-            <TextInput
-              style={[styles.input, formErrors.year ? styles.inputError : null]}
-              placeholder={`VD: ${new Date().getFullYear()}`}
-              value={newCar.year}
-              onChangeText={(text) => updateField("year", text)}
-              keyboardType="numeric"
-              maxLength={4}
-            />
-            {renderFieldError("year")}
+            <View style={[styles.inputGroup, styles.flex1]}>
+              <Text style={styles.inputLabel}>Năm sản xuất</Text>
+              <TextInput
+                style={inputStyle("year", !!formErrors.year)}
+                placeholder={`VD: ${new Date().getFullYear()}`}
+                placeholderTextColor={THEME_COLORS.textMuted}
+                value={newCar.year}
+                onChangeText={(text) => updateField("year", text)}
+                keyboardType="numeric"
+                maxLength={4}
+                {...focusProps("year")}
+              />
+              {renderFieldError("year")}
+            </View>
           </View>
 
           <View style={styles.inputGroup}>
@@ -908,16 +1021,21 @@ export default function AdminScreen() {
                 <TouchableOpacity
                   style={styles.changeImageButton}
                   onPress={pickImage}
+                  activeOpacity={PRESS_OPACITY}
                 >
+                  <Ionicons name="image-outline" size={16} color={THEME_COLORS.textPrimary} />
                   <Text style={styles.changeImageText}>Đổi ảnh</Text>
                 </TouchableOpacity>
               </View>
             ) : (
               <TouchableOpacity
-                style={styles.uploadButton}
+                style={[styles.uploadButton, formErrors.carImage ? styles.inputError : null]}
                 onPress={pickImage}
+                activeOpacity={PRESS_OPACITY}
               >
-                <Ionicons name="cloud-upload" size={24} color="#4169e1" />
+                <View style={styles.uploadIconWrap}>
+                  <Ionicons name="cloud-upload-outline" size={22} color={THEME_COLORS.primary} />
+                </View>
                 <Text style={styles.uploadButtonText}>Tải ảnh lên</Text>
               </TouchableOpacity>
             )}
@@ -925,13 +1043,14 @@ export default function AdminScreen() {
           </View>
 
           <View style={styles.formButtons}>
-            <TouchableOpacity style={styles.cancelButton} onPress={closeCarForm}>
+            <TouchableOpacity style={styles.cancelButton} onPress={closeCarForm} activeOpacity={PRESS_OPACITY}>
               <Text style={styles.cancelButtonText}>Huỷ</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.submitButton, isSubmitting && styles.disabledButton]}
               onPress={handleSaveCar}
               disabled={isSubmitting}
+              activeOpacity={PRESS_OPACITY}
             >
               <Text style={styles.submitButtonText}>
                 {editingCarId
@@ -953,45 +1072,57 @@ export default function AdminScreen() {
     </View>
   )
 
+  const renderFilterChips = (
+    filters: { id: string; label: string }[],
+    current: string,
+    onSelect: (id: string) => void
+  ) => (
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterTabs}>
+      {filters.map((f) => (
+        <TouchableOpacity
+          key={f.id}
+          style={[styles.filterTab, current === f.id && styles.activeFilterTab]}
+          onPress={() => onSelect(f.id)}
+          activeOpacity={PRESS_OPACITY}
+        >
+          <Text style={[styles.filterTabText, current === f.id && styles.activeFilterTabText]}>{f.label}</Text>
+        </TouchableOpacity>
+      ))}
+    </ScrollView>
+  )
+
+  const renderSearchBox = (field: string, placeholder: string, value: string, onChange: (text: string) => void, extraStyle?: any) => (
+    <View style={[styles.searchBox, focusedField === field && styles.inputFocused, extraStyle]}>
+      <Ionicons
+        name="search-outline"
+        size={18}
+        color={focusedField === field ? THEME_COLORS.primary : THEME_COLORS.textMuted}
+      />
+      <TextInput
+        style={styles.searchInput}
+        placeholder={placeholder}
+        placeholderTextColor={THEME_COLORS.textMuted}
+        value={value}
+        onChangeText={onChange}
+        autoCapitalize="none"
+        {...focusProps(field)}
+      />
+    </View>
+  )
+
   const renderBookingsTab = () => (
     <View style={styles.tabContent}>
-      <Text style={styles.tabTitle}>Quản lý đơn đặt xe</Text>
+      <Text style={[styles.tabTitle, styles.tabTitleSpacing]}>Quản lý đơn đặt xe</Text>
 
       <View style={styles.statsGrid}>
-        <Animated.View style={[styles.statCard, { transform: [{ scale: scaleAnim }] }]}>
-          <Text style={styles.statNumber}>{stats.activeBookings}</Text>
-          <Text style={styles.statLabel}>Đơn đang thuê</Text>
-        </Animated.View>
-        <Animated.View style={[styles.statCard, { transform: [{ scale: scaleAnim }] }]}>
-          <Text style={styles.statNumber}>{stats.totalBookings}</Text>
-          <Text style={styles.statLabel}>Tổng số đơn</Text>
-        </Animated.View>
-        <Animated.View style={[styles.statCard, { transform: [{ scale: scaleAnim }] }]}>
-          <Text style={styles.statNumber}>{formatCurrency(stats.monthRevenue)}</Text>
-          <Text style={styles.statLabel}>Doanh thu tháng này</Text>
-        </Animated.View>
+        {renderStatCard("car-sport-outline", "Đơn đang thuê", stats.activeBookings)}
+        {renderStatCard("receipt-outline", "Tổng số đơn", stats.totalBookings)}
+        {renderStatCard("wallet-outline", "Doanh thu tháng này", formatCurrency(stats.monthRevenue), true)}
       </View>
 
       <View style={styles.bookingsFilter}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterTabs}>
-          {BOOKING_FILTERS.map((f) => (
-            <TouchableOpacity
-              key={f.id}
-              style={[styles.filterTab, bookingFilter === f.id && styles.activeFilterTab]}
-              onPress={() => setBookingFilter(f.id)}
-            >
-              <Text style={[styles.filterTabText, bookingFilter === f.id && styles.activeFilterTabText]}>{f.label}</Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Tìm theo tên xe, khách hàng, mã đơn..."
-          placeholderTextColor="#666666"
-          value={bookingSearch}
-          onChangeText={setBookingSearch}
-          autoCapitalize="none"
-        />
+        {renderSearchBox("bookingSearch", "Tìm theo tên xe, khách hàng, mã đơn...", bookingSearch, setBookingSearch)}
+        {renderFilterChips(BOOKING_FILTERS, bookingFilter, setBookingFilter)}
       </View>
 
       <View style={styles.bookingsList}>
@@ -1003,6 +1134,7 @@ export default function AdminScreen() {
           const imageSource = getBookingImageSource(booking)
           const paymentKey = getPaymentStatusKey(booking)
           const status = normalizeStatus(booking.status)
+          const paymentTone: Tone = paymentKey === "paid" ? "success" : paymentKey === "pending" ? "warning" : "danger"
           return (
           <Animated.View
             key={booking.id}
@@ -1013,79 +1145,69 @@ export default function AdminScreen() {
                 <Image source={imageSource} style={styles.bookingCarImage} resizeMode="cover" />
               ) : (
                 <View style={[styles.bookingCarImage, styles.imagePlaceholder]}>
-                  <Ionicons name="car-outline" size={28} color="#999999" />
+                  <Ionicons name="car-outline" size={26} color={THEME_COLORS.textMuted} />
                 </View>
               )}
               <View style={styles.bookingInfo}>
-                <Text style={styles.bookingCarName}>{booking.carName}</Text>
+                <Text style={styles.bookingCarName} numberOfLines={1}>{booking.carName}</Text>
                 <View style={styles.customerInfo}>
                   <Image
                     source={{ uri: getCustomerAvatar(booking) }}
                     style={styles.customerAvatar}
                   />
-                  <Text style={styles.customerName}>{getCustomerName(booking)}</Text>
+                  <Text style={styles.customerName} numberOfLines={1}>{getCustomerName(booking)}</Text>
                 </View>
-                <Text style={styles.bookingCode}>Mã đơn: {booking.id}</Text>
+                <Text style={styles.bookingCode} numberOfLines={1}>Mã đơn: {booking.id}</Text>
               </View>
               {renderStatusBadge(booking.status)}
             </View>
 
-            <View style={styles.bookingDetails}>
-              <View style={styles.bookingDetailRow}>
-                <View style={styles.bookingDetailItem}>
-                  <Ionicons name="calendar-outline" size={16} color="#666666" />
-                  <Text style={styles.bookingDetailText}>
-                    {booking.createdAt ? `Đặt ${formatDate(booking.createdAt)}` : "Chưa rõ ngày đặt"}
-                    {booking.duration ? ` · ${booking.duration} ngày` : ""}
-                  </Text>
-                </View>
-                <View style={styles.bookingDetailItem}>
-                  <Ionicons name="cash-outline" size={16} color="#666666" />
-                  <Text style={styles.bookingDetailText}>
-                    {formatCurrency(booking.price)}
-                  </Text>
-                </View>
-              </View>
-              <View style={[
-                styles.paymentStatus,
-                paymentKey === 'paid' ? styles.paidStatus :
-                paymentKey === 'pending' ? styles.pendingStatus :
-                styles.refundedStatus
-              ]}>
-                <Ionicons
-                  name={paymentKey === 'paid' ? 'checkmark-circle' :
-                        paymentKey === 'pending' ? 'time' : 'refresh-circle'}
-                  size={16}
-                  color={paymentKey === 'paid' ? '#00a152' :
-                         paymentKey === 'pending' ? '#ffa000' : '#ff4444'}
-                />
-                <Text style={[
-                  styles.paymentStatusText,
-                  paymentKey === 'paid' ? styles.paidText :
-                  paymentKey === 'pending' ? styles.pendingText :
-                  styles.refundedText
-                ]}>
-                  {PAYMENT_STATUS_LABELS[paymentKey] ?? paymentKey}
-                  {booking.payment?.method ? ` · ${booking.payment.method}` : ""}
-                </Text>
-              </View>
+            <View style={styles.infoBlock}>
+              {renderInfoRow("Ngày đặt", booking.createdAt ? formatDate(booking.createdAt) : "Chưa rõ ngày đặt")}
+              {booking.duration ? renderInfoRow("Thời gian thuê", `${booking.duration} ngày`) : null}
+              {renderInfoRow("Tổng cộng", formatCurrency(booking.price), styles.infoValuePrice)}
             </View>
 
-            <View style={styles.bookingActions}>
-              <TouchableOpacity style={styles.bookingActionButton} onPress={() => setSelectedBookingId(booking.id)}>
-                <Ionicons name="eye-outline" size={18} color="#4169e1" />
-                <Text style={styles.actionButtonText}>Xem chi tiết</Text>
+            <View style={[styles.paymentStatus, { backgroundColor: TONES[paymentTone].bg }]}>
+              <Ionicons
+                name={paymentKey === 'paid' ? 'checkmark-circle' :
+                      paymentKey === 'pending' ? 'time' : 'refresh-circle'}
+                size={16}
+                color={TONES[paymentTone].fg}
+              />
+              <Text style={[styles.paymentStatusText, { color: TONES[paymentTone].fg }]}>
+                {PAYMENT_STATUS_LABELS[paymentKey] ?? paymentKey}
+                {booking.payment?.method ? ` · ${booking.payment.method}` : ""}
+              </Text>
+            </View>
+
+            <View style={styles.cardActions}>
+              <TouchableOpacity
+                style={[styles.smallButton, styles.smallSecondaryButton]}
+                onPress={() => setSelectedBookingId(booking.id)}
+                activeOpacity={PRESS_OPACITY}
+              >
+                <Ionicons name="eye-outline" size={16} color={THEME_COLORS.textPrimary} />
+                <Text style={styles.smallSecondaryText}>Xem chi tiết</Text>
               </TouchableOpacity>
               {(status === "upcoming" || status === "active") && (
-                <TouchableOpacity style={styles.bookingActionButton} onPress={() => handleAdvanceBooking(booking)}>
-                  <Ionicons name={status === "upcoming" ? "key-outline" : "return-down-back-outline"} size={18} color="#4169e1" />
-                  <Text style={styles.actionButtonText}>{status === "upcoming" ? "Giao xe" : "Nhận lại xe"}</Text>
+                <TouchableOpacity
+                  style={[styles.smallButton, styles.smallPrimaryButton]}
+                  onPress={() => handleAdvanceBooking(booking)}
+                  activeOpacity={PRESS_OPACITY}
+                >
+                  <Ionicons name={status === "upcoming" ? "key-outline" : "return-down-back-outline"} size={16} color="#FFFFFF" />
+                  <Text style={styles.smallPrimaryText}>{status === "upcoming" ? "Giao xe" : "Nhận lại xe"}</Text>
                 </TouchableOpacity>
               )}
               {canCancel(booking) && (
-                <TouchableOpacity style={[styles.bookingActionButton, styles.cancelBookingButton]} onPress={() => handleCancelBooking(booking)}>
-                  <Ionicons name="close-circle-outline" size={18} color="#ff4444" />
-                  <Text style={[styles.actionButtonText, styles.cancelBookingText]}>Huỷ đơn</Text>
+                <TouchableOpacity
+                  style={[styles.smallButton, styles.smallDangerButton]}
+                  onPress={() => handleCancelBooking(booking)}
+                  activeOpacity={PRESS_OPACITY}
+                >
+                  <Ionicons name="close-circle-outline" size={16} color={THEME_COLORS.danger} />
+                  <Text style={styles.smallDangerText}>Huỷ đơn</Text>
                 </TouchableOpacity>
               )}
             </View>
@@ -1098,53 +1220,34 @@ export default function AdminScreen() {
 
   const renderUsersTab = () => (
     <View style={styles.tabContent}>
-      <Text style={styles.tabTitle}>Quản lý người dùng</Text>
+      <Text style={[styles.tabTitle, styles.tabTitleSpacing]}>Quản lý người dùng</Text>
 
       <View style={styles.statsGrid}>
-        <Animated.View style={[styles.statCard, { transform: [{ scale: scaleAnim }] }]}>
-          <Text style={styles.statNumber}>{stats.totalUsers}</Text>
-          <Text style={styles.statLabel}>Tổng người dùng</Text>
-        </Animated.View>
-        <Animated.View style={[styles.statCard, { transform: [{ scale: scaleAnim }] }]}>
-          <Text style={styles.statNumber}>{stats.activeUsers}</Text>
-          <Text style={styles.statLabel}>Đang hoạt động</Text>
-        </Animated.View>
-        <Animated.View style={[styles.statCard, { transform: [{ scale: scaleAnim }] }]}>
-          <Text style={styles.statNumber}>{stats.totalBookings}</Text>
-          <Text style={styles.statLabel}>Tổng số đơn</Text>
-        </Animated.View>
+        {renderStatCard("people-outline", "Tổng người dùng", stats.totalUsers)}
+        {renderStatCard("pulse-outline", "Đang hoạt động", stats.activeUsers)}
+        {renderStatCard("receipt-outline", "Tổng số đơn", stats.totalBookings)}
       </View>
 
       <View style={styles.userFilters}>
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Tìm theo tên, email, số điện thoại..."
-          placeholderTextColor="#666666"
-          value={userSearch}
-          onChangeText={setUserSearch}
-          autoCapitalize="none"
-        />
+        {renderSearchBox("userSearch", "Tìm theo tên, email, số điện thoại...", userSearch, setUserSearch, styles.flex1)}
         <TouchableOpacity
           style={[styles.filterButton, (showUserFilters || userFilter !== "all") && styles.filterButtonActive]}
           onPress={() => setShowUserFilters(!showUserFilters)}
+          activeOpacity={PRESS_OPACITY}
         >
-          <Ionicons name="filter" size={18} color="#4169e1" />
-          <Text style={styles.filterButtonText}>Bộ lọc</Text>
+          <Ionicons
+            name="filter"
+            size={18}
+            color={(showUserFilters || userFilter !== "all") ? THEME_COLORS.primary : THEME_COLORS.textSecondary}
+          />
+          <Text style={[styles.filterButtonText, (showUserFilters || userFilter !== "all") && styles.filterButtonTextActive]}>Bộ lọc</Text>
         </TouchableOpacity>
       </View>
 
       {showUserFilters && (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={[styles.filterTabs, { marginTop: 12 }]}>
-          {USER_FILTERS.map((f) => (
-            <TouchableOpacity
-              key={f.id}
-              style={[styles.filterTab, userFilter === f.id && styles.activeFilterTab]}
-              onPress={() => setUserFilter(f.id)}
-            >
-              <Text style={[styles.filterTabText, userFilter === f.id && styles.activeFilterTabText]}>{f.label}</Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
+        <View style={styles.userFilterChips}>
+          {renderFilterChips(USER_FILTERS, userFilter, setUserFilter)}
+        </View>
       )}
 
       <View style={styles.usersList}>
@@ -1158,55 +1261,42 @@ export default function AdminScreen() {
             style={[styles.userCard, { opacity: fadeAnim }]}
           >
             <View style={styles.userHeader}>
-              <View style={[styles.userInfo, { flex: 1 }]}>
+              <View style={[styles.userInfo, styles.flex1]}>
                 <Image source={{ uri: user.avatar }} style={styles.userAvatar} />
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.userName}>{user.name}{user.isAdmin ? " · Quản trị viên" : ""}</Text>
-                  <Text style={styles.userEmail}>{user.email}</Text>
+                <View style={styles.flex1}>
+                  <Text style={styles.userName} numberOfLines={1}>{user.name}{user.isAdmin ? " · Quản trị viên" : ""}</Text>
+                  <Text style={styles.userEmail} numberOfLines={1}>{user.email}</Text>
                 </View>
               </View>
-              <View style={[
-                styles.statusBadge,
-                user.status === 'active' ? styles.activeBadge : styles.inactiveBadge
-              ]}>
-                <Text style={[
-                  styles.statusText,
-                  user.status === 'active' ? styles.activeText : styles.inactiveText
-                ]}>
-                  {USER_STATUS_LABELS[user.status]}
-                </Text>
-              </View>
+              {renderBadge(USER_STATUS_LABELS[user.status], user.status === "active" ? "success" : "danger")}
             </View>
 
-            <View style={styles.userDetails}>
-              <View style={styles.userDetailItem}>
-                <Ionicons name="call-outline" size={16} color="#666666" />
-                <Text style={styles.userDetailText}>{user.phone || "Chưa có số điện thoại"}</Text>
-              </View>
-              <View style={styles.userDetailItem}>
-                <Ionicons name="calendar-outline" size={16} color="#666666" />
-                <Text style={styles.userDetailText}>
-                  {user.joinDate ? `Tham gia ${formatDate(user.joinDate)}` : "Chưa rõ ngày tham gia"}
-                </Text>
-              </View>
-              <View style={styles.userDetailItem}>
-                <Ionicons name="car-outline" size={16} color="#666666" />
-                <Text style={styles.userDetailText}>{bookingCountByUser[user.id] || 0} đơn đặt xe</Text>
-              </View>
+            <View style={styles.infoBlock}>
+              {renderInfoRow("Số điện thoại", user.phone || "Chưa có số điện thoại")}
+              {renderInfoRow("Ngày tham gia", user.joinDate ? formatDate(user.joinDate) : "Chưa rõ ngày tham gia")}
+              {renderInfoRow("Đơn đặt xe", `${bookingCountByUser[user.id] || 0} đơn`)}
             </View>
 
-            <View style={styles.userActions}>
-              <TouchableOpacity style={styles.userAction} onPress={() => setSelectedUserId(user.id)}>
-                <Ionicons name="eye-outline" size={18} color="#4169e1" />
-                <Text style={styles.actionText}>Chi tiết</Text>
+            <View style={styles.cardActions}>
+              <TouchableOpacity
+                style={[styles.smallButton, styles.smallSecondaryButton]}
+                onPress={() => setSelectedUserId(user.id)}
+                activeOpacity={PRESS_OPACITY}
+              >
+                <Ionicons name="eye-outline" size={16} color={THEME_COLORS.textPrimary} />
+                <Text style={styles.smallSecondaryText}>Chi tiết</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.userAction} onPress={() => handleToggleUserLock(user)}>
+              <TouchableOpacity
+                style={[styles.smallButton, user.status === "active" ? styles.smallDangerButton : styles.smallSuccessButton]}
+                onPress={() => handleToggleUserLock(user)}
+                activeOpacity={PRESS_OPACITY}
+              >
                 <Ionicons
                   name={user.status === "active" ? "lock-closed-outline" : "lock-open-outline"}
-                  size={18}
-                  color={user.status === "active" ? "#ff4444" : "#00a152"}
+                  size={16}
+                  color={user.status === "active" ? THEME_COLORS.danger : THEME_COLORS.success}
                 />
-                <Text style={[styles.actionText, { color: user.status === "active" ? '#ff4444' : '#00a152' }]}>
+                <Text style={user.status === "active" ? styles.smallDangerText : styles.smallSuccessText}>
                   {user.status === "active" ? "Khoá" : "Mở khoá"}
                 </Text>
               </TouchableOpacity>
@@ -1223,28 +1313,17 @@ export default function AdminScreen() {
     <Animated.View
       style={[styles.tabContent, { opacity: fadeAnim }]}
     >
-      <Text style={styles.tabTitle}>Báo cáo & Thống kê</Text>
+      <Text style={[styles.tabTitle, styles.tabTitleSpacing]}>Báo cáo & Thống kê</Text>
 
-      <View style={[styles.metricsGrid, { marginTop: 16, marginBottom: 16 }]}>
-        <View style={styles.metricCard}>
-          <Text style={styles.metricValue}>{stats.totalCars}</Text>
-          <Text style={styles.metricLabel}>Tổng số xe</Text>
-        </View>
-        <View style={styles.metricCard}>
-          <Text style={styles.metricValue}>{stats.totalBookings}</Text>
-          <Text style={styles.metricLabel}>Tổng số đơn</Text>
-        </View>
-        <View style={styles.metricCard}>
-          <Text style={[styles.metricValue, styles.metricValueSmall]}>{formatCurrency(stats.totalRevenue)}</Text>
-          <Text style={styles.metricLabel}>Doanh thu (đơn đã thanh toán)</Text>
-        </View>
-        <View style={styles.metricCard}>
-          <Text style={styles.metricValue}>{stats.totalUsers}</Text>
-          <Text style={styles.metricLabel}>Người dùng</Text>
-        </View>
+      <View style={styles.statsGrid}>
+        {renderStatCard("car-outline", "Tổng số xe", stats.totalCars)}
+        {renderStatCard("receipt-outline", "Tổng số đơn", stats.totalBookings)}
+        {renderStatCard("people-outline", "Người dùng", stats.totalUsers)}
+        {renderStatCard("wallet-outline", "Doanh thu (đơn đã thanh toán)", formatCurrency(stats.totalRevenue), true)}
       </View>
 
       <View style={styles.chartCard}>
+        <Text style={styles.chartOverline}>Doanh thu</Text>
         <Text style={styles.chartTitle}>Doanh thu 6 tháng gần nhất (triệu đồng)</Text>
         {hasRevenue ? (
           <LineChart
@@ -1254,7 +1333,7 @@ export default function AdminScreen() {
                 data: stats.revenueByMonth.map((m) => m.value)
               }]
             }}
-            width={screenWidth - 72}
+            width={chartWidth}
             height={220}
             chartConfig={{ ...chartConfig, decimalPlaces: 1 }}
             yAxisSuffix="tr"
@@ -1268,6 +1347,7 @@ export default function AdminScreen() {
       </View>
 
       <View style={styles.chartCard}>
+        <Text style={styles.chartOverline}>Đội xe</Text>
         <Text style={styles.chartTitle}>Số xe theo loại</Text>
         {stats.carsByType.length > 0 ? (
           <BarChart
@@ -1277,11 +1357,11 @@ export default function AdminScreen() {
                 data: stats.carsByType.map((t) => t.value)
               }]
             }}
-            width={screenWidth - 72}
+            width={chartWidth}
             height={220}
             yAxisLabel=""
             yAxisSuffix=" xe"
-            chartConfig={{ ...chartConfig, decimalPlaces: 0 }}
+            chartConfig={{ ...chartConfig, decimalPlaces: 0, fillShadowGradientOpacity: 1 }}
             style={styles.chart}
             showValuesOnTopOfBars
             fromZero
@@ -1316,6 +1396,18 @@ export default function AdminScreen() {
     </View>
   )
 
+  const renderModalHeader = (title: string, onClose: () => void) => (
+    <>
+      <View style={styles.modalHandle} />
+      <View style={styles.modalHeader}>
+        <Text style={styles.modalTitle}>{title}</Text>
+        <TouchableOpacity style={styles.iconCircle} onPress={onClose} activeOpacity={PRESS_OPACITY}>
+          <Ionicons name="close" size={20} color={THEME_COLORS.textSecondary} />
+        </TouchableOpacity>
+      </View>
+    </>
+  )
+
   const renderBookingDetailModal = () => {
     const booking = selectedBooking
     if (!booking) return null
@@ -1332,68 +1424,83 @@ export default function AdminScreen() {
       <Modal visible transparent animationType="slide" onRequestClose={() => setSelectedBookingId(null)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Chi tiết đơn đặt xe</Text>
-              <TouchableOpacity onPress={() => setSelectedBookingId(null)}>
-                <Ionicons name="close" size={24} color="#000000" />
-              </TouchableOpacity>
-            </View>
-            <ScrollView showsVerticalScrollIndicator={false}>
+            {renderModalHeader("Chi tiết đơn đặt xe", () => setSelectedBookingId(null))}
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.modalScroll}>
               {imageSource ? (
-                <Image source={imageSource} style={styles.modalCarImage} resizeMode="contain" />
+                <View style={styles.modalImageWrap}>
+                  <Image source={imageSource} style={styles.modalCarImage} resizeMode="contain" />
+                </View>
               ) : null}
               <View style={styles.modalStatusRow}>
-                <Text style={styles.bookingCarName}>{booking.carName}</Text>
+                <Text style={[styles.modalCarName, styles.flex1]}>{booking.carName}</Text>
                 {renderStatusBadge(booking.status)}
               </View>
 
               <Text style={styles.detailSection}>Thông tin đơn</Text>
-              {renderDetailRow("Mã đơn", booking.id)}
-              {renderDetailRow("Ngày đặt", formatAnyDate(booking.createdAt, "datetime"))}
-              {renderDetailRow("Trạng thái", getBookingStatusLabel(booking.status))}
-              {booking.cancelledAt ? renderDetailRow("Ngày huỷ", formatDate(booking.cancelledAt, "datetime")) : null}
+              <View style={styles.detailGroup}>
+                {renderDetailRow("Mã đơn", booking.id)}
+                {renderDetailRow("Ngày đặt", formatAnyDate(booking.createdAt, "datetime"))}
+                {renderDetailRow("Trạng thái", getBookingStatusLabel(booking.status))}
+                {booking.cancelledAt ? renderDetailRow("Ngày huỷ", formatDate(booking.cancelledAt, "datetime")) : null}
+              </View>
 
               <Text style={styles.detailSection}>Khách hàng</Text>
-              {renderDetailRow("Họ tên", customer?.name || "Khách hàng không xác định")}
-              {renderDetailRow("Email", customer?.email || "")}
-              {renderDetailRow("Số điện thoại", customer?.phone || "")}
+              <View style={styles.detailGroup}>
+                {renderDetailRow("Họ tên", customer?.name || "Khách hàng không xác định")}
+                {renderDetailRow("Email", customer?.email || "")}
+                {renderDetailRow("Số điện thoại", customer?.phone || "")}
+              </View>
 
               <Text style={styles.detailSection}>Thuê xe</Text>
-              {renderDetailRow("Xe", booking.carName)}
-              {renderDetailRow("Thời gian thuê", getRentalPeriodText(booking))}
-              {renderDetailRow("Điểm nhận xe", booking.location)}
+              <View style={styles.detailGroup}>
+                {renderDetailRow("Xe", booking.carName)}
+                {renderDetailRow("Thời gian thuê", getRentalPeriodText(booking))}
+                {renderDetailRow("Điểm nhận xe", booking.location)}
+              </View>
 
               <Text style={styles.detailSection}>Dịch vụ thêm</Text>
-              {booking.selectedAddOns.length === 0 ? (
-                <Text style={styles.detailEmpty}>Không có</Text>
-              ) : (
-                booking.selectedAddOns.map((addon, index) => (
-                  <View key={`${addon.id ?? index}`}>
-                    {renderDetailRow(addon.name || "Dịch vụ", formatCurrency(addon.price || 0))}
-                  </View>
-                ))
-              )}
+              <View style={styles.detailGroup}>
+                {booking.selectedAddOns.length === 0 ? (
+                  <Text style={styles.detailEmpty}>Không có</Text>
+                ) : (
+                  booking.selectedAddOns.map((addon, index) => (
+                    <View key={`${addon.id ?? index}`}>
+                      {renderDetailRow(addon.name || "Dịch vụ", formatCurrency(addon.price || 0))}
+                    </View>
+                  ))
+                )}
+              </View>
 
               <Text style={styles.detailSection}>Thanh toán</Text>
-              {renderDetailRow("Tổng cộng", formatCurrency(booking.price))}
-              {renderDetailRow("Trạng thái", paymentStatusLabel)}
-              {payment ? (
-                <>
-                  {renderDetailRow("Phương thức", payment.method || "")}
-                  {renderDetailRow("Số tiền đã trả", payment.amount != null ? formatCurrency(payment.amount) : "")}
-                  {renderDetailRow("Mã giao dịch", payment.transactionId || "")}
-                  {renderDetailRow("Thời gian thanh toán", formatAnyDate(payment.paidAt, "datetime"))}
-                </>
-              ) : null}
+              <View style={styles.detailGroup}>
+                {renderDetailRow("Tổng cộng", formatCurrency(booking.price))}
+                {renderDetailRow("Trạng thái", paymentStatusLabel)}
+                {payment ? (
+                  <>
+                    {renderDetailRow("Phương thức", payment.method || "")}
+                    {renderDetailRow("Số tiền đã trả", payment.amount != null ? formatCurrency(payment.amount) : "")}
+                    {renderDetailRow("Mã giao dịch", payment.transactionId || "")}
+                    {renderDetailRow("Thời gian thanh toán", formatAnyDate(payment.paidAt, "datetime"))}
+                  </>
+                ) : null}
+              </View>
 
               <View style={styles.modalActions}>
                 {(status === "upcoming" || status === "active") && (
-                  <TouchableOpacity style={[styles.modalActionButton, styles.modalPrimaryButton]} onPress={() => handleAdvanceBooking(booking)}>
+                  <TouchableOpacity
+                    style={[styles.modalActionButton, styles.modalPrimaryButton]}
+                    onPress={() => handleAdvanceBooking(booking)}
+                    activeOpacity={PRESS_OPACITY}
+                  >
                     <Text style={styles.modalPrimaryText}>{status === "upcoming" ? "Giao xe" : "Nhận lại xe"}</Text>
                   </TouchableOpacity>
                 )}
                 {canCancel(booking) && (
-                  <TouchableOpacity style={[styles.modalActionButton, styles.modalDangerButton]} onPress={() => handleCancelBooking(booking)}>
+                  <TouchableOpacity
+                    style={[styles.modalActionButton, styles.modalDangerButton]}
+                    onPress={() => handleCancelBooking(booking)}
+                    activeOpacity={PRESS_OPACITY}
+                  >
                     <Text style={styles.modalDangerText}>Huỷ đơn</Text>
                   </TouchableOpacity>
                 )}
@@ -1414,55 +1521,57 @@ export default function AdminScreen() {
       <Modal visible transparent animationType="slide" onRequestClose={() => setSelectedUserId(null)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Thông tin người dùng</Text>
-              <TouchableOpacity onPress={() => setSelectedUserId(null)}>
-                <Ionicons name="close" size={24} color="#000000" />
-              </TouchableOpacity>
-            </View>
-            <ScrollView showsVerticalScrollIndicator={false}>
-              <View style={[styles.userInfo, { marginBottom: 12 }]}>
-                <Image source={{ uri: user.avatar }} style={styles.userAvatar} />
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.userName}>{user.name}</Text>
-                  <Text style={styles.userEmail}>{user.email}</Text>
+            {renderModalHeader("Thông tin người dùng", () => setSelectedUserId(null))}
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.modalScroll}>
+              <View style={styles.modalUserHeader}>
+                <Image source={{ uri: user.avatar }} style={styles.modalUserAvatar} />
+                <View style={styles.flex1}>
+                  <Text style={styles.modalCarName} numberOfLines={1}>{user.name}</Text>
+                  <Text style={styles.userEmail} numberOfLines={1}>{user.email}</Text>
                 </View>
+                {renderBadge(USER_STATUS_LABELS[user.status], user.status === "active" ? "success" : "danger")}
               </View>
-              {renderDetailRow("Số điện thoại", user.phone)}
-              {renderDetailRow("Ngày tham gia", user.joinDate ? formatDate(user.joinDate) : "")}
-              {renderDetailRow("Vai trò", user.isAdmin ? "Quản trị viên" : "Khách hàng")}
-              {renderDetailRow("Trạng thái", USER_STATUS_LABELS[user.status])}
-              {renderDetailRow("Số đơn đặt xe", String(userBookings.length))}
-              {renderDetailRow("Tổng chi tiêu", formatCurrency(spent))}
+              <View style={styles.detailGroup}>
+                {renderDetailRow("Số điện thoại", user.phone)}
+                {renderDetailRow("Ngày tham gia", user.joinDate ? formatDate(user.joinDate) : "")}
+                {renderDetailRow("Vai trò", user.isAdmin ? "Quản trị viên" : "Khách hàng")}
+                {renderDetailRow("Trạng thái", USER_STATUS_LABELS[user.status])}
+                {renderDetailRow("Số đơn đặt xe", String(userBookings.length))}
+                {renderDetailRow("Tổng chi tiêu", formatCurrency(spent))}
+              </View>
 
               <Text style={styles.detailSection}>Đơn đặt xe</Text>
               {userBookings.length === 0 ? (
                 <Text style={styles.detailEmpty}>Chưa có đơn nào</Text>
               ) : (
-                userBookings.map((b) => (
-                  <TouchableOpacity
-                    key={b.id}
-                    style={styles.userBookingRow}
-                    onPress={() => {
-                      setSelectedUserId(null)
-                      setSelectedBookingId(b.id)
-                    }}
-                  >
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.userBookingName}>{b.carName}</Text>
-                      <Text style={styles.userEmail}>
-                        {b.createdAt ? formatDate(b.createdAt) : ""} · {formatCurrency(b.price)}
-                      </Text>
-                    </View>
-                    {renderStatusBadge(b.status)}
-                  </TouchableOpacity>
-                ))
+                <View style={styles.userBookingList}>
+                  {userBookings.map((b) => (
+                    <TouchableOpacity
+                      key={b.id}
+                      style={styles.userBookingRow}
+                      activeOpacity={PRESS_OPACITY}
+                      onPress={() => {
+                        setSelectedUserId(null)
+                        setSelectedBookingId(b.id)
+                      }}
+                    >
+                      <View style={styles.flex1}>
+                        <Text style={styles.userBookingName} numberOfLines={1}>{b.carName}</Text>
+                        <Text style={styles.userEmail}>
+                          {b.createdAt ? formatDate(b.createdAt) : ""} · {formatCurrency(b.price)}
+                        </Text>
+                      </View>
+                      {renderStatusBadge(b.status)}
+                    </TouchableOpacity>
+                  ))}
+                </View>
               )}
 
               <View style={styles.modalActions}>
                 <TouchableOpacity
                   style={[styles.modalActionButton, user.status === "active" ? styles.modalDangerButton : styles.modalPrimaryButton]}
                   onPress={() => handleToggleUserLock(user)}
+                  activeOpacity={PRESS_OPACITY}
                 >
                   <Text style={user.status === "active" ? styles.modalDangerText : styles.modalPrimaryText}>
                     {user.status === "active" ? "Khoá tài khoản" : "Mở khoá tài khoản"}
@@ -1479,29 +1588,43 @@ export default function AdminScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={24} color="#000000" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Trang quản trị</Text>
-        <View style={{ width: 24 }} />
-      </View>
+        <View style={styles.headerRow}>
+          <TouchableOpacity style={styles.iconCircle} onPress={() => router.back()} activeOpacity={PRESS_OPACITY}>
+            <Ionicons name="arrow-back" size={20} color={THEME_COLORS.textPrimary} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle} numberOfLines={1}>Trang quản trị</Text>
+        </View>
 
-      <View style={styles.tabsContainer}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          {adminTabs.map((tab) => (
-            <TouchableOpacity
-              key={tab.id}
-              style={[styles.tab, activeTab === tab.id && styles.activeTab]}
-              onPress={() => setActiveTab(tab.id)}
-            >
-              <Ionicons name={tab.icon as any} size={20} color={activeTab === tab.id ? "#ffffff" : "#666666"} />
-              <Text style={[styles.tabText, activeTab === tab.id && styles.activeTabText]}>{tab.name}</Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
+        {/* Thanh chuyển tab dạng segmented control */}
+        <View style={styles.tabsContainer}>
+          {adminTabs.map((tab) => {
+            const isActive = activeTab === tab.id
+            return (
+              <TouchableOpacity
+                key={tab.id}
+                style={[styles.tab, isActive && styles.activeTab]}
+                onPress={() => setActiveTab(tab.id)}
+                activeOpacity={PRESS_OPACITY}
+              >
+                <Ionicons
+                  name={(isActive ? tab.icon : `${tab.icon}-outline`) as any}
+                  size={18}
+                  color={isActive ? THEME_COLORS.primary : THEME_COLORS.textMuted}
+                />
+                <Text style={[styles.tabText, isActive && styles.activeTabText]} numberOfLines={1}>{tab.name}</Text>
+              </TouchableOpacity>
+            )
+          })}
+        </View>
       </View>
+      <View style={styles.headerDivider} />
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        style={styles.content}
+        contentContainerStyle={styles.contentContainer}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
         {renderTabContent()}
       </ScrollView>
 
@@ -1513,794 +1636,736 @@ export default function AdminScreen() {
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    backgroundColor: "#ffffff",
+    ...UI.screen,
   },
+  flex1: {
+    flex: 1,
+  },
+
+  // ===== Header + segmented control =====
   header: {
+    backgroundColor: THEME_COLORS.background,
+    paddingHorizontal: SPACE.screen,
+    paddingTop: SPACE.sm,
+    paddingBottom: SPACE.lg,
+    gap: SPACE.lg,
+  },
+  headerRow: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: "#e0e0e0",
+    gap: SPACE.md,
   },
   headerTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#000000",
-  },
-  tabsContainer: {
-    backgroundColor: "#f8f9fa",
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: "#e0e0e0",
-  },
-  tab: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    marginHorizontal: 8,
-    borderRadius: 20,
-    backgroundColor: "#ffffff",
-  },
-  activeTab: {
-    backgroundColor: "#4169e1",
-  },
-  tabText: {
-    marginLeft: 8,
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#666666",
-  },
-  activeTabText: {
-    color: "#ffffff",
-  },
-  content: {
+    ...TYPOGRAPHY.h1,
     flex: 1,
   },
+  headerDivider: {
+    ...UI.divider,
+  },
+  iconCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: RADIUS.pill,
+    backgroundColor: THEME_COLORS.surfaceMuted,
+    borderWidth: 1,
+    borderColor: THEME_COLORS.border,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  tabsContainer: {
+    flexDirection: "row",
+    backgroundColor: THEME_COLORS.surfaceMuted,
+    borderRadius: RADIUS.control,
+    borderWidth: 1,
+    borderColor: THEME_COLORS.border,
+    padding: SPACE.xs,
+    gap: SPACE.xs,
+  },
+  tab: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: SPACE.sm,
+    paddingHorizontal: SPACE.xs,
+    borderRadius: RADIUS.control - SPACE.xs,
+    gap: 2,
+  },
+  activeTab: {
+    backgroundColor: THEME_COLORS.surface,
+    ...SHADOWS.card,
+  },
+  tabText: {
+    fontSize: 12,
+    fontWeight: "500",
+    color: THEME_COLORS.textMuted,
+  },
+  activeTabText: {
+    color: THEME_COLORS.primary,
+    fontWeight: "700",
+  },
+
+  // ===== Nội dung =====
+  content: {
+    flex: 1,
+    backgroundColor: THEME_COLORS.background,
+  },
+  contentContainer: {
+    paddingBottom: SPACE.section,
+  },
   tabContent: {
-    padding: 20,
+    paddingHorizontal: SPACE.screen,
+    paddingTop: SPACE["2xl"],
   },
   tabHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 20,
+    marginBottom: SPACE["2xl"],
   },
   tabTitle: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "#000000",
+    ...TYPOGRAPHY.h2,
+  },
+  tabTitleSpacing: {
+    marginBottom: SPACE.lg,
   },
   addButton: {
+    ...UI.primaryButton,
+    height: 40,
+    paddingHorizontal: SPACE.lg,
     flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#4169e1",
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-    gap: 6,
+    gap: SPACE.xs,
   },
   addButtonText: {
-    color: "#ffffff",
+    ...UI.primaryButtonText,
     fontSize: 14,
-    fontWeight: "600",
   },
+
+  // ===== Form thêm/sửa xe =====
   addCarForm: {
-    backgroundColor: "#f8f9fa",
-    padding: 20,
-    borderRadius: 12,
-    marginBottom: 20,
+    ...UI.card,
+    ...SHADOWS.raised,
+    padding: SPACE.xl,
+    marginBottom: SPACE.section,
   },
   formTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#000000",
-    marginBottom: 16,
+    ...TYPOGRAPHY.h3,
+    marginBottom: SPACE.xl,
+  },
+  inputRow: {
+    flexDirection: "row",
+    gap: SPACE.md,
   },
   inputGroup: {
-    marginBottom: 16,
+    marginBottom: SPACE.lg,
   },
   inputLabel: {
-    fontSize: 14,
+    ...TYPOGRAPHY.caption,
+    color: THEME_COLORS.textSecondary,
     fontWeight: "600",
-    color: "#000000",
-    marginBottom: 6,
+    marginBottom: SPACE.sm,
   },
   input: {
-    backgroundColor: "#ffffff",
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    borderWidth: 1,
-    borderColor: "#e0e0e0",
+    ...UI.input,
   },
-  textArea: {
-    minHeight: 80,
-    textAlignVertical: "top",
+  inputFocused: {
+    ...UI.inputFocused,
+  },
+  inputError: {
+    borderColor: THEME_COLORS.danger,
+  },
+  fieldError: {
+    ...TYPOGRAPHY.caption,
+    color: THEME_COLORS.danger,
+    marginTop: SPACE.xs,
   },
   formButtons: {
     flexDirection: "row",
-    gap: 12,
-    marginTop: 16,
+    gap: SPACE.md,
+    marginTop: SPACE.sm,
   },
   cancelButton: {
+    ...UI.secondaryButton,
     flex: 1,
-    backgroundColor: "#ffffff",
-    paddingVertical: 12,
-    borderRadius: 8,
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#e0e0e0",
+    paddingHorizontal: SPACE.lg,
   },
   cancelButtonText: {
-    color: "#666666",
-    fontSize: 16,
-    fontWeight: "600",
+    ...UI.secondaryButtonText,
   },
   submitButton: {
+    ...UI.primaryButton,
     flex: 1,
-    backgroundColor: "#4169e1",
-    paddingVertical: 12,
-    borderRadius: 8,
-    alignItems: "center",
+    paddingHorizontal: SPACE.lg,
   },
   disabledButton: {
-    backgroundColor: "#d1e7dd",
+    opacity: 0.6,
   },
   submitButtonText: {
-    color: "#ffffff",
-    fontSize: 16,
-    fontWeight: "600",
+    ...UI.primaryButtonText,
   },
+  imagePreviewContainer: {
+    borderRadius: RADIUS.control,
+    overflow: "hidden",
+    backgroundColor: THEME_COLORS.surfaceMuted,
+    borderWidth: 1,
+    borderColor: THEME_COLORS.border,
+  },
+  imagePreview: {
+    width: "100%",
+    height: 180,
+  },
+  changeImageButton: {
+    position: "absolute",
+    right: SPACE.md,
+    bottom: SPACE.md,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SPACE.xs,
+    backgroundColor: THEME_COLORS.surface,
+    paddingHorizontal: SPACE.md,
+    height: 36,
+    borderRadius: RADIUS.control,
+    borderWidth: 1,
+    borderColor: THEME_COLORS.border,
+  },
+  changeImageText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: THEME_COLORS.textPrimary,
+  },
+  uploadButton: {
+    alignItems: "center",
+    justifyContent: "center",
+    gap: SPACE.sm,
+    paddingVertical: SPACE["2xl"],
+    borderRadius: RADIUS.control,
+    borderWidth: 1,
+    borderStyle: "dashed",
+    borderColor: THEME_COLORS.borderStrong,
+    backgroundColor: THEME_COLORS.surfaceMuted,
+  },
+  uploadIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: RADIUS.pill,
+    backgroundColor: THEME_COLORS.primarySoft,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  uploadButtonText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: THEME_COLORS.primary,
+  },
+
+  // ===== Thẻ xe =====
   carsList: {
-    gap: 12,
+    gap: SPACE.lg,
   },
   carCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    ...UI.card,
+    overflow: "hidden",
+  },
+  carImageWrap: {
+    height: 160,
+    backgroundColor: THEME_COLORS.surfaceMuted,
+    alignItems: "center",
+    justifyContent: "center",
   },
   carImage: {
-    width: '100%',
-    height: 160,
-    borderRadius: 8,
-    marginBottom: 12,
+    width: "100%",
+    height: "100%",
   },
   carInfo: {
-    gap: 4,
+    padding: SPACE.lg,
+  },
+  cardTitleRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: SPACE.md,
   },
   carName: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#000000',
+    ...TYPOGRAPHY.h3,
   },
   carBrand: {
-    fontSize: 14,
-    color: '#666666',
+    ...TYPOGRAPHY.caption,
+    marginTop: 2,
   },
   carPrice: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#4169e1',
+    ...TYPOGRAPHY.price,
+    marginTop: SPACE.sm,
   },
-  carStatus: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 8,
+
+  // Hàng thông tin label – giá trị dùng chung
+  infoBlock: {
+    marginTop: SPACE.md,
+    paddingTop: SPACE.md,
+    borderTopWidth: 1,
+    borderTopColor: THEME_COLORS.border,
+    gap: SPACE.sm,
   },
-  carStats: {
+  infoRow: {
     flexDirection: "row",
-    gap: 16,
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: SPACE.md,
   },
-  carStat: {
-    fontSize: 12,
-    color: "#666666",
+  infoLabel: {
+    ...TYPOGRAPHY.caption,
   },
-  carActions: {
+  infoValue: {
+    ...TYPOGRAPHY.bodyStrong,
+    fontSize: 14,
+    flexShrink: 1,
+    textAlign: "right",
+  },
+  infoValuePrice: {
+    color: THEME_COLORS.primary,
+    fontWeight: "700",
+  },
+
+  // Nút hành động nhỏ trong thẻ
+  cardActions: {
     flexDirection: "row",
-    gap: 12,
+    flexWrap: "wrap",
+    gap: SPACE.sm,
+    marginTop: SPACE.lg,
   },
-  editButton: {
-    padding: 8,
-    backgroundColor: "#f0f8ff",
-    borderRadius: 6,
+  smallButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    height: 36,
+    paddingHorizontal: SPACE.md,
+    borderRadius: RADIUS.control,
   },
-  deleteButton: {
-    padding: 8,
-    backgroundColor: "#fff5f5",
-    borderRadius: 6,
+  smallPrimaryButton: {
+    backgroundColor: THEME_COLORS.primary,
+    ...SHADOWS.primaryButton,
   },
+  smallPrimaryText: {
+    color: "#FFFFFF",
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  smallSecondaryButton: {
+    backgroundColor: THEME_COLORS.surface,
+    borderWidth: 1,
+    borderColor: THEME_COLORS.border,
+  },
+  smallSecondaryText: {
+    color: THEME_COLORS.textPrimary,
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  smallDangerButton: {
+    backgroundColor: THEME_COLORS.dangerSoft,
+  },
+  smallDangerText: {
+    color: THEME_COLORS.danger,
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  smallSuccessButton: {
+    backgroundColor: THEME_COLORS.successSoft,
+  },
+  smallSuccessText: {
+    color: THEME_COLORS.success,
+    fontSize: 13,
+    fontWeight: "600",
+  },
+
+  // ===== Ô thống kê =====
   statsGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 16,
+    gap: SPACE.md,
+    marginBottom: SPACE.section,
   },
   statCard: {
-    flex: 1,
-    minWidth: "30%",
-    backgroundColor: "#ffffff",
-    padding: 20,
-    borderRadius: 12,
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
-    borderWidth: 1,
-    borderColor: "#f0f0f0",
+    ...UI.card,
+    flexGrow: 1,
+    flexBasis: "40%",
+    padding: SPACE.lg,
   },
-  statNumber: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "#4169e1",
-    marginBottom: 8,
+  statIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: RADIUS.pill,
+    backgroundColor: THEME_COLORS.primarySoft,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: SPACE.md,
   },
   statLabel: {
-    fontSize: 14,
-    color: "#666666",
-    textAlign: "center",
+    ...TYPOGRAPHY.overline,
   },
-  imagePreviewContainer: {
-    borderRadius: 8,
-    overflow: 'hidden',
-    marginBottom: 8,
+  statNumber: {
+    ...TYPOGRAPHY.display,
+    marginTop: SPACE.xs,
   },
-  imagePreview: {
-    width: '100%',
-    height: 200,
-    resizeMode: 'cover',
+  statNumberSmall: {
+    ...TYPOGRAPHY.h1,
   },
-  changeImageButton: {
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    padding: 8,
-    alignItems: 'center',
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-  },
-  changeImageText: {
-    color: '#ffffff',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  uploadButton: {
-    borderWidth: 2,
-    borderColor: '#4169e1',
-    borderStyle: 'dashed',
-    borderRadius: 8,
-    padding: 20,
-    alignItems: 'center',
-    backgroundColor: '#f8f9fa',
-  },
-  uploadButtonText: {
-    color: '#4169e1',
-    fontSize: 14,
-    fontWeight: '600',
-    marginTop: 8,
-  },
+
+  // ===== Biểu đồ =====
   chartCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    ...UI.card,
+    padding: SPACE.lg,
+    marginBottom: SPACE.lg,
+  },
+  chartOverline: {
+    ...TYPOGRAPHY.overline,
   },
   chartTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 16,
-    color: '#000000',
+    ...TYPOGRAPHY.h3,
+    marginTop: SPACE.xs,
+    marginBottom: SPACE.lg,
   },
   chart: {
-    marginVertical: 8,
-    borderRadius: 16
+    borderRadius: RADIUS.control,
   },
-  statsRow: {
+
+  // ===== Tìm kiếm + bộ lọc =====
+  searchBox: {
+    ...UI.input,
     flexDirection: "row",
-    gap: 16,
-    marginBottom: 16,
-    transform: [{ scale: 1 }], // Enable hardware acceleration
-  },
-  statCardLarge: {
-    flex: 1,
-    backgroundColor: "#ffffff",
-    padding: 16,
-    borderRadius: 12,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  statGrowth: {
-    color: "#00bb02",
-    fontSize: 12,
-    marginTop: 4,
-  },
-  metricsGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 16,
-    transform: [{ scale: 1 }], // Enable hardware acceleration
-  },
-  metricCard: {
-    width: "45%",
-    backgroundColor: "#ffffff",
-    padding: 16,
-    borderRadius: 12,
     alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  metricValue: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "#4169e1",
-    marginBottom: 8,
-  },
-  metricLabel: {
-    fontSize: 14,
-    color: "#666666",
-    textAlign: "center",
-  },
-  userFilters: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    marginTop: 12,
+    gap: SPACE.sm,
+    paddingHorizontal: SPACE.md,
   },
   searchInput: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
-    borderRadius: 8,
-    padding: 8,
-    fontSize: 14,
+    height: "100%",
+    fontSize: 15,
+    color: THEME_COLORS.textPrimary,
   },
-  usersList: {
-    marginTop: 16,
+  bookingsFilter: {
+    gap: SPACE.md,
+    marginBottom: SPACE.lg,
   },
-  userCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+  filterTabs: {
+    gap: SPACE.sm,
   },
-  userHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
+  filterTab: {
+    ...UI.chip,
   },
-  userInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
+  activeFilterTab: {
+    ...UI.chipActive,
   },
-  userAvatar: {
-    width: 48,
+  filterTabText: {
+    ...UI.chipText,
+  },
+  activeFilterTabText: {
+    ...UI.chipTextActive,
+  },
+  userFilters: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SPACE.sm,
+  },
+  filterButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
     height: 48,
-    borderRadius: 24,
+    paddingHorizontal: SPACE.md,
+    borderRadius: RADIUS.control,
+    borderWidth: 1,
+    borderColor: THEME_COLORS.border,
+    backgroundColor: THEME_COLORS.surface,
   },
-  userName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#000000',
+  filterButtonActive: {
+    ...UI.chipActive,
   },
-  userEmail: {
+  filterButtonText: {
     fontSize: 14,
-    color: '#666666',
+    fontWeight: "500",
+    color: THEME_COLORS.textSecondary,
   },
+  filterButtonTextActive: {
+    color: THEME_COLORS.primary,
+    fontWeight: "600",
+  },
+  userFilterChips: {
+    marginTop: SPACE.md,
+  },
+
+  // ===== Badge trạng thái =====
   statusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  activeBadge: {
-    backgroundColor: '#e6f4ea',
-  },
-  inactiveBadge: {
-    backgroundColor: '#feecea',
+    paddingHorizontal: 10,
+    paddingVertical: SPACE.xs,
+    borderRadius: RADIUS.pill,
+    alignSelf: "flex-start",
   },
   statusText: {
     fontSize: 12,
-    fontWeight: '600',
-    textTransform: 'capitalize',
+    fontWeight: "700",
   },
-  activeText: {
-    color: '#00a152',
-  },
-  inactiveText: {
-    color: '#ff4444',
-  },
-  userDetails: {
-    borderTopWidth: 1,
-    borderTopColor: '#f0f0f0',
-    paddingTop: 12,
-    gap: 8,
-  },
-  userDetailItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  userDetailText: {
-    fontSize: 14,
-    color: '#666666',
-  },
-  userActions: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: 12,
-    marginTop: 12,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#f0f0f0',
-  },
-  userAction: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    padding: 8,
-    borderRadius: 8,
-  },
-  actionText: {
-    fontSize: 14,
-    color: '#4169e1',
-    fontWeight: '600',
-  },
-  filterButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#f0f8ff',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-    gap: 6,
-  },
-  filterButtonText: {
-    color: '#4169e1',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  bookingsFilter: {
-    marginTop: 20,
-    gap: 12,
-  },
-  filterTabs: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  filterTab: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: '#f8f9fa',
-  },
-  activeFilterTab: {
-    backgroundColor: '#4169e1',
-  },
-  filterTabText: {
-    color: '#666666',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  activeFilterTabText: {
-    color: '#ffffff',
-  },
+
+  // ===== Thẻ đơn đặt xe =====
   bookingsList: {
-    marginTop: 16,
+    gap: SPACE.lg,
   },
   bookingCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    ...UI.card,
+    padding: SPACE.lg,
   },
   bookingHeader: {
-    flexDirection: 'row',
-    gap: 12,
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: SPACE.md,
   },
   bookingCarImage: {
-    width: 80,
-    height: 80,
-    borderRadius: 8,
+    width: 72,
+    height: 56,
+    borderRadius: RADIUS.control,
+    backgroundColor: THEME_COLORS.surfaceMuted,
+  },
+  imagePlaceholder: {
+    alignItems: "center",
+    justifyContent: "center",
   },
   bookingInfo: {
     flex: 1,
+    gap: 4,
   },
   bookingCarName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#000000',
-    marginBottom: 4,
+    ...TYPOGRAPHY.bodyStrong,
   },
   customerInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
   },
   customerAvatar: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: 18,
+    height: 18,
+    borderRadius: RADIUS.pill,
+    backgroundColor: THEME_COLORS.surfaceMuted,
   },
   customerName: {
-    fontSize: 14,
-    color: '#666666',
+    fontSize: 13,
+    color: THEME_COLORS.textSecondary,
+    flexShrink: 1,
   },
-  completedBadge: {
-    backgroundColor: '#e6f4ea',
-  },
-  cancelledBadge: {
-    backgroundColor: '#feecea',
-  },
-  completedText: {
-    color: '#00a152',
-  },
-  cancelledText: {
-    color: '#ff4444',
-  },
-  bookingDetails: {
-    marginTop: 16,
-    gap: 12,
-  },
-  bookingDetailRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  bookingDetailItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  bookingDetailText: {
-    fontSize: 14,
-    color: '#666666',
+  bookingCode: {
+    ...TYPOGRAPHY.caption,
+    fontSize: 12,
   },
   paymentStatus: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-start",
     gap: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-    alignSelf: 'flex-start',
-  },
-  paidStatus: {
-    backgroundColor: '#e6f4ea',
-  },
-  pendingStatus: {
-    backgroundColor: '#fff3e0',
-  },
-  refundedStatus: {
-    backgroundColor: '#feecea',
+    marginTop: SPACE.md,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: RADIUS.pill,
   },
   paymentStatusText: {
     fontSize: 12,
-    fontWeight: '600',
-    textTransform: 'capitalize',
+    fontWeight: "600",
   },
-  paidText: {
-    color: '#00a152',
+
+  // ===== Thẻ người dùng =====
+  usersList: {
+    gap: SPACE.lg,
+    marginTop: SPACE.lg,
   },
-  pendingText: {
-    color: '#ffa000',
+  userCard: {
+    ...UI.card,
+    padding: SPACE.lg,
   },
-  refundedText: {
-    color: '#ff4444',
+  userHeader: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: SPACE.md,
   },
-  bookingActions: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: 12,
-    marginTop: 16,
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#f0f0f0',
+  userInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SPACE.md,
   },
-  bookingActionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    padding: 8,
-    borderRadius: 8,
-    backgroundColor: '#f0f8ff',
+  userAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: RADIUS.pill,
+    backgroundColor: THEME_COLORS.surfaceMuted,
   },
-  actionButtonText: {
-    fontSize: 14,
-    color: '#4169e1',
-    fontWeight: '600',
+  userName: {
+    ...TYPOGRAPHY.bodyStrong,
   },
-  cancelBookingButton: {
-    backgroundColor: '#fff5f5',
+  userEmail: {
+    ...TYPOGRAPHY.caption,
+    marginTop: 2,
   },
-  cancelBookingText: {
-    color: '#ff4444',
-  },
-  pendingBadge: {
-    backgroundColor: '#fff3e0',
-  },
-  upcomingBadge: {
-    backgroundColor: '#e8f0fe',
-  },
-  upcomingText: {
-    color: '#4169e1',
-  },
-  bookingCode: {
-    fontSize: 12,
-    color: '#999999',
-    marginTop: 4,
-  },
-  imagePlaceholder: {
-    backgroundColor: '#f0f0f0',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+
+  // ===== Trạng thái rỗng =====
   emptyState: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 32,
-    gap: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: SPACE["3xl"],
+    paddingHorizontal: SPACE.lg,
+    gap: SPACE.md,
+  },
+  emptyIconWrap: {
+    width: 56,
+    height: 56,
+    borderRadius: RADIUS.pill,
+    backgroundColor: THEME_COLORS.surfaceMuted,
+    alignItems: "center",
+    justifyContent: "center",
   },
   emptyStateText: {
-    fontSize: 14,
-    color: '#999999',
-    textAlign: 'center',
+    ...TYPOGRAPHY.body,
+    color: THEME_COLORS.textMuted,
+    textAlign: "center",
   },
-  inputError: {
-    borderColor: '#ff4444',
-  },
-  fieldError: {
-    color: '#ff4444',
-    fontSize: 12,
-    marginTop: 4,
-  },
-  filterButtonActive: {
-    borderWidth: 1,
-    borderColor: '#4169e1',
-  },
-  metricValueSmall: {
-    fontSize: 18,
-  },
+
+  // ===== Modal (bottom sheet) =====
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'flex-end',
+    backgroundColor: "rgba(15, 23, 42, 0.45)",
+    justifyContent: "flex-end",
   },
   modalContent: {
-    backgroundColor: '#ffffff',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    padding: 20,
-    maxHeight: '90%',
+    backgroundColor: THEME_COLORS.surface,
+    borderTopLeftRadius: RADIUS.sheet,
+    borderTopRightRadius: RADIUS.sheet,
+    paddingHorizontal: SPACE.screen,
+    paddingTop: SPACE.sm,
+    maxHeight: "88%",
+    ...SHADOWS.raised,
+  },
+  modalHandle: {
+    alignSelf: "center",
+    width: 40,
+    height: 4,
+    borderRadius: RADIUS.pill,
+    backgroundColor: THEME_COLORS.borderStrong,
+    marginBottom: SPACE.md,
   },
   modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: SPACE.lg,
   },
   modalTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#000000',
+    ...TYPOGRAPHY.h2,
+    flex: 1,
+  },
+  modalScroll: {
+    paddingBottom: SPACE["3xl"],
+  },
+  modalImageWrap: {
+    backgroundColor: THEME_COLORS.surfaceMuted,
+    borderRadius: RADIUS.card,
+    marginBottom: SPACE.lg,
+    overflow: "hidden",
   },
   modalCarImage: {
-    width: '100%',
+    width: "100%",
     height: 160,
-    borderRadius: 8,
-    marginBottom: 12,
-    backgroundColor: '#f8f9fa',
   },
   modalStatusRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SPACE.md,
+    marginBottom: SPACE.sm,
+  },
+  modalCarName: {
+    ...TYPOGRAPHY.h3,
+  },
+  modalUserHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SPACE.md,
+    marginBottom: SPACE.lg,
+  },
+  modalUserAvatar: {
+    width: 56,
+    height: 56,
+    borderRadius: RADIUS.pill,
+    backgroundColor: THEME_COLORS.surfaceMuted,
   },
   detailSection: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#000000',
-    marginTop: 16,
-    marginBottom: 8,
+    ...TYPOGRAPHY.overline,
+    marginTop: SPACE["2xl"],
+    marginBottom: SPACE.sm,
+  },
+  detailGroup: {
+    backgroundColor: THEME_COLORS.surfaceMuted,
+    borderRadius: RADIUS.control,
+    borderWidth: 1,
+    borderColor: THEME_COLORS.border,
+    paddingHorizontal: SPACE.lg,
+    paddingVertical: SPACE.xs,
   },
   detailRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 6,
-    gap: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f5f5f5',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    gap: SPACE.md,
+    paddingVertical: 10,
   },
   detailLabel: {
-    fontSize: 14,
-    color: '#666666',
+    ...TYPOGRAPHY.caption,
+    flexShrink: 0,
+    maxWidth: "45%",
   },
   detailValue: {
-    flex: 1,
+    ...TYPOGRAPHY.bodyStrong,
     fontSize: 14,
-    color: '#000000',
-    fontWeight: '500',
-    textAlign: 'right',
+    flex: 1,
+    textAlign: "right",
   },
   detailEmpty: {
-    fontSize: 14,
-    color: '#999999',
+    ...TYPOGRAPHY.body,
+    color: THEME_COLORS.textMuted,
+    paddingVertical: 10,
+  },
+  userBookingList: {
+    gap: SPACE.sm,
   },
   userBookingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f5f5f5',
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SPACE.md,
+    padding: SPACE.md,
+    borderRadius: RADIUS.control,
+    borderWidth: 1,
+    borderColor: THEME_COLORS.border,
+    backgroundColor: THEME_COLORS.surface,
   },
   userBookingName: {
+    ...TYPOGRAPHY.bodyStrong,
     fontSize: 14,
-    fontWeight: '600',
-    color: '#000000',
   },
   modalActions: {
-    flexDirection: 'row',
-    gap: 12,
-    marginTop: 20,
-    marginBottom: 12,
+    gap: SPACE.md,
+    marginTop: SPACE["2xl"],
   },
   modalActionButton: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: 8,
-    alignItems: 'center',
+    height: 52,
+    borderRadius: RADIUS.control,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: SPACE["2xl"],
   },
   modalPrimaryButton: {
-    backgroundColor: '#4169e1',
+    ...UI.primaryButton,
   },
   modalPrimaryText: {
-    color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '600',
+    ...UI.primaryButtonText,
   },
   modalDangerButton: {
-    backgroundColor: '#fff5f5',
-    borderWidth: 1,
-    borderColor: '#ff4444',
+    backgroundColor: THEME_COLORS.dangerSoft,
   },
   modalDangerText: {
-    color: '#ff4444',
+    color: THEME_COLORS.danger,
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "700",
   },
 })

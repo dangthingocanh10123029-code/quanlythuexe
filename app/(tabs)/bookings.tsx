@@ -13,6 +13,9 @@ import { formatCurrency, formatDate } from "../../utils/helpers"
 import { getBookingStatusLabel, PAYMENT_METHODS } from "../../utils/constants"
 import { cars } from "../../data/cars"
 import PaymentLogo from "../../components/ui/PaymentLogo"
+import { StatusBar } from "expo-status-bar"
+import type { ViewStyle } from "react-native"
+import { THEME_COLORS, RADIUS, SPACE, SHADOWS, TYPOGRAPHY, UI, PRESS_OPACITY } from "../../utils/theme"
 
 // Update the interfaces section
 interface AddOn {
@@ -69,12 +72,26 @@ const PAYMENT_OPTIONS: { id: "credit-card" | "momo" | "zalopay"; route: PaymentR
 const MIN_DURATION = 1
 const MAX_DURATION = 30
 
-const COLORS = {
-  primary: "#4169e1",
-  white: "#ffffff",
-  black: "#000000",
-  gray: "#666666",
-  lightGray: "#e0e0e0",
+// Ô chọn ngày dùng khung của UI.input (TextStyle) cho một TouchableOpacity
+const DATE_INPUT_BOX = UI.input as unknown as ViewStyle
+
+// Badge trạng thái: nền soft + chữ đậm cùng tông
+const getStatusTone = (status?: string): { bg: string; fg: string } => {
+  switch ((status || "").toLowerCase()) {
+    case "pending":
+      return { bg: THEME_COLORS.warningSoft, fg: THEME_COLORS.warning }
+    case "upcoming":
+    case "confirmed":
+      return { bg: THEME_COLORS.primarySoft, fg: THEME_COLORS.primary }
+    case "active":
+    case "completed":
+      return { bg: THEME_COLORS.successSoft, fg: THEME_COLORS.success }
+    case "cancelled":
+    case "canceled":
+      return { bg: THEME_COLORS.dangerSoft, fg: THEME_COLORS.danger }
+    default:
+      return { bg: THEME_COLORS.surfaceMuted, fg: THEME_COLORS.textSecondary }
+  }
 }
 
 // Hiển thị phương thức thanh toán, hỗ trợ cả giá trị cũ (GCash/PayPal/Credit Card) của đơn cũ
@@ -181,24 +198,6 @@ export default function BookingsScreen() {
     upcoming: bookings.filter(b => getTabForStatus(b.status) === "upcoming"),
     active: bookings.filter(b => getTabForStatus(b.status) === "active"),
     history: bookings.filter(b => getTabForStatus(b.status) === "history"),
-  }
-
-  const getStatusColor = (status: string) => {
-    switch (normalizeStatus(status)) {
-      case "pending":
-        return "#FFB700"
-      case "active":
-        return "#00bb02"
-      case "upcoming":
-        return "#4169e1"
-      case "completed":
-        return "#666666"
-      case "cancelled":
-      case "canceled":
-        return "#ff4444"
-      default:
-        return "#666666"
-    }
   }
 
   // ===== Thanh toán =====
@@ -352,54 +351,48 @@ export default function BookingsScreen() {
   }
 
   const renderBookingCard = ({ item }: { item: Booking }) => {
-    const isPastBooking = getTabForStatus(item.status) === "history"
     const isPending = isPendingStatus(item.status)
     const canModify = canModifyStatus(item.status)
     const imageSource = resolveCarImage(item)
     const pickupRaw = toDate(item.pickupDate)
-    const textColor = isPastBooking ? COLORS.gray : COLORS.white
+    const tone = getStatusTone(item.status)
 
     return (
       <TouchableOpacity
-        style={[styles.bookingCard, { backgroundColor: isPastBooking ? COLORS.white : COLORS.primary }]}
+        style={styles.bookingCard}
         onPress={() => openCarDetails(item)}
-        activeOpacity={0.8}
+        activeOpacity={PRESS_OPACITY}
       >
-        {imageSource ? (
-          <Image source={imageSource} style={styles.carImage} />
-        ) : (
-          <View style={[styles.carImage, styles.carImagePlaceholder]}>
-            <Ionicons name="car-outline" size={36} color={COLORS.gray} />
+        <View style={styles.cardTop}>
+          <View style={styles.carImageBox}>
+            {imageSource ? (
+              <Image source={imageSource} style={styles.carImage} resizeMode="contain" />
+            ) : (
+              <Ionicons name="car-outline" size={32} color={THEME_COLORS.textMuted} />
+            )}
           </View>
-        )}
-        <View style={styles.bookingInfo}>
-          <View style={styles.bookingHeader}>
-            <Text style={[styles.carName, { color: isPastBooking ? COLORS.black : COLORS.white }]}>
+          <View style={styles.bookingInfo}>
+            <Text style={styles.carName} numberOfLines={1}>
               {item.carName}
             </Text>
-            <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) }]}>
-              <Text style={styles.statusText}>{getBookingStatusLabel(item.status)}</Text>
+            <View style={[styles.statusBadge, { backgroundColor: tone.bg }]}>
+              <Text style={[styles.statusText, { color: tone.fg }]}>{getBookingStatusLabel(item.status)}</Text>
             </View>
+            <Text style={styles.price}>{formatCurrency(item.price)}</Text>
           </View>
+        </View>
 
-          <Text style={[styles.price, { color: isPastBooking ? COLORS.primary : "#FFB700" }]}>
-            {formatCurrency(item.price)}
-          </Text>
-
-          <View style={styles.locationContainer}>
-            <Ionicons
-              name="location"
-              size={16}
-              color={textColor}
-            />
-            <Text style={[styles.locationText, { color: textColor }]}>
+        <View style={styles.infoBlock}>
+          <View style={styles.infoRow}>
+            <Ionicons name="location-outline" size={16} color={THEME_COLORS.textMuted} />
+            <Text style={styles.infoText} numberOfLines={2}>
               {item.location}
             </Text>
           </View>
 
-          <View style={styles.locationContainer}>
-            <Ionicons name="calendar" size={16} color={textColor} />
-            <Text style={[styles.locationText, { color: textColor }]}>
+          <View style={styles.infoRow}>
+            <Ionicons name="calendar-outline" size={16} color={THEME_COLORS.textMuted} />
+            <Text style={styles.infoText}>
               {pickupRaw ? `Nhận xe: ${formatDate(pickupRaw)} • ` : ""}{item.duration} ngày
             </Text>
           </View>
@@ -407,40 +400,58 @@ export default function BookingsScreen() {
           {/* Payment Info */}
           {item.payment && (
             <View style={styles.paymentInfo}>
-              <Text style={[styles.paymentText, { color: textColor }]}>
+              <Text style={styles.paymentText}>
                 Thanh toán qua {getPaymentMethodLabel(item.payment.method)} • {formatDate(toDate(item.payment.paidAt))}
               </Text>
-              <Text style={[styles.transactionId, { color: textColor }]}>
+              <Text style={styles.transactionId}>
                 Mã giao dịch: {item.payment.transactionId}
               </Text>
             </View>
           )}
 
           {item.cancelledAt && (
-            <Text style={[styles.paymentText, styles.paymentInfo, { color: textColor }]}>
+            <Text style={[styles.paymentText, styles.paymentInfo]}>
               Đã huỷ ngày {formatDate(toDate(item.cancelledAt))}
             </Text>
           )}
-
-          {isPending && (
-            <TouchableOpacity style={styles.payNowButton} onPress={() => setPayingBooking(item)}>
-              <Ionicons name="card" size={16} color={COLORS.primary} />
-              <Text style={styles.payNowButtonText}>Thanh toán ngay</Text>
-            </TouchableOpacity>
-          )}
-
-          {/* Chỉ cho đổi lịch / huỷ với đơn Pending hoặc Upcoming */}
-          {canModify && (
-            <View style={styles.actionButtons}>
-              <TouchableOpacity style={styles.modifyButton} onPress={() => openReschedule(item)}>
-                <Text style={styles.modifyButtonText}>Đổi lịch</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.cancelButton} onPress={() => handleCancel(item)}>
-                <Text style={styles.cancelButtonText}>Huỷ chuyến</Text>
-              </TouchableOpacity>
-            </View>
-          )}
         </View>
+
+        {(isPending || canModify) && (
+          <View style={styles.actions}>
+            {isPending && (
+              <TouchableOpacity
+                style={styles.payNowButton}
+                onPress={() => setPayingBooking(item)}
+                activeOpacity={PRESS_OPACITY}
+              >
+                <Ionicons name="card-outline" size={18} color="#FFFFFF" />
+                <Text style={styles.payNowButtonText}>Thanh toán ngay</Text>
+              </TouchableOpacity>
+            )}
+
+            {/* Chỉ cho đổi lịch / huỷ với đơn Pending hoặc Upcoming */}
+            {canModify && (
+              <View style={styles.actionButtons}>
+                <TouchableOpacity
+                  style={styles.modifyButton}
+                  onPress={() => openReschedule(item)}
+                  activeOpacity={PRESS_OPACITY}
+                >
+                  <Ionicons name="calendar-outline" size={16} color={THEME_COLORS.textPrimary} />
+                  <Text style={styles.modifyButtonText}>Đổi lịch</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.cancelButton}
+                  onPress={() => handleCancel(item)}
+                  activeOpacity={PRESS_OPACITY}
+                >
+                  <Ionicons name="close-circle-outline" size={16} color={THEME_COLORS.danger} />
+                  <Text style={styles.cancelButtonText}>Huỷ chuyến</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+        )}
       </TouchableOpacity>
     )
   }
@@ -448,12 +459,15 @@ export default function BookingsScreen() {
   // Add this function to render empty state
   const renderEmptyState = () => (
     <View style={styles.emptyState}>
-      <Ionicons name="car-outline" size={80} color={COLORS.gray} />
+      <View style={styles.emptyIcon}>
+        <Ionicons name="car-outline" size={44} color={THEME_COLORS.primary} />
+      </View>
       <Text style={styles.emptyTitle}>Bạn chưa có chuyến đi nào</Text>
       <Text style={styles.emptyText}>Khám phá và đặt chiếc xe đầu tiên của bạn ngay nhé</Text>
       <TouchableOpacity
         style={styles.startButton}
         onPress={() => router.push("/(tabs)/search")}
+        activeOpacity={PRESS_OPACITY}
       >
         <Text style={styles.startButtonText}>Thuê xe ngay</Text>
       </TouchableOpacity>
@@ -465,7 +479,8 @@ export default function BookingsScreen() {
   const reschedulePriceDiff = reschedulingBooking ? reschedulePreviewPrice - (Number(reschedulingBooking.price) || 0) : 0
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
+      <StatusBar style="dark" />
       <View style={styles.header}>
         <Text style={styles.title}>Chuyến đi của tôi</Text>
       </View>
@@ -475,23 +490,33 @@ export default function BookingsScreen() {
       ) : (
         <>
           <View style={styles.tabContainer}>
-            {TABS.map(tab => (
-              <TouchableOpacity
-                key={tab.key}
-                style={[styles.tab, activeTab === tab.key && styles.activeTab]}
-                onPress={() => setActiveTab(tab.key)}
-              >
-                <Text style={[styles.tabText, activeTab === tab.key && styles.activeTabText]}>
-                  {tab.label} ({bookingsByTab[tab.key].length})
-                </Text>
-              </TouchableOpacity>
-            ))}
+            {TABS.map(tab => {
+              const selected = activeTab === tab.key
+              return (
+                <TouchableOpacity
+                  key={tab.key}
+                  style={[styles.tab, selected && styles.activeTab]}
+                  onPress={() => setActiveTab(tab.key)}
+                  activeOpacity={PRESS_OPACITY}
+                >
+                  <Text style={[styles.tabText, selected && styles.activeTabText]} numberOfLines={1}>
+                    {tab.label} ({bookingsByTab[tab.key].length})
+                  </Text>
+                </TouchableOpacity>
+              )
+            })}
           </View>
 
-          <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+          <ScrollView
+            style={styles.content}
+            contentContainerStyle={styles.contentContainer}
+            showsVerticalScrollIndicator={false}
+          >
             {bookingsByTab[activeTab].length === 0 ? (
               <View style={styles.tabEmpty}>
-                <Ionicons name="calendar-outline" size={48} color={COLORS.gray} />
+                <View style={styles.tabEmptyIcon}>
+                  <Ionicons name="calendar-outline" size={32} color={THEME_COLORS.textSecondary} />
+                </View>
                 <Text style={styles.tabEmptyText}>{currentTab.emptyText}</Text>
               </View>
             ) : (
@@ -501,6 +526,7 @@ export default function BookingsScreen() {
                 keyExtractor={(item) => item.id}
                 scrollEnabled={false}
                 showsVerticalScrollIndicator={false}
+                contentContainerStyle={styles.listContainer}
               />
             )}
           </ScrollView>
@@ -516,10 +542,15 @@ export default function BookingsScreen() {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalSheet}>
+            <View style={styles.sheetHandle} />
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Chọn phương thức thanh toán</Text>
-              <TouchableOpacity onPress={() => setPayingBooking(null)}>
-                <Ionicons name="close" size={24} color={COLORS.black} />
+              <TouchableOpacity
+                style={styles.closeButton}
+                onPress={() => setPayingBooking(null)}
+                activeOpacity={PRESS_OPACITY}
+              >
+                <Ionicons name="close" size={20} color={THEME_COLORS.textSecondary} />
               </TouchableOpacity>
             </View>
             {payingBooking && (
@@ -532,13 +563,14 @@ export default function BookingsScreen() {
                 key={option.id}
                 style={styles.paymentOption}
                 onPress={() => payingBooking && goToPayment(payingBooking, option.route)}
+                activeOpacity={PRESS_OPACITY}
               >
-                <PaymentLogo method={option.id} size={36} />
+                <PaymentLogo method={option.id} size={40} />
                 <View style={styles.paymentOptionInfo}>
                   <Text style={styles.paymentOptionName}>{option.name}</Text>
                   <Text style={styles.paymentOptionSubtitle}>{option.subtitle}</Text>
                 </View>
-                <Ionicons name="chevron-forward" size={20} color={COLORS.gray} />
+                <Ionicons name="chevron-forward" size={20} color={THEME_COLORS.textMuted} />
               </TouchableOpacity>
             ))}
           </View>
@@ -554,10 +586,11 @@ export default function BookingsScreen() {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalSheet}>
+            <View style={styles.sheetHandle} />
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Đổi lịch thuê xe</Text>
-              <TouchableOpacity onPress={closeReschedule}>
-                <Ionicons name="close" size={24} color={COLORS.black} />
+              <TouchableOpacity style={styles.closeButton} onPress={closeReschedule} activeOpacity={PRESS_OPACITY}>
+                <Ionicons name="close" size={20} color={THEME_COLORS.textSecondary} />
               </TouchableOpacity>
             </View>
 
@@ -566,10 +599,14 @@ export default function BookingsScreen() {
                 <Text style={styles.modalSubtitle}>{reschedulingBooking.carName}</Text>
 
                 <Text style={styles.inputLabel}>Ngày nhận xe</Text>
-                <TouchableOpacity style={styles.locationInput} onPress={() => setShowDatePicker(true)}>
-                  <Ionicons name="calendar" size={20} color={COLORS.primary} />
+                <TouchableOpacity
+                  style={[styles.dateInput, showDatePicker && styles.dateInputFocused]}
+                  onPress={() => setShowDatePicker(true)}
+                  activeOpacity={PRESS_OPACITY}
+                >
+                  <Ionicons name="calendar-outline" size={20} color={THEME_COLORS.primary} />
                   <Text style={styles.dateValueText}>{formatDate(newPickupDate, "long")}</Text>
-                  <Ionicons name="chevron-down" size={20} color={COLORS.gray} />
+                  <Ionicons name="chevron-down" size={20} color={THEME_COLORS.textMuted} />
                 </TouchableOpacity>
 
                 {showDatePicker && (
@@ -582,39 +619,55 @@ export default function BookingsScreen() {
                   />
                 )}
 
-                <Text style={[styles.inputLabel, { marginTop: 16 }]}>Thời gian thuê</Text>
+                <Text style={[styles.inputLabel, styles.inputLabelSpaced]}>Thời gian thuê</Text>
                 <View style={styles.stepper}>
                   <TouchableOpacity
                     style={[styles.stepperButton, newDuration <= MIN_DURATION && styles.stepperButtonDisabled]}
                     onPress={() => setNewDuration(d => Math.max(MIN_DURATION, d - 1))}
                     disabled={newDuration <= MIN_DURATION}
+                    activeOpacity={PRESS_OPACITY}
                   >
-                    <Ionicons name="remove" size={20} color={COLORS.white} />
+                    <Ionicons
+                      name="remove"
+                      size={20}
+                      color={newDuration <= MIN_DURATION ? THEME_COLORS.textMuted : THEME_COLORS.primary}
+                    />
                   </TouchableOpacity>
                   <Text style={styles.stepperValue}>{newDuration} ngày</Text>
                   <TouchableOpacity
                     style={[styles.stepperButton, newDuration >= MAX_DURATION && styles.stepperButtonDisabled]}
                     onPress={() => setNewDuration(d => Math.min(MAX_DURATION, d + 1))}
                     disabled={newDuration >= MAX_DURATION}
+                    activeOpacity={PRESS_OPACITY}
                   >
-                    <Ionicons name="add" size={20} color={COLORS.white} />
+                    <Ionicons
+                      name="add"
+                      size={20}
+                      color={newDuration >= MAX_DURATION ? THEME_COLORS.textMuted : THEME_COLORS.primary}
+                    />
                   </TouchableOpacity>
                 </View>
 
                 <View style={styles.reschedulePrice}>
-                  <Text style={styles.paymentText}>Tổng tiền mới</Text>
+                  <Text style={styles.reschedulePriceLabel}>Tổng tiền mới</Text>
                   <Text style={styles.reschedulePriceValue}>{formatCurrency(reschedulePreviewPrice)}</Text>
                 </View>
                 {reschedulePriceDiff !== 0 && (
-                  <Text style={[styles.priceDiffText, { color: reschedulePriceDiff > 0 ? "#ff4444" : "#00bb02" }]}>
+                  <Text
+                    style={[
+                      styles.priceDiffText,
+                      { color: reschedulePriceDiff > 0 ? THEME_COLORS.danger : THEME_COLORS.success },
+                    ]}
+                  >
                     {reschedulePriceDiff > 0 ? "Tăng" : "Giảm"} {formatCurrency(Math.abs(reschedulePriceDiff))} so với giá hiện tại
                   </Text>
                 )}
 
                 <TouchableOpacity
-                  style={[styles.confirmButton, saving && { opacity: 0.6 }]}
+                  style={[styles.confirmButton, saving && styles.disabledButton]}
                   onPress={confirmReschedule}
                   disabled={saving}
+                  activeOpacity={PRESS_OPACITY}
                 >
                   <Text style={styles.confirmButtonText}>{saving ? "Đang lưu..." : "Xác nhận đổi lịch"}</Text>
                 </TouchableOpacity>
@@ -627,403 +680,372 @@ export default function BookingsScreen() {
   )
 }
 
+// Thanh tab nổi: cao 72 + cách đáy 20 → chừa ~120px để thẻ cuối không bị che
+const TAB_BAR_CLEARANCE = 120
+
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    backgroundColor: "#ededed",
+    ...UI.screen,
   },
   header: {
-    paddingHorizontal: 20,
-    paddingVertical: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: "#e0e0e0",
+    paddingHorizontal: SPACE.screen,
+    paddingTop: SPACE.lg,
+    paddingBottom: SPACE.sm,
   },
   title: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "#000000",
+    ...TYPOGRAPHY.h1,
   },
   tabContainer: {
     flexDirection: "row",
-    backgroundColor: "#f8f9fa",
-    marginHorizontal: 20,
-    marginTop: 20,
-    borderRadius: 8,
-    padding: 4,
+    backgroundColor: THEME_COLORS.surfaceMuted,
+    borderWidth: 1,
+    borderColor: THEME_COLORS.border,
+    marginHorizontal: SPACE.screen,
+    marginTop: SPACE.lg,
+    borderRadius: RADIUS.control,
+    padding: SPACE.xs,
   },
   tab: {
     flex: 1,
-    paddingVertical: 12,
+    height: 40,
     alignItems: "center",
-    borderRadius: 6,
+    justifyContent: "center",
+    borderRadius: 9,
+    paddingHorizontal: SPACE.xs,
   },
   activeTab: {
-    backgroundColor: "#4169e1",
+    backgroundColor: THEME_COLORS.surface,
+    ...SHADOWS.card,
   },
   tabText: {
     fontSize: 13,
-    fontWeight: "600",
-    color: "#666666",
+    fontWeight: "500",
+    color: THEME_COLORS.textSecondary,
   },
   activeTabText: {
-    color: "#ffffff",
+    color: THEME_COLORS.primary,
+    fontWeight: "700",
   },
   content: {
     flex: 1,
-    paddingHorizontal: 20,
-    paddingTop: 20,
+  },
+  contentContainer: {
+    paddingHorizontal: SPACE.screen,
+    paddingTop: SPACE.xl,
+    paddingBottom: TAB_BAR_CLEARANCE,
+  },
+  listContainer: {
+    gap: SPACE.lg,
   },
   bookingCard: {
+    ...UI.card,
+    padding: SPACE.lg,
+  },
+  cardTop: {
     flexDirection: "row",
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
+    alignItems: "center",
+  },
+  carImageBox: {
+    width: 104,
+    height: 84,
+    borderRadius: RADIUS.control,
+    backgroundColor: THEME_COLORS.surfaceMuted,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: SPACE.lg,
+    overflow: "hidden",
   },
   carImage: {
-    width: 100,
-    height: 80,
-    borderRadius: 8,
-    marginRight: 16,
+    width: "90%",
+    height: "90%",
   },
   bookingInfo: {
     flex: 1,
-  },
-  bookingHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "flex-start",
-    marginBottom: 8,
   },
   carName: {
-    fontSize: 18,
-    fontWeight: "bold",
-    flex: 1,
+    ...TYPOGRAPHY.h3,
+    marginBottom: SPACE.sm,
   },
   statusBadge: {
-    paddingHorizontal: 8,
+    paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 12,
-    marginLeft: 8,
-    backgroundColor: "#FFB700",
+    borderRadius: RADIUS.pill,
+    marginBottom: SPACE.sm,
   },
   statusText: {
     fontSize: 12,
-    fontWeight: "600",
-    color: "#ffffff",
+    fontWeight: "700",
   },
   price: {
-    fontSize: 16,
-    fontWeight: "600",
-    marginBottom: 12,
+    ...TYPOGRAPHY.price,
   },
-  locationContainer: {
+  infoBlock: {
+    marginTop: SPACE.lg,
+    paddingTop: SPACE.md,
+    borderTopWidth: 1,
+    borderTopColor: THEME_COLORS.border,
+    gap: SPACE.sm,
+  },
+  infoRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 12,
+    gap: SPACE.sm,
   },
-  locationText: {
+  infoText: {
+    ...TYPOGRAPHY.bodyStrong,
     flex: 1,
     fontSize: 14,
-    marginLeft: 8,
-    color: "#333333",
+    fontWeight: "500",
+  },
+  paymentInfo: {
+    marginTop: SPACE.xs,
+  },
+  paymentText: {
+    ...TYPOGRAPHY.caption,
+    color: THEME_COLORS.textSecondary,
+  },
+  transactionId: {
+    ...TYPOGRAPHY.caption,
+    fontSize: 12,
+    marginTop: 2,
+  },
+  actions: {
+    marginTop: SPACE.lg,
+    gap: SPACE.sm,
   },
   actionButtons: {
     flexDirection: "row",
-    gap: 12,
+    gap: SPACE.sm,
+  },
+  payNowButton: {
+    ...UI.primaryButton,
+    height: 44,
+    flexDirection: "row",
+    gap: SPACE.sm,
+  },
+  payNowButtonText: {
+    ...UI.primaryButtonText,
+    fontSize: 15,
   },
   modifyButton: {
+    ...UI.secondaryButton,
     flex: 1,
-    backgroundColor: "#FFB700",
-    paddingVertical: 8,
-    borderRadius: 6,
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#4169e1",
+    height: 44,
+    flexDirection: "row",
+    gap: 6,
+    paddingHorizontal: SPACE.md,
   },
   modifyButtonText: {
-    color: "#4169e1",
+    ...UI.secondaryButtonText,
     fontSize: 14,
-    fontWeight: "600",
   },
   cancelButton: {
     flex: 1,
-    backgroundColor: "#fff5f5",
-    paddingVertical: 8,
-    borderRadius: 6,
+    height: 44,
+    flexDirection: "row",
+    gap: 6,
     alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#ff4444",
+    justifyContent: "center",
+    paddingHorizontal: SPACE.md,
+    borderRadius: RADIUS.control,
+    backgroundColor: THEME_COLORS.dangerSoft,
   },
   cancelButtonText: {
-    color: "#ff4444",
+    color: THEME_COLORS.danger,
     fontSize: 14,
     fontWeight: "600",
   },
   emptyState: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 40,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: SPACE["4xl"],
+    paddingBottom: TAB_BAR_CLEARANCE,
+  },
+  emptyIcon: {
+    width: 96,
+    height: 96,
+    borderRadius: RADIUS.pill,
+    backgroundColor: THEME_COLORS.primarySoft,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: SPACE.xl,
   },
   emptyTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: "#000000",
-    marginTop: 20,
-    marginBottom: 8,
+    ...TYPOGRAPHY.h2,
+    marginBottom: SPACE.sm,
+    textAlign: "center",
   },
   emptyText: {
-    fontSize: 16,
-    color: "#666666",
-    textAlign: 'center',
-    marginBottom: 32,
+    ...TYPOGRAPHY.body,
+    textAlign: "center",
+    marginBottom: SPACE.section,
   },
   startButton: {
-    backgroundColor: "#4169e1",
-    paddingVertical: 16,
-    paddingHorizontal: 32,
-    borderRadius: 12,
+    ...UI.primaryButton,
+    alignSelf: "stretch",
   },
   startButtonText: {
-    color: "#ffffff",
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  section: {
-    backgroundColor: "#ffffff",
-    borderRadius: 12,
-    padding: 20,
-    marginHorizontal: 20,
-    marginTop: 20,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#000000",
-    marginBottom: 16,
-  },
-  inputGroup: {
-    marginBottom: 16,
-  },
-  inputLabel: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#333333",
-    marginBottom: 8,
-  },
-  locationInput: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#f1f1f1",
-    borderRadius: 8,
-    padding: 12,
-  },
-  durationContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 24,
-  },
-  durationBox: {
-    width: '23%',
-    aspectRatio: 0.7,
-    backgroundColor: "#ffffff",
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "#e0e0e0",
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 12,
-  },
-  selectedDurationBox: {
-    backgroundColor: "#4169e1",
-    borderColor: "#4169e1",
-  },
-  durationDays: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: "#000000",
-    marginBottom: 4,
-  },
-  durationLabel: {
-    fontSize: 14,
-    color: "#666666",
-    marginBottom: 8,
-  },
-  durationPrice: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: "#4169e1",
-  },
-  selectedDurationText: {
-    color: "#ffffff",
-  },
-  paymentInfo: {
-    marginBottom: 12,
-  },
-  paymentText: {
-    fontSize: 14,
-    color: "#666666",
-  },
-  transactionId: {
-    fontSize: 12,
-    color: "#999999",
-  },
-  carImagePlaceholder: {
-    backgroundColor: "#f1f1f1",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  payNowButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
-    backgroundColor: "#ffffff",
-    paddingVertical: 8,
-    borderRadius: 6,
-    marginBottom: 12,
-  },
-  payNowButtonText: {
-    color: "#4169e1",
-    fontSize: 14,
-    fontWeight: "700",
+    ...UI.primaryButtonText,
   },
   tabEmpty: {
     alignItems: "center",
-    paddingVertical: 48,
-    paddingHorizontal: 20,
+    paddingVertical: SPACE["4xl"],
+    paddingHorizontal: SPACE.screen,
+  },
+  tabEmptyIcon: {
+    width: 72,
+    height: 72,
+    borderRadius: RADIUS.pill,
+    backgroundColor: THEME_COLORS.surfaceMuted,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: SPACE.lg,
   },
   tabEmptyText: {
-    fontSize: 15,
-    color: "#666666",
+    ...TYPOGRAPHY.body,
     textAlign: "center",
-    marginTop: 12,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.5)",
+    backgroundColor: "rgba(15, 23, 42, 0.45)",
     justifyContent: "flex-end",
   },
   modalSheet: {
-    backgroundColor: "#ffffff",
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingHorizontal: 20,
-    paddingBottom: 32,
+    backgroundColor: THEME_COLORS.surface,
+    borderTopLeftRadius: RADIUS.sheet,
+    borderTopRightRadius: RADIUS.sheet,
+    paddingHorizontal: SPACE.screen,
+    paddingTop: SPACE.sm,
+    paddingBottom: SPACE["4xl"],
     maxHeight: "90%",
+    ...SHADOWS.raised,
+  },
+  sheetHandle: {
+    alignSelf: "center",
+    width: 40,
+    height: 4,
+    borderRadius: RADIUS.pill,
+    backgroundColor: THEME_COLORS.borderStrong,
+    marginBottom: SPACE.sm,
   },
   modalHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingTop: 20,
-    paddingBottom: 8,
+    paddingTop: SPACE.sm,
+    paddingBottom: SPACE.xs,
+    gap: SPACE.md,
   },
   modalTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#000000",
+    ...TYPOGRAPHY.h2,
+    flex: 1,
+  },
+  closeButton: {
+    width: 36,
+    height: 36,
+    borderRadius: RADIUS.pill,
+    backgroundColor: THEME_COLORS.surfaceMuted,
+    alignItems: "center",
+    justifyContent: "center",
   },
   modalSubtitle: {
+    ...TYPOGRAPHY.body,
     fontSize: 14,
-    color: "#666666",
-    marginBottom: 16,
+    marginBottom: SPACE.xl,
   },
   paymentOption: {
+    ...UI.card,
     flexDirection: "row",
     alignItems: "center",
-    padding: 16,
-    borderWidth: 1,
-    borderColor: "#e0e0e0",
-    borderRadius: 12,
-    marginBottom: 12,
+    padding: SPACE.lg,
+    borderRadius: RADIUS.control,
+    marginBottom: SPACE.md,
   },
   paymentOptionInfo: {
     flex: 1,
-    marginLeft: 12,
+    marginLeft: SPACE.md,
   },
   paymentOptionName: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#000000",
+    ...TYPOGRAPHY.bodyStrong,
   },
   paymentOptionSubtitle: {
-    fontSize: 12,
-    color: "#666666",
+    ...TYPOGRAPHY.caption,
     marginTop: 2,
   },
+  inputLabel: {
+    ...TYPOGRAPHY.overline,
+    marginBottom: SPACE.sm,
+  },
+  inputLabelSpaced: {
+    marginTop: SPACE.xl,
+  },
+  dateInput: {
+    ...DATE_INPUT_BOX,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  dateInputFocused: {
+    ...UI.inputFocused,
+  },
   dateValueText: {
+    ...TYPOGRAPHY.bodyStrong,
     flex: 1,
-    marginLeft: 12,
-    fontSize: 15,
-    color: "#000000",
+    marginLeft: SPACE.md,
   },
   stepper: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: "#f1f1f1",
-    borderRadius: 8,
-    padding: 8,
+    borderWidth: 1,
+    borderColor: THEME_COLORS.border,
+    borderRadius: RADIUS.control,
+    padding: 6,
   },
   stepperButton: {
     width: 40,
     height: 40,
-    borderRadius: 20,
-    backgroundColor: "#4169e1",
+    borderRadius: 10,
+    backgroundColor: THEME_COLORS.primarySoft,
     alignItems: "center",
     justifyContent: "center",
   },
   stepperButtonDisabled: {
-    backgroundColor: "#cccccc",
+    backgroundColor: THEME_COLORS.surfaceMuted,
   },
   stepperValue: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#000000",
+    ...TYPOGRAPHY.h3,
   },
   reschedulePrice: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginTop: 20,
+    marginTop: SPACE["2xl"],
+    paddingTop: SPACE.lg,
+    borderTopWidth: 1,
+    borderTopColor: THEME_COLORS.border,
+  },
+  reschedulePriceLabel: {
+    ...TYPOGRAPHY.body,
   },
   reschedulePriceValue: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#4169e1",
+    ...TYPOGRAPHY.price,
+    fontSize: 20,
   },
   priceDiffText: {
-    fontSize: 13,
-    marginTop: 4,
+    ...TYPOGRAPHY.caption,
+    marginTop: SPACE.xs,
     textAlign: "right",
   },
   confirmButton: {
-    backgroundColor: "#FFB700",
-    paddingVertical: 14,
-    borderRadius: 12,
-    alignItems: "center",
-    marginTop: 20,
+    ...UI.primaryButton,
+    marginTop: SPACE["2xl"],
+  },
+  disabledButton: {
+    opacity: 0.6,
   },
   confirmButtonText: {
-    color: "#ffffff",
-    fontSize: 16,
-    fontWeight: "600",
+    ...UI.primaryButtonText,
   },
 })

@@ -1,7 +1,8 @@
-PROFILE:"use client"
+"use client"
 
 import { useState } from "react"
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Modal, Image } from "react-native"
+import { StatusBar } from "expo-status-bar"
 import { SafeAreaView } from "react-native-safe-area-context"
 import { Ionicons } from "@expo/vector-icons"
 import { router } from "expo-router"
@@ -14,6 +15,7 @@ import { db } from "../../config/firebase"
 import { useFocusEffect } from "expo-router";
 import { useCallback } from "react";
 import { formatDate } from "../../utils/helpers";
+import { PRESS_OPACITY, RADIUS, SHADOWS, SPACE, THEME_COLORS, TYPOGRAPHY, UI } from "../../utils/theme";
 
 // createdAt có thể là Firestore Timestamp, Date, chuỗi hoặc số
 const formatMemberSince = (createdAt: any): string => {
@@ -112,76 +114,94 @@ export default function ProfileScreen() {
   }
 
 
-  const renderMenuItem = (item: any) => (
-    <TouchableOpacity key={item.id} style={styles.menuItem} onPress={() => router.push(item.route)}>
-      <View style={styles.menuItemLeft}>
-        <View style={styles.menuItemIconContainer}>
-          <Ionicons name={item.icon as any} size={22} color="#FFB700" />
+  // Nhóm menu theo chức năng (chỉ bố cục — giữ nguyên các mục & route)
+  const menuGroups = [
+    { title: "Tài khoản", ids: [1, 2, 3] },
+    { title: "Hoạt động", ids: [4] },
+    { title: "Ứng dụng", ids: [5, 6] },
+  ]
+
+  const renderMenuItem = (item: any, index: number) => (
+    <View key={item.id}>
+      {index > 0 && <View style={styles.menuDivider} />}
+      <TouchableOpacity
+        style={styles.menuItem}
+        onPress={() => router.push(item.route)}
+        activeOpacity={PRESS_OPACITY}
+      >
+        <View style={styles.menuItemLeft}>
+          <View style={styles.menuItemIconContainer}>
+            <Ionicons name={item.icon as any} size={20} color={THEME_COLORS.textSecondary} />
+          </View>
+          <Text style={styles.menuItemText}>{item.title}</Text>
         </View>
-        <Text style={styles.menuItemText}>{item.title}</Text>
-      </View>
-      <Ionicons name="chevron-forward" size={20} color="#FFB700" />
-    </TouchableOpacity>
+        <Ionicons name="chevron-forward" size={18} color={THEME_COLORS.textMuted} />
+      </TouchableOpacity>
+    </View>
   )
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView showsVerticalScrollIndicator={false}>
+    <SafeAreaView style={styles.container} edges={["top"]}>
+      <StatusBar style="dark" />
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         {/* Header */}
         <View style={styles.header}>
           <Text style={styles.title}>Tài khoản</Text>
           {isAdmin && (
-            <TouchableOpacity style={styles.adminButton} onPress={() => router.push("/admin")}>
-              <Ionicons name="settings" size={20} color="#ffffff" />
+            <TouchableOpacity
+              style={styles.adminButton}
+              onPress={() => router.push("/admin")}
+              activeOpacity={PRESS_OPACITY}
+            >
+              <Ionicons name="settings-outline" size={16} color={THEME_COLORS.primary} />
               <Text style={styles.adminButtonText}>Quản trị</Text>
             </TouchableOpacity>
           )}
         </View>
 
-        {/* User Info Card - removed avatar */}
+        {/* Thông tin người dùng */}
         <View style={styles.userCard}>
-          <View style={styles.userCardContent}>
-            <TouchableOpacity
-              style={styles.avatarContainer}
-              onPress={() => router.push("/profile/personal-info")}
-            >
-              <Image
-                source={{ uri: userProfile.avatar }}
-                style={styles.avatar}
-              />
-              <View style={styles.editAvatarButton}>
-                <Ionicons name="camera" size={14} color="#FFB700" />
-              </View>
-            </TouchableOpacity>
-            <View style={styles.userInfo}>
-              <Text style={styles.userName}>{userProfile.name}</Text>
-              <Text style={styles.userEmail}>{userProfile.email}</Text>
-              <Text style={styles.userPhone}>{userProfile.phone}</Text>
+          <TouchableOpacity
+            style={styles.avatarContainer}
+            onPress={() => router.push("/profile/personal-info")}
+            activeOpacity={PRESS_OPACITY}
+          >
+            <Image source={{ uri: userProfile.avatar }} style={styles.avatar} />
+            <View style={styles.editAvatarButton}>
+              <Ionicons name="camera" size={13} color={THEME_COLORS.textSecondary} />
             </View>
+          </TouchableOpacity>
+          <View style={styles.userInfo}>
+            <Text style={styles.userName} numberOfLines={1}>{userProfile.name}</Text>
+            <Text style={styles.userEmail} numberOfLines={1}>{userProfile.email}</Text>
+            <Text style={styles.userPhone} numberOfLines={1}>{userProfile.phone}</Text>
           </View>
-          <TouchableOpacity style={styles.editButton} onPress={() => router.push("/profile/personal-info")}>
-            <Ionicons name="pencil" size={20} color="#4169e1" />
+          <TouchableOpacity
+            style={styles.editButton}
+            onPress={() => router.push("/profile/personal-info")}
+            activeOpacity={PRESS_OPACITY}
+          >
+            <Ionicons name="pencil" size={18} color={THEME_COLORS.primary} />
           </TouchableOpacity>
         </View>
 
         {/* Menu Items */}
-        <View style={styles.menuContainer}>{menuItems.map(renderMenuItem)}</View>
+        {menuGroups.map((group) => (
+          <View key={group.title} style={styles.menuSection}>
+            <Text style={styles.sectionLabel}>{group.title}</Text>
+            <View style={styles.menuContainer}>
+              {menuItems.filter((m) => group.ids.includes(m.id)).map(renderMenuItem)}
+            </View>
+          </View>
+        ))}
 
         {/* Action Buttons */}
         <View style={styles.actionContainer}>
-          <TouchableOpacity
-            style={styles.logoutButton}
-            onPress={handleLogout}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="log-out-outline" size={24} color="#ffffff" />
+          <TouchableOpacity style={styles.logoutButton} onPress={handleLogout} activeOpacity={PRESS_OPACITY}>
+            <Ionicons name="log-out-outline" size={20} color={THEME_COLORS.danger} />
             <Text style={styles.logoutButtonText}>Đăng xuất</Text>
           </TouchableOpacity>
-
         </View>
-
-        {/* Add bottom spacer */}
-        <View style={styles.bottomSpacer} />
       </ScrollView>
 
       {/* Logout Confirmation Modal */}
@@ -193,18 +213,23 @@ export default function ProfileScreen() {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
+            <View style={styles.modalIcon}>
+              <Ionicons name="log-out-outline" size={24} color={THEME_COLORS.danger} />
+            </View>
             <Text style={styles.modalTitle}>Đăng xuất</Text>
             <Text style={styles.modalMessage}>Bạn có chắc muốn đăng xuất không?</Text>
             <View style={styles.modalButtons}>
               <TouchableOpacity
                 style={[styles.modalButton, styles.cancelButton]}
                 onPress={() => setLogoutModalVisible(false)}
+                activeOpacity={PRESS_OPACITY}
               >
                 <Text style={styles.cancelButtonText}>Huỷ</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.modalButton, styles.confirmButton]}
                 onPress={confirmLogout}
+                activeOpacity={PRESS_OPACITY}
               >
                 <Text style={styles.confirmButtonText}>Đăng xuất</Text>
               </TouchableOpacity>
@@ -218,267 +243,210 @@ export default function ProfileScreen() {
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    backgroundColor: "#1054CF",
+    ...UI.screen,
+  },
+  scrollContent: {
+    paddingHorizontal: SPACE.screen,
+    // chừa chỗ cho thanh tab nổi (cao 80 + cách đáy 20) + khoảng thở
+    paddingBottom: 80 + 20 + SPACE["2xl"],
   },
   header: {
-    backgroundColor: "transparent",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 15,
+    paddingTop: SPACE.xl,
+    paddingBottom: SPACE["2xl"],
   },
   title: {
-    fontSize: 28,
-    fontWeight: "bold",
-    color: "#ffffff",
+    ...TYPOGRAPHY.h1,
   },
   adminButton: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(255, 183, 0, 0.2)",
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    gap: 8,
-    borderWidth: 1,
-    borderColor: "#FFB700",
+    gap: 6,
+    height: 36,
+    paddingHorizontal: SPACE.md,
+    borderRadius: RADIUS.control,
+    backgroundColor: THEME_COLORS.primarySoft,
   },
   adminButtonText: {
-    color: "#FFB700",
+    color: THEME_COLORS.primary,
     fontSize: 14,
     fontWeight: "600",
   },
   userCard: {
-    backgroundColor: "rgba(255, 183, 0, 0.1)",
-    margin: 20,
-    padding: 20,
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: "#FFB700",
-  },
-  userCardContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
+    ...UI.card,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SPACE.lg,
+    padding: SPACE.xl,
   },
   avatarContainer: {
-    position: 'relative',
+    position: "relative",
   },
   avatar: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    borderWidth: 2,
-    borderColor: "#FFB700",
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    borderWidth: 1,
+    borderColor: THEME_COLORS.border,
+    backgroundColor: THEME_COLORS.surfaceMuted,
   },
   editAvatarButton: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 0,
     right: 0,
-    backgroundColor: 'rgba(255, 183, 0, 0.2)',
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    justifyContent: 'center',
-    alignItems: 'center',
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: THEME_COLORS.surface,
     borderWidth: 1,
-    borderColor: '#FFB700',
-  },
-  userInfo: {
+    borderColor: THEME_COLORS.border,
+    justifyContent: "center",
     alignItems: "center",
   },
+  userInfo: {
+    flex: 1,
+  },
   userName: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "#ffffff",
-    marginTop: 12,
-    marginBottom: 4,
+    ...TYPOGRAPHY.h2,
+    marginBottom: SPACE.xs,
   },
   userEmail: {
-    fontSize: 14,
-    color: "#ffffff",
-    opacity: 0.9,
+    ...TYPOGRAPHY.caption,
     marginBottom: 2,
   },
   userPhone: {
-    fontSize: 14,
-    color: "#ffffff",
-    opacity: 0.9,
-    marginBottom: 12,
+    ...TYPOGRAPHY.caption,
   },
-  adminBadge: {
-    backgroundColor: "#FFB700",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+  editButton: {
+    width: 40,
+    height: 40,
     borderRadius: 20,
-    marginBottom: 16,
-  },
-  adminBadgeText: {
-    color: "#ffffff",
-    fontSize: 12,
-    fontWeight: "600",
-  },
-  userStats: {
-    flexDirection: "row",
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
-    borderRadius: 16,
-    padding: 16,
-    marginTop: 16,
-  },
-  statItem: {
-    flex: 1,
+    backgroundColor: THEME_COLORS.primarySoft,
+    justifyContent: "center",
     alignItems: "center",
   },
-  statValue: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#FFB700",
-    marginBottom: 4,
+  menuSection: {
+    marginTop: SPACE["3xl"],
   },
-  statLabel: {
-    fontSize: 12,
-    color: "#ffffff",
-    opacity: 0.9,
+  sectionLabel: {
+    ...TYPOGRAPHY.overline,
+    marginBottom: SPACE.md,
+    marginLeft: SPACE.xs,
   },
   menuContainer: {
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
-    marginHorizontal: 20,
-    borderRadius: 24,
-    overflow: "hidden",
-    borderWidth: 1,
-    borderColor: "#FFB700",
+    ...UI.card,
+    paddingVertical: SPACE.xs,
   },
   menuItem: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: "rgba(255, 255, 255, 0.1)",
+    paddingVertical: 14,
+    paddingHorizontal: SPACE.lg,
+  },
+  menuDivider: {
+    ...UI.divider,
+    // thụt lề bằng chiều rộng ô icon + khoảng cách
+    marginLeft: SPACE.lg + 40 + SPACE.md,
   },
   menuItemLeft: {
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
-    gap: 16,
+    gap: SPACE.md,
   },
   menuItemIconContainer: {
     width: 40,
     height: 40,
-    borderRadius: 12,
-    backgroundColor: "rgba(255, 183, 0, 0.15)",
+    borderRadius: 20,
+    backgroundColor: THEME_COLORS.surfaceMuted,
     justifyContent: "center",
     alignItems: "center",
   },
   menuItemText: {
-    fontSize: 16,
-    color: "#ffffff",
-    fontWeight: "500",
+    ...TYPOGRAPHY.bodyStrong,
+    flexShrink: 1,
   },
   actionContainer: {
-    padding: 20,
+    marginTop: SPACE["3xl"],
   },
   logoutButton: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(255, 59, 48, 0.2)",
-    paddingVertical: 16,
-    borderRadius: 16,
-    gap: 12,
-    borderWidth: 1,
-    borderColor: "#FF3B30",
+    gap: SPACE.sm,
+    height: 52,
+    borderRadius: RADIUS.control,
+    backgroundColor: THEME_COLORS.dangerSoft,
   },
   logoutButtonText: {
-    color: "#FF3B30",
+    color: THEME_COLORS.danger,
     fontSize: 16,
     fontWeight: "600",
   },
-  modalContent: {
-    backgroundColor: "#1054CF",
-    borderRadius: 24,
-    padding: 24,
-    width: '100%',
-    maxWidth: 340,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: "#FFB700",
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#ffffff',
-    marginBottom: 12,
-  },
-  modalMessage: {
-    fontSize: 16,
-    color: '#ffffff',
-    opacity: 0.9,
-    marginBottom: 24,
-    textAlign: 'center',
-  },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
+    backgroundColor: "rgba(15, 23, 42, 0.45)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: SPACE.screen,
+  },
+  modalContent: {
+    backgroundColor: THEME_COLORS.surface,
+    borderRadius: RADIUS.sheet,
+    padding: SPACE["2xl"],
+    width: "100%",
+    maxWidth: 340,
+    alignItems: "center",
+    ...SHADOWS.raised,
+  },
+  modalIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: THEME_COLORS.dangerSoft,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: SPACE.lg,
+  },
+  modalTitle: {
+    ...TYPOGRAPHY.h2,
+    marginBottom: SPACE.sm,
+  },
+  modalMessage: {
+    ...TYPOGRAPHY.body,
+    textAlign: "center",
+    marginBottom: SPACE["2xl"],
   },
   modalButtons: {
-    flexDirection: 'row',
-    gap: 12,
-    width: '100%',
-    justifyContent: 'space-between',
-    marginTop: 8,
+    flexDirection: "row",
+    gap: SPACE.md,
+    width: "100%",
   },
   modalButton: {
     flex: 1,
-    paddingVertical: 12,
-    borderRadius: 12,
-    alignItems: 'center',
+    height: 48,
+    borderRadius: RADIUS.control,
+    alignItems: "center",
+    justifyContent: "center",
   },
   cancelButton: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: THEME_COLORS.surface,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
+    borderColor: THEME_COLORS.border,
   },
   confirmButton: {
-    backgroundColor: '#FFB700',
+    backgroundColor: THEME_COLORS.dangerSoft,
   },
   cancelButtonText: {
-    color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '600',
+    ...UI.secondaryButtonText,
+    fontSize: 15,
   },
   confirmButtonText: {
-    color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  editButton: {
-    position: 'absolute',
-    right: 20,
-    top: 20,
-    backgroundColor: 'rgba(255, 183, 0, 0.2)',
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#FFB700',
-  },
-  statDivider: {
-    width: 1,
-    height: '70%',
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    marginHorizontal: 16,
-  },
-  bottomSpacer: {
-    height: 150, // Adjust this value based on your tab bar height
+    color: THEME_COLORS.danger,
+    fontSize: 15,
+    fontWeight: "600",
   },
 })
-

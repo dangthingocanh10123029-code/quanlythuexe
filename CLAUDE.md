@@ -59,6 +59,18 @@ AsyncStorage: `rento:readNotificationIds` (thông báo demo đã đọc).
 - Màn đặt xe ở `bookings.tsx` vẫn chấp nhận `payment.method` cũ ("GCash", "PayPal", "Credit Card") để hiển thị đơn cũ.
 - Tên thành viên trong `app/developers.tsx` giữ nguyên (ghi công tác giả gốc).
 
+## Hệ thống thiết kế ("Layered & Depth")
+Mọi token nằm ở `utils/theme.ts` — dùng token, không hard-code màu/bóng:
+- Nền mọi màn `#FFFFFF` (`UI.screen`); header trắng, ngăn cách bằng `UI.divider` hoặc khoảng trắng. Không dùng nền xám/xanh toàn màn.
+- Thẻ nội dung: `...UI.card` (viền 1px `#E5E7EB`, bo 16, `SHADOWS.card` — bóng đa lớp bằng `boxShadow`, cần New Architecture đang bật). Modal/bottom sheet: bo `RADIUS.sheet`, `SHADOWS.raised`, lớp phủ `rgba(15,23,42,0.45)`.
+- Điều khiển (ô nhập, chip lọc, nút) bo **12px** (`RADIUS.control`). Ô nhập `UI.input` + `UI.inputFocused` khi focus (state `focusedField`). Chip `UI.chip`/`UI.chipActive`.
+- Nút: Primary `UI.primaryButton` (nâng nhẹ `SHADOWS.primaryButton`, tối đa 1–2 nút/màn); phụ `UI.secondaryButton` (phẳng, viền); nguy hiểm nền `dangerSoft` chữ `danger`. `activeOpacity={PRESS_OPACITY}`.
+- Chữ: `TYPOGRAPHY.h1/h2/h3/body/caption/overline/price`; màu chữ chỉ 3 cấp `textPrimary`/`textSecondary`/`textMuted`.
+- Khoảng trắng: lề màn `SPACE.screen` (20), giữa các khu vực `SPACE.section` (32). Màn trong tab chừa `paddingBottom` ~120 cho thanh tab nổi.
+- Badge trạng thái: nền soft + chữ cùng tông, bo `RADIUS.pill`.
+- Không dùng `shadowColor/shadowOpacity/elevation` (đã thay bằng `boxShadow`). Kiểu: `UI.input` là `TextStyle`, `UI.inputFocused` là `ViewStyle` → cần ép kiểu khi áp lên `View`/`TextInput` khác loại.
+- Màu thương hiệu thanh toán (MoMo `#A50064`, ZaloPay `#0068FF`) chỉ dùng cho logo/điểm nhấn/nút thanh toán của màn đó.
+
 ## Lưu ý / bẫy
 - `BOOKING_STATUS` và `useBookings` dùng chữ thường còn dữ liệu lưu viết hoa — so sánh không phân biệt hoa thường.
 - Trang quản trị không dùng Firebase Auth admin thật (chỉ mật khẩu cứng); nếu Firestore rules chặn đọc `users`/`bookings` thì danh sách admin sẽ rỗng.

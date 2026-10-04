@@ -1,4 +1,5 @@
 import { TouchableOpacity, Text, StyleSheet, type ViewStyle, type TextStyle } from "react-native"
+import { PRESS_OPACITY, RADIUS, SPACE, THEME_COLORS, UI } from "../../utils/theme"
 
 interface ButtonProps {
   title: string
@@ -19,128 +20,83 @@ export default function Button({
   style,
   textStyle,
 }: ButtonProps) {
-  const getButtonStyle = () => {
-    const baseStyle: ViewStyle[] = [styles.button, styles[size]]
+  const buttonStyle = [
+    variant === "primary" ? styles.primary : variant === "outline" ? styles.outline : styles.secondary,
+    styles[size],
+    disabled && styles.disabled,
+  ]
 
-    switch (variant) {
-      case "primary":
-        baseStyle.push({ backgroundColor: "#4169e1" })
-        break
-      case "secondary":
-        baseStyle.push({
-          backgroundColor: "#f8f9fa",
-          borderWidth: 1,
-          borderColor: "#e0e0e0",
-        })
-        break
-      case "outline":
-        baseStyle.push({
-          backgroundColor: "transparent",
-          borderWidth: 2,
-          borderColor: "#4169e1",
-        })
-        break
-    }
-
-    if (disabled) {
-      baseStyle.push({ opacity: 0.6 })
-    }
-
-    return baseStyle
-  }
-
-  const getTextStyle = () => {
-    const baseStyle: TextStyle[] = [styles.text, styles[`${size}Text`]]
-
-    switch (variant) {
-      case "primary":
-        baseStyle.push({ color: "#ffffff" })
-        break
-      case "secondary":
-        baseStyle.push({ color: "#333333" })
-        break
-      case "outline":
-        baseStyle.push({ color: "#4169e1" })
-        break
-    }
-
-    if (disabled) {
-      baseStyle.push({ color: "#999999" })
-    }
-
-    return baseStyle
-  }
+  const labelStyle = [
+    variant === "primary" ? styles.primaryText : variant === "outline" ? styles.outlineText : styles.secondaryText,
+    styles[`${size}Text`],
+    disabled && variant !== "primary" && styles.disabledText,
+  ]
 
   return (
     <TouchableOpacity
-      style={[getButtonStyle(), style]}
+      style={[buttonStyle, style]}
       onPress={onPress}
       disabled={disabled}
+      activeOpacity={PRESS_OPACITY}
     >
-      <Text style={[getTextStyle(), textStyle]}>{title}</Text>
+      <Text style={[labelStyle, textStyle]}>{title}</Text>
     </TouchableOpacity>
   )
 }
 
 const styles = StyleSheet.create({
-  button: {
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  // Sizes
-  small: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-  },
-  medium: {
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-  },
-  large: {
-    paddingVertical: 16,
-    paddingHorizontal: 24,
-  },
   // Variants
   primary: {
-    backgroundColor: "#4169e1",
+    ...UI.primaryButton,
   },
   secondary: {
-    backgroundColor: "#f8f9fa",
-    borderWidth: 1,
-    borderColor: "#e0e0e0",
+    ...UI.secondaryButton,
   },
   outline: {
-    backgroundColor: "transparent",
-    borderWidth: 2,
-    borderColor: "#4169e1",
+    ...UI.secondaryButton,
+    borderColor: THEME_COLORS.primary,
   },
   disabled: {
-    opacity: 0.6,
+    opacity: 0.5,
+    boxShadow: "none",
+  },
+  // Sizes (bo góc giữ 12 cho mọi cỡ)
+  small: {
+    height: 40,
+    paddingHorizontal: SPACE.lg,
+    borderRadius: RADIUS.control,
+  },
+  medium: {
+    height: 48,
+    paddingHorizontal: SPACE.xl,
+    borderRadius: RADIUS.control,
+  },
+  large: {
+    height: 52,
+    paddingHorizontal: SPACE["2xl"],
+    borderRadius: RADIUS.control,
   },
   // Text styles
-  text: {
-    fontWeight: "600",
+  primaryText: {
+    ...UI.primaryButtonText,
+  },
+  secondaryText: {
+    ...UI.secondaryButtonText,
+  },
+  outlineText: {
+    ...UI.secondaryButtonText,
+    color: THEME_COLORS.primary,
+  },
+  disabledText: {
+    color: THEME_COLORS.textMuted,
   },
   smallText: {
     fontSize: 14,
   },
   mediumText: {
-    fontSize: 16,
+    fontSize: 15,
   },
   largeText: {
-    fontSize: 18,
-  },
-  primaryText: {
-    color: "#ffffff",
-  },
-  secondaryText: {
-    color: "#333333",
-  },
-  outlineText: {
-    color: "#4169e1",
-  },
-  disabledText: {
-    color: "#999999",
+    fontSize: 16,
   },
 })

@@ -3,12 +3,14 @@
 import { useEffect, useState } from "react"
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Image } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
+import { StatusBar } from "expo-status-bar"
 import { Ionicons } from "@expo/vector-icons"
 import { router } from "expo-router"
 import * as ImagePicker from "expo-image-picker"
 import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore"
 import { db } from "../../config/firebase"
 import { useAuth } from "../../hooks/useAuth"
+import { PRESS_OPACITY, RADIUS, SPACE, THEME_COLORS, TYPOGRAPHY, UI } from "../../utils/theme"
 
 // Ảnh GPLX (base64) lưu ở collection riêng `licenses/{uid}` để không làm phình doc `users`
 const MAX_IMAGE_BYTES = 400 * 1024
@@ -128,28 +130,71 @@ export default function LicenseScreen() {
     }
   }
 
+  // Ảnh mặc định là SVG minh hoạ → coi như "chưa có ảnh" để hiện khung nét đứt
+  const hasImage = (uri: string) => !!uri && !uri.startsWith("data:image/svg+xml")
+
+  const statusTone = licenseInfo.verified
+    ? { bg: THEME_COLORS.successSoft, fg: THEME_COLORS.success }
+    : { bg: THEME_COLORS.warningSoft, fg: THEME_COLORS.warning }
+
+  const renderImageSlot = (type: "front" | "back", label: string, uri: string) => (
+    <View style={styles.imageCard}>
+      <Text style={styles.imageLabel}>{label}</Text>
+      <TouchableOpacity onPress={() => pickImage(type)} activeOpacity={PRESS_OPACITY}>
+        {hasImage(uri) ? (
+          <View>
+            <Image source={{ uri }} style={styles.licenseImage} />
+            <View style={styles.imageOverlay}>
+              <Ionicons name="camera" size={16} color={THEME_COLORS.textPrimary} />
+              <Text style={styles.imageOverlayText}>Cập nhật ảnh</Text>
+            </View>
+          </View>
+        ) : (
+          <View style={styles.emptyImage}>
+            <View style={styles.emptyImageIcon}>
+              <Ionicons name="camera-outline" size={24} color={THEME_COLORS.textSecondary} />
+            </View>
+            <Text style={styles.emptyImageText}>Cập nhật ảnh</Text>
+          </View>
+        )}
+      </TouchableOpacity>
+    </View>
+  )
+
+  const infoRows = [
+    { label: "Số GPLX", value: licenseInfo.licenseNumber },
+    { label: "Có giá trị đến", value: licenseInfo.expiryDate },
+    { label: "Nơi cấp", value: licenseInfo.issuingAuthority },
+    { label: "Hạng", value: licenseInfo.licenseClass },
+  ]
+
   return (
     <SafeAreaView style={styles.container}>
+      <StatusBar style="dark" />
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={24} color="#000000" />
+        <TouchableOpacity style={styles.headerButton} onPress={() => router.back()} activeOpacity={PRESS_OPACITY}>
+          <Ionicons name="arrow-back" size={22} color={THEME_COLORS.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Giấy phép lái xe (GPLX)</Text>
-        <View style={{ width: 24 }} />
+        <View style={{ width: 40 }} />
       </View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Verification Status */}
         <View style={styles.statusCard}>
           <View style={styles.statusHeader}>
-            <Ionicons
-              name={licenseInfo.verified ? "checkmark-circle" : "time"}
-              size={24}
-              color={licenseInfo.verified ? "#00bb02" : "#c2a300"}
-            />
-            <Text style={[styles.statusText, { color: licenseInfo.verified ? "#00bb02" : "#c2a300" }]}>
-              {licenseInfo.verified ? "Đã xác minh" : submitted ? "Đang chờ xác minh" : "Chưa gửi xác minh"}
-            </Text>
+            <View style={[styles.statusIcon, { backgroundColor: statusTone.bg }]}>
+              <Ionicons
+                name={licenseInfo.verified ? "checkmark-circle" : "time"}
+                size={22}
+                color={statusTone.fg}
+              />
+            </View>
+            <View style={[styles.statusBadge, { backgroundColor: statusTone.bg }]}>
+              <Text style={[styles.statusText, { color: statusTone.fg }]}>
+                {licenseInfo.verified ? "Đã xác minh" : submitted ? "Đang chờ xác minh" : "Chưa gửi xác minh"}
+              </Text>
+            </View>
           </View>
           {!licenseInfo.verified && (
             <Text style={styles.statusDescription}>
@@ -163,56 +208,25 @@ export default function LicenseScreen() {
         {/* License Information */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Thông tin GPLX</Text>
-
-          <View style={styles.infoGrid}>
-            <View style={styles.infoItem}>
-              <Text style={styles.infoLabel}>Số GPLX</Text>
-              <Text style={styles.infoValue}>{licenseInfo.licenseNumber}</Text>
-            </View>
-
-            <View style={styles.infoItem}>
-              <Text style={styles.infoLabel}>Có giá trị đến</Text>
-              <Text style={styles.infoValue}>{licenseInfo.expiryDate}</Text>
-            </View>
-
-            <View style={styles.infoItem}>
-              <Text style={styles.infoLabel}>Nơi cấp</Text>
-              <Text style={styles.infoValue}>{licenseInfo.issuingAuthority}</Text>
-            </View>
-
-            <View style={styles.infoItem}>
-              <Text style={styles.infoLabel}>Hạng</Text>
-              <Text style={styles.infoValue}>{licenseInfo.licenseClass}</Text>
-            </View>
+          <View style={styles.infoCard}>
+            {infoRows.map((row, index) => (
+              <View key={row.label}>
+                {index > 0 && <View style={styles.infoDivider} />}
+                <View style={styles.infoItem}>
+                  <Text style={styles.infoLabel}>{row.label}</Text>
+                  <Text style={styles.infoValue}>{row.value}</Text>
+                </View>
+              </View>
+            ))}
           </View>
         </View>
 
         {/* License Images */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Ảnh GPLX</Text>
-
           <View style={styles.imageContainer}>
-            <View style={styles.imageCard}>
-              <Text style={styles.imageLabel}>Mặt trước</Text>
-              <TouchableOpacity onPress={() => pickImage("front")}>
-                <Image source={{ uri: licenseInfo.frontImage }} style={styles.licenseImage} />
-                <View style={styles.imageOverlay}>
-                  <Ionicons name="camera" size={24} color="#ffffff" />
-                  <Text style={styles.imageOverlayText}>Cập nhật ảnh</Text>
-                </View>
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.imageCard}>
-              <Text style={styles.imageLabel}>Mặt sau</Text>
-              <TouchableOpacity onPress={() => pickImage("back")}>
-                <Image source={{ uri: licenseInfo.backImage }} style={styles.licenseImage} />
-                <View style={styles.imageOverlay}>
-                  <Ionicons name="camera" size={24} color="#ffffff" />
-                  <Text style={styles.imageOverlayText}>Cập nhật ảnh</Text>
-                </View>
-              </TouchableOpacity>
-            </View>
+            {renderImageSlot("front", "Mặt trước", licenseInfo.frontImage)}
+            {renderImageSlot("back", "Mặt sau", licenseInfo.backImage)}
           </View>
         </View>
 
@@ -220,31 +234,27 @@ export default function LicenseScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Yêu cầu về ảnh</Text>
           <View style={styles.requirementsList}>
-            <View style={styles.requirementItem}>
-              <Ionicons name="checkmark-circle" size={20} color="#00bb02" />
-              <Text style={styles.requirementText}>Ảnh rõ nét, chất lượng cao</Text>
-            </View>
-            <View style={styles.requirementItem}>
-              <Ionicons name="checkmark-circle" size={20} color="#00bb02" />
-              <Text style={styles.requirementText}>Đọc được toàn bộ thông tin trên GPLX</Text>
-            </View>
-            <View style={styles.requirementItem}>
-              <Ionicons name="checkmark-circle" size={20} color="#00bb02" />
-              <Text style={styles.requirementText}>Không bị loá sáng hoặc đổ bóng</Text>
-            </View>
-            <View style={styles.requirementItem}>
-              <Ionicons name="checkmark-circle" size={20} color="#00bb02" />
-              <Text style={styles.requirementText}>GPLX hợp lệ, còn thời hạn</Text>
-            </View>
+            {[
+              "Ảnh rõ nét, chất lượng cao",
+              "Đọc được toàn bộ thông tin trên GPLX",
+              "Không bị loá sáng hoặc đổ bóng",
+              "GPLX hợp lệ, còn thời hạn",
+            ].map((text) => (
+              <View key={text} style={styles.requirementItem}>
+                <Ionicons name="checkmark-circle" size={20} color={THEME_COLORS.success} />
+                <Text style={styles.requirementText}>{text}</Text>
+              </View>
+            ))}
           </View>
         </View>
 
         {!licenseInfo.verified && !submitted && (
           <View style={styles.buttonContainer}>
             <TouchableOpacity
-              style={[styles.verifyButton, submitting && { opacity: 0.6 }]}
+              style={[styles.verifyButton, submitting && styles.verifyButtonDisabled]}
               onPress={handleVerifyLicense}
               disabled={submitting}
+              activeOpacity={PRESS_OPACITY}
             >
               <Text style={styles.verifyButtonText}>{submitting ? "Đang gửi..." : "Gửi xác minh"}</Text>
             </TouchableOpacity>
@@ -257,138 +267,181 @@ export default function LicenseScreen() {
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    backgroundColor: "#ffffff",
+    ...UI.screen,
   },
   header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingHorizontal: SPACE.screen,
+    paddingVertical: SPACE.md,
     borderBottomWidth: 1,
-    borderBottomColor: "#e0e0e0",
+    borderBottomColor: THEME_COLORS.border,
+  },
+  headerButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: THEME_COLORS.surfaceMuted,
+    alignItems: "center",
+    justifyContent: "center",
   },
   headerTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#000000",
+    ...TYPOGRAPHY.h3,
   },
   content: {
     flex: 1,
   },
+  scrollContent: {
+    paddingTop: SPACE["2xl"],
+    paddingBottom: SPACE["4xl"],
+  },
   statusCard: {
-    backgroundColor: "#f8f9fa",
-    margin: 20,
-    padding: 20,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "#e0e0e0",
+    ...UI.card,
+    marginHorizontal: SPACE.screen,
+    marginBottom: SPACE.section,
+    padding: SPACE.xl,
   },
   statusHeader: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 8,
+    gap: SPACE.md,
+  },
+  statusIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  statusBadge: {
+    paddingHorizontal: SPACE.md,
+    paddingVertical: 6,
+    borderRadius: RADIUS.pill,
   },
   statusText: {
-    fontSize: 18,
-    fontWeight: "600",
-    marginLeft: 12,
+    fontSize: 14,
+    fontWeight: "700",
   },
   statusDescription: {
+    ...TYPOGRAPHY.body,
     fontSize: 14,
-    color: "#666666",
     lineHeight: 20,
+    marginTop: SPACE.md,
   },
   section: {
-    paddingHorizontal: 20,
-    marginBottom: 30,
+    paddingHorizontal: SPACE.screen,
+    marginBottom: SPACE.section,
   },
   sectionTitle: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: "#000000",
-    marginBottom: 16,
+    ...TYPOGRAPHY.h3,
+    marginBottom: SPACE.md,
   },
-  infoGrid: {
-    gap: 16,
+  infoCard: {
+    ...UI.card,
+    paddingHorizontal: SPACE.lg,
   },
   infoItem: {
-    backgroundColor: "#f8f9fa",
-    padding: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "#e0e0e0",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: SPACE.lg,
+    paddingVertical: 14,
+  },
+  infoDivider: {
+    ...UI.divider,
   },
   infoLabel: {
+    ...TYPOGRAPHY.caption,
     fontSize: 14,
-    color: "#666666",
-    marginBottom: 4,
   },
   infoValue: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#000000",
+    ...TYPOGRAPHY.bodyStrong,
+    flexShrink: 1,
+    textAlign: "right",
   },
   imageContainer: {
-    gap: 20,
+    gap: SPACE.xl,
   },
-  imageCard: {
-    alignItems: "center",
-  },
+  imageCard: {},
   imageLabel: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#000000",
-    marginBottom: 12,
+    ...TYPOGRAPHY.bodyStrong,
+    fontSize: 14,
+    marginBottom: SPACE.sm,
   },
   licenseImage: {
     width: "100%",
     height: 200,
-    borderRadius: 12,
-    backgroundColor: "#f0f0f0",
+    borderRadius: RADIUS.card,
+    borderWidth: 1,
+    borderColor: THEME_COLORS.border,
+    backgroundColor: THEME_COLORS.surfaceMuted,
   },
   imageOverlay: {
     position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
-    borderRadius: 12,
+    right: SPACE.md,
+    bottom: SPACE.md,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: SPACE.md,
+    height: 32,
+    borderRadius: RADIUS.pill,
+    backgroundColor: "rgba(255, 255, 255, 0.92)",
+  },
+  imageOverlayText: {
+    color: THEME_COLORS.textPrimary,
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  emptyImage: {
+    height: 200,
+    borderRadius: RADIUS.card,
+    borderWidth: 1.5,
+    borderStyle: "dashed",
+    borderColor: THEME_COLORS.borderStrong,
+    backgroundColor: THEME_COLORS.surfaceMuted,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: SPACE.sm,
+  },
+  emptyImageIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: THEME_COLORS.surface,
+    borderWidth: 1,
+    borderColor: THEME_COLORS.border,
     alignItems: "center",
     justifyContent: "center",
   },
-  imageOverlayText: {
-    color: "#ffffff",
-    fontSize: 14,
-    fontWeight: "600",
-    marginTop: 8,
+  emptyImageText: {
+    ...TYPOGRAPHY.caption,
+    color: THEME_COLORS.textSecondary,
   },
   requirementsList: {
-    gap: 12,
+    gap: SPACE.md,
   },
   requirementItem: {
     flexDirection: "row",
     alignItems: "center",
+    gap: SPACE.md,
   },
   requirementText: {
+    ...TYPOGRAPHY.body,
     fontSize: 14,
-    color: "#333333",
-    marginLeft: 12,
+    flex: 1,
   },
   buttonContainer: {
-    padding: 20,
+    paddingHorizontal: SPACE.screen,
   },
   verifyButton: {
-    backgroundColor: "#4169e1",
-    paddingVertical: 16,
-    borderRadius: 12,
-    alignItems: "center",
+    ...UI.primaryButton,
+  },
+  verifyButtonDisabled: {
+    opacity: 0.6,
   },
   verifyButtonText: {
-    color: "#ffffff",
-    fontSize: 18,
-    fontWeight: "600",
+    ...UI.primaryButtonText,
   },
 })

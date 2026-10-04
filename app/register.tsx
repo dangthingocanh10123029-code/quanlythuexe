@@ -18,6 +18,14 @@ import { router } from "expo-router"
 import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth"
 import { doc, setDoc, getDoc } from "firebase/firestore"
 import { auth, db } from "../config/firebase"
+import { StatusBar } from "expo-status-bar"
+import { Ionicons } from "@expo/vector-icons"
+import { THEME_COLORS, RADIUS, SPACE, SHADOWS, TYPOGRAPHY, UI, PRESS_OPACITY } from "../utils/theme"
+import type { TextStyle, ViewStyle } from "react-native"
+
+// UI.input là TextStyle; khung chứa icon + ô nhập là View nên ép kiểu sang ViewStyle
+const INPUT_BOX = UI.input as unknown as ViewStyle
+const INPUT_FOCUSED_TEXT = UI.inputFocused as unknown as TextStyle
 
 export default function RegisterScreen() {
   const [formData, setFormData] = useState({
@@ -30,6 +38,7 @@ export default function RegisterScreen() {
   const [modalVisible, setModalVisible] = useState(false)
   const [modalTitle, setModalTitle] = useState("")
   const [modalMessage, setModalMessage] = useState("")
+  const [focusedField, setFocusedField] = useState<string | null>(null)
 
   const handleInputChange = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }))
@@ -123,8 +132,22 @@ export default function RegisterScreen() {
     }
   }
 
+
+  const fields: {
+    key: "fullName" | "email" | "password" | "confirmPassword"
+    label: string
+    placeholder: string
+    icon: keyof typeof Ionicons.glyphMap
+  }[] = [
+    { key: "fullName", label: "Họ và tên", placeholder: "Vd: Nguyễn Văn An", icon: "person-outline" },
+    { key: "email", label: "Email", placeholder: "Nhập email của bạn", icon: "mail-outline" },
+    { key: "password", label: "Mật khẩu", placeholder: "Tối thiểu 6 ký tự", icon: "lock-closed-outline" },
+    { key: "confirmPassword", label: "Xác nhận mật khẩu", placeholder: "Nhập lại mật khẩu", icon: "shield-checkmark-outline" },
+  ]
+
   return (
     <SafeAreaView style={styles.container}>
+      <StatusBar style="dark" />
       <Modal
         animationType="fade"
         transparent={true}
@@ -133,11 +156,15 @@ export default function RegisterScreen() {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
+            <View style={styles.modalIcon}>
+              <Ionicons name="alert-circle-outline" size={24} color={THEME_COLORS.danger} />
+            </View>
             <Text style={styles.modalTitle}>{modalTitle}</Text>
             <Text style={styles.modalMessage}>{modalMessage}</Text>
             <TouchableOpacity
               style={styles.modalButton}
               onPress={() => setModalVisible(false)}
+              activeOpacity={PRESS_OPACITY}
             >
               <Text style={styles.modalButtonText}>Đã hiểu</Text>
             </TouchableOpacity>
@@ -146,72 +173,62 @@ export default function RegisterScreen() {
       </Modal>
 
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.keyboardView}>
-        <ScrollView contentContainerStyle={styles.scrollContainer}>
+        <ScrollView contentContainerStyle={styles.scrollContainer} keyboardShouldPersistTaps="handled">
+          <View style={styles.brandRow}>
+            <View style={styles.brandIcon}>
+              <Ionicons name="car-sport" size={18} color={THEME_COLORS.primary} />
+            </View>
+            <Text style={styles.brandText}>RENTO</Text>
+          </View>
+
           <View style={styles.header}>
             <Text style={styles.title}>Tạo tài khoản</Text>
             <Text style={styles.subtitle}>Đăng ký để bắt đầu hành trình</Text>
           </View>
 
           <View style={styles.form}>
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Họ và tên</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Vd: Nguyễn Văn An"
-                value={formData.fullName}
-                onChangeText={(value) => handleInputChange("fullName", value)}
-                autoCapitalize="words"
-              />
-            </View>
-
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Email</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Nhập email của bạn"
-                value={formData.email}
-                onChangeText={(value) => handleInputChange("email", value)}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
-            </View>
-
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Mật khẩu</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Tối thiểu 6 ký tự"
-                value={formData.password}
-                onChangeText={(value) => handleInputChange("password", value)}
-                secureTextEntry
-                autoCapitalize="none"
-              />
-            </View>
-
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Xác nhận mật khẩu</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Nhập lại mật khẩu"
-                value={formData.confirmPassword}
-                onChangeText={(value) => handleInputChange("confirmPassword", value)}
-                secureTextEntry
-                autoCapitalize="none"
-              />
-            </View>
+            {fields.map((field) => {
+              const focused = focusedField === field.key
+              const isPassword = field.key === "password" || field.key === "confirmPassword"
+              return (
+                <View key={field.key} style={styles.inputContainer}>
+                  <Text style={styles.label}>{field.label}</Text>
+                  <View style={[styles.inputWrapper, focused && UI.inputFocused]}>
+                    <Ionicons
+                      name={field.icon}
+                      size={20}
+                      color={focused ? THEME_COLORS.primary : THEME_COLORS.textMuted}
+                    />
+                    <TextInput
+                      style={styles.input}
+                      placeholder={field.placeholder}
+                      placeholderTextColor={THEME_COLORS.textMuted}
+                      value={formData[field.key]}
+                      onChangeText={(value) => handleInputChange(field.key, value)}
+                      onFocus={() => setFocusedField(field.key)}
+                      onBlur={() => setFocusedField((current) => (current === field.key ? null : current))}
+                      secureTextEntry={isPassword}
+                      autoCapitalize={field.key === "fullName" ? "words" : "none"}
+                      keyboardType={field.key === "email" ? "email-address" : "default"}
+                      autoCorrect={field.key === "email" ? false : undefined}
+                    />
+                  </View>
+                </View>
+              )
+            })}
 
             <TouchableOpacity
               style={[styles.registerButton, loading && styles.disabledButton]}
               onPress={handleRegister}
               disabled={loading}
+              activeOpacity={PRESS_OPACITY}
             >
               <Text style={styles.registerButtonText}>{loading ? "Đang tạo tài khoản..." : "Tạo tài khoản"}</Text>
             </TouchableOpacity>
 
             <View style={styles.loginContainer}>
               <Text style={styles.loginText}>Đã có tài khoản? </Text>
-              <TouchableOpacity onPress={() => router.push("/login")}>
+              <TouchableOpacity onPress={() => router.push("/login")} activeOpacity={PRESS_OPACITY}>
                 <Text style={styles.loginLink}>Đăng nhập</Text>
               </TouchableOpacity>
             </View>
@@ -224,161 +241,135 @@ export default function RegisterScreen() {
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    backgroundColor: "#ffffff",
+    ...UI.screen,
   },
   keyboardView: {
     flex: 1,
   },
   scrollContainer: {
     flexGrow: 1,
+    paddingHorizontal: SPACE.screen,
+    paddingTop: SPACE.md,
+    paddingBottom: SPACE.section,
+  },
+  brandRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SPACE.sm,
+    marginBottom: SPACE["4xl"],
+  },
+  brandIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    backgroundColor: THEME_COLORS.primarySoft,
+    alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: 24,
-    paddingVertical: 40,
+  },
+  brandText: {
+    ...TYPOGRAPHY.h3,
+    fontWeight: "800",
+    letterSpacing: 1.5,
+    color: THEME_COLORS.primary,
   },
   header: {
-    alignItems: "center",
-    marginBottom: 48,
+    marginBottom: SPACE.section,
   },
   title: {
-    fontSize: 36,
-    fontWeight: "bold",
-    color: "#1054CF",
-    marginBottom: 12,
-    letterSpacing: 0.5,
+    ...TYPOGRAPHY.h1,
+    marginBottom: SPACE.sm,
   },
   subtitle: {
-    fontSize: 18,
-    color: "#666666",
-    letterSpacing: 0.5,
+    ...TYPOGRAPHY.body,
   },
   form: {
     width: "100%",
   },
   inputContainer: {
-    marginBottom: 24,
+    marginBottom: SPACE.lg,
   },
   label: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#333333",
-    marginBottom: 8,
-    marginLeft: 4,
+    ...TYPOGRAPHY.bodyStrong,
+    fontSize: 14,
+    marginBottom: SPACE.sm,
+  },
+  inputWrapper: {
+    ...INPUT_BOX,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SPACE.md,
   },
   input: {
-    borderWidth: 1.5,
-    borderColor: "#e0e0e0",
-    borderRadius: 25,
-    paddingHorizontal: 24,
-    paddingVertical: 16,
-    fontSize: 16,
-    backgroundColor: "#ffffff",
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.05,
-    shadowRadius: 3.84,
-    elevation: 2,
+    flex: 1,
+    height: "100%",
+    fontSize: 15,
+    color: THEME_COLORS.textPrimary,
   },
   registerButton: {
-    backgroundColor: "#1054CF",
-    paddingVertical: 18,
-    borderRadius: 25,
-    alignItems: "center",
-    marginBottom: 24,
-    marginTop: 16,
-    shadowColor: "#1054CF",
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.3,
-    shadowRadius: 4.65,
-    elevation: 8,
+    ...UI.primaryButton,
+    marginTop: SPACE.sm,
+    marginBottom: SPACE["2xl"],
   },
   disabledButton: {
     opacity: 0.7,
   },
   registerButtonText: {
-    color: "#ffffff",
-    fontSize: 18,
-    fontWeight: "700",
-    letterSpacing: 0.5,
+    ...UI.primaryButtonText,
   },
   loginContainer: {
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
-    marginTop: 8,
   },
   loginText: {
-    color: "#666666",
-    fontSize: 16,
+    ...TYPOGRAPHY.body,
   },
   loginLink: {
-    color: "#1054CF",
-    fontSize: 16,
-    fontWeight: "700",
+    ...TYPOGRAPHY.bodyStrong,
+    color: THEME_COLORS.primary,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.6)",
+    backgroundColor: "rgba(15, 23, 42, 0.45)",
     justifyContent: "center",
     alignItems: "center",
-    padding: 24,
+    padding: SPACE["2xl"],
   },
   modalContent: {
-    backgroundColor: "#ffffff",
-    borderRadius: 20,
-    padding: 28,
+    backgroundColor: THEME_COLORS.surface,
+    borderRadius: RADIUS.sheet,
+    padding: SPACE["2xl"],
     width: "100%",
-    maxWidth: 340,
+    maxWidth: 360,
     alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
+    ...SHADOWS.raised,
+  },
+  modalIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: RADIUS.pill,
+    backgroundColor: THEME_COLORS.dangerSoft,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: SPACE.lg,
   },
   modalTitle: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "#1054CF",
-    marginBottom: 16,
+    ...TYPOGRAPHY.h2,
+    marginBottom: SPACE.sm,
     textAlign: "center",
   },
   modalMessage: {
-    fontSize: 16,
-    color: "#666666",
-    marginBottom: 28,
+    ...TYPOGRAPHY.body,
+    marginBottom: SPACE["2xl"],
     textAlign: "center",
-    lineHeight: 22,
   },
   modalButton: {
-    backgroundColor: "#1054CF",
-    paddingVertical: 14,
-    paddingHorizontal: 32,
-    borderRadius: 25,
-    minWidth: 140,
-    alignItems: "center",
-    shadowColor: "#1054CF",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.2,
-    shadowRadius: 3.84,
-    elevation: 4,
+    ...UI.primaryButton,
+    height: 48,
+    alignSelf: "stretch",
   },
   modalButtonText: {
-    color: "#ffffff",
-    fontSize: 16,
-    fontWeight: "700",
-    letterSpacing: 0.5,
+    ...UI.primaryButtonText,
+    fontSize: 15,
   },
 })

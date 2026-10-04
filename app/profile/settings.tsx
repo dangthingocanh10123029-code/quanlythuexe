@@ -3,11 +3,13 @@
 import { useEffect, useState } from "react"
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, Alert, ActivityIndicator } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
+import { StatusBar } from "expo-status-bar"
 import { Ionicons } from "@expo/vector-icons"
 import { router } from "expo-router"
 import { doc, getDoc, setDoc } from "firebase/firestore"
 import { db } from "../../config/firebase"
 import { useAuth } from "../../hooks/useAuth"
+import { PRESS_OPACITY, SPACE, THEME_COLORS, TYPOGRAPHY, UI } from "../../utils/theme"
 
 // Lưu tại users/{uid}.preferences
 type Preferences = {
@@ -20,16 +22,6 @@ const DEFAULT_PREFERENCES: Preferences = {
   notifications: true,
   location: true,
   darkMode: false,
-}
-
-const COLORS = {
-  background: "#ededed",
-  primary: "#1054CF",
-  secondary: "#FFB700",
-  white: "#ffffff",
-  black: "#000000",
-  gray: "#666666",
-  lightGray: "#e0e0e0",
 }
 
 export default function SettingsScreen() {
@@ -83,83 +75,103 @@ export default function SettingsScreen() {
   const language = "Tiếng Việt"
   const currency = "VND (đ)"
 
+  const renderIcon = (name: string) => (
+    <View style={styles.iconCircle}>
+      <Ionicons name={name as any} size={20} color={THEME_COLORS.textSecondary} />
+    </View>
+  )
+
+  const switchProps = {
+    trackColor: { false: THEME_COLORS.borderStrong, true: THEME_COLORS.primary },
+    thumbColor: "#FFFFFF",
+    ios_backgroundColor: THEME_COLORS.borderStrong,
+  }
+
   return (
     <SafeAreaView style={styles.container}>
+      <StatusBar style="dark" />
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={24} color={COLORS.black} />
+        <TouchableOpacity style={styles.headerButton} onPress={() => router.back()} activeOpacity={PRESS_OPACITY}>
+          <Ionicons name="arrow-back" size={22} color={THEME_COLORS.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Cài đặt</Text>
-        <View style={{ width: 24 }} />
+        <View style={{ width: 40 }} />
       </View>
 
       {loadingPrefs ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={COLORS.primary} />
+          <ActivityIndicator size="large" color={THEME_COLORS.primary} />
         </View>
       ) : (
-      <ScrollView style={styles.content}>
+      <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent}>
         {/* Settings Groups */}
         <View style={styles.settingGroup}>
           <Text style={styles.groupTitle}>Cài đặt ứng dụng</Text>
 
-          <View style={styles.settingItem}>
-            <View style={styles.settingLeft}>
-              <Ionicons name="notifications" size={24} color={COLORS.primary} />
-              <Text style={styles.settingLabel}>Thông báo</Text>
+          <View style={styles.groupCard}>
+            <View style={styles.settingItem}>
+              <View style={styles.settingLeft}>
+                {renderIcon("notifications-outline")}
+                <Text style={styles.settingLabel}>Thông báo</Text>
+              </View>
+              <Switch
+                value={preferences.notifications}
+                onValueChange={(v) => updatePreference("notifications", v)}
+                {...switchProps}
+              />
             </View>
-            <Switch
-              value={preferences.notifications}
-              onValueChange={(v) => updatePreference("notifications", v)}
-              trackColor={{ false: COLORS.lightGray, true: COLORS.primary }}
-              thumbColor={COLORS.white}
-            />
-          </View>
 
-          <View style={styles.settingItem}>
-            <View style={styles.settingLeft}>
-              <Ionicons name="location" size={24} color={COLORS.primary} />
-              <Text style={styles.settingLabel}>Dịch vụ vị trí</Text>
-            </View>
-            <Switch
-              value={preferences.location}
-              onValueChange={(v) => updatePreference("location", v)}
-              trackColor={{ false: COLORS.lightGray, true: COLORS.primary }}
-              thumbColor={COLORS.white}
-            />
-          </View>
+            <View style={styles.divider} />
 
-          <View style={styles.settingItem}>
-            <View style={styles.settingLeft}>
-              <Ionicons name="moon" size={24} color={COLORS.primary} />
-              <Text style={styles.settingLabel}>Chế độ tối</Text>
+            <View style={styles.settingItem}>
+              <View style={styles.settingLeft}>
+                {renderIcon("location-outline")}
+                <Text style={styles.settingLabel}>Dịch vụ vị trí</Text>
+              </View>
+              <Switch
+                value={preferences.location}
+                onValueChange={(v) => updatePreference("location", v)}
+                {...switchProps}
+              />
             </View>
-            <Switch
-              value={preferences.darkMode}
-              onValueChange={(v) => updatePreference("darkMode", v)}
-              trackColor={{ false: COLORS.lightGray, true: COLORS.primary }}
-              thumbColor={COLORS.white}
-            />
+
+            <View style={styles.divider} />
+
+            <View style={styles.settingItem}>
+              <View style={styles.settingLeft}>
+                {renderIcon("moon-outline")}
+                <Text style={styles.settingLabel}>Chế độ tối</Text>
+              </View>
+              <Switch
+                value={preferences.darkMode}
+                onValueChange={(v) => updatePreference("darkMode", v)}
+                {...switchProps}
+              />
+            </View>
           </View>
         </View>
 
         <View style={styles.settingGroup}>
           <Text style={styles.groupTitle}>Ngôn ngữ & khu vực</Text>
 
-          <View style={styles.settingItem}>
-            <View style={styles.settingLeft}>
-              <Ionicons name="language" size={24} color={COLORS.primary} />
-              <Text style={styles.settingLabel}>Ngôn ngữ</Text>
+          <View style={styles.groupCard}>
+            <View style={styles.settingItem}>
+              <View style={styles.settingLeft}>
+                {renderIcon("language-outline")}
+                <Text style={styles.settingLabel}>Ngôn ngữ</Text>
+              </View>
+              <Text style={styles.settingValue}>{language}</Text>
             </View>
-            <Text style={styles.settingValue}>{language}</Text>
-          </View>
 
-          <View style={styles.settingItem}>
-            <View style={styles.settingLeft}>
-              <Ionicons name="cash" size={24} color={COLORS.primary} />
-              <Text style={styles.settingLabel}>Tiền tệ</Text>
+            <View style={styles.divider} />
+
+            <View style={styles.settingItem}>
+              <View style={styles.settingLeft}>
+                {renderIcon("cash-outline")}
+                <Text style={styles.settingLabel}>Tiền tệ</Text>
+              </View>
+              <Text style={styles.settingValue}>{currency}</Text>
             </View>
-            <Text style={styles.settingValue}>{currency}</Text>
           </View>
         </View>
       </ScrollView>
@@ -170,26 +182,33 @@ export default function SettingsScreen() {
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    backgroundColor: COLORS.background,
+    ...UI.screen,
   },
   header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    backgroundColor: COLORS.white,
+    paddingHorizontal: SPACE.screen,
+    paddingVertical: SPACE.md,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.lightGray,
+    borderBottomColor: THEME_COLORS.border,
+  },
+  headerButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: THEME_COLORS.surfaceMuted,
+    alignItems: "center",
+    justifyContent: "center",
   },
   headerTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: COLORS.black,
+    ...TYPOGRAPHY.h3,
   },
   content: {
     flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: SPACE["4xl"],
   },
   loadingContainer: {
     flex: 1,
@@ -197,35 +216,49 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   settingGroup: {
-    marginTop: 20,
-    paddingHorizontal: 20,
+    marginTop: SPACE.section - SPACE.sm,
+    paddingHorizontal: SPACE.screen,
   },
   groupTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: COLORS.black,
-    marginBottom: 16,
+    ...TYPOGRAPHY.overline,
+    marginBottom: SPACE.md,
+    marginLeft: SPACE.xs,
+  },
+  groupCard: {
+    ...UI.card,
+    paddingVertical: SPACE.xs,
   },
   settingItem: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: COLORS.white,
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 12,
+    paddingVertical: SPACE.md,
+    paddingHorizontal: SPACE.lg,
+    minHeight: 64,
+  },
+  divider: {
+    ...UI.divider,
+    marginLeft: SPACE.lg + 40 + SPACE.md,
   },
   settingLeft: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
+    gap: SPACE.md,
+    flexShrink: 1,
+  },
+  iconCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: THEME_COLORS.surfaceMuted,
+    alignItems: "center",
+    justifyContent: "center",
   },
   settingLabel: {
-    fontSize: 16,
-    color: COLORS.black,
+    ...TYPOGRAPHY.bodyStrong,
   },
   settingValue: {
-    fontSize: 15,
-    color: COLORS.gray,
+    ...TYPOGRAPHY.body,
+    color: THEME_COLORS.textMuted,
   },
 })

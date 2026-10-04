@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState } from 'react'
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, Modal, Alert, ActivityIndicator, Linking } from 'react-native'
+import { type TextStyle, View, Text, StyleSheet, TouchableOpacity, TextInput, Modal, Alert, ActivityIndicator, Linking, ScrollView } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons'
 import { router, useLocalSearchParams } from 'expo-router'
@@ -10,15 +10,13 @@ import { db } from '../config/firebase'
 import { formatCurrency, validatePhone } from '../utils/helpers'
 import { PAYMENT_METHODS } from '../utils/constants'
 import PaymentLogo from '../components/ui/PaymentLogo'
+import { StatusBar } from 'expo-status-bar'
+import { THEME_COLORS, RADIUS, SPACE, SHADOWS, TYPOGRAPHY, UI, PRESS_OPACITY } from '../utils/theme'
 
-const COLORS = {
-  background: "#FFFFFF",
-  primary: PAYMENT_METHODS.ZALOPAY.color, // #0068FF
-  secondary: "#00B14F", // xanh lá ZaloPay
-  text: "#4A4A4A",
-  border: "#E8E8E8",
-  white: "#FFFFFF"
-}
+// Màu thương hiệu ZaloPay: chỉ dùng cho logo, điểm nhấn và nút thanh toán
+const ZALOPAY_COLOR = PAYMENT_METHODS.ZALOPAY.color // #0068FF
+const ZALOPAY_SOFT = "#EFF6FF"
+const ZALOPAY_BUTTON_SHADOW = "0px 1px 2px rgba(0, 104, 255, 0.20), 0px 4px 12px rgba(0, 104, 255, 0.22)"
 
 // Quay lại màn trước; nếu không có lịch sử (vào thẳng màn hình) thì về danh sách đơn
 const goBackSafely = () => {
@@ -35,6 +33,7 @@ export default function ZaloPayPayment() {
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [phone, setPhone] = useState('')
   const [pin, setPin] = useState('')
+  const [focusedField, setFocusedField] = useState<string | null>(null)
   const [showSuccessModal, setShowSuccessModal] = useState(false)
 
   const [isProcessing, setIsProcessing] = useState(false)
@@ -133,38 +132,47 @@ export default function ZaloPayPayment() {
 
   if (isLoggedIn) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={styles.container} edges={["top"]}>
+        <StatusBar style="dark" />
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()}>
-            <Ionicons name="arrow-back" size={24} color={COLORS.text} />
+          <TouchableOpacity style={styles.iconButton} onPress={() => router.back()} activeOpacity={PRESS_OPACITY}>
+            <Ionicons name="arrow-back" size={22} color={THEME_COLORS.textPrimary} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Xác nhận thanh toán</Text>
-          <View style={{ width: 24 }} />
+          <View style={{ width: 40 }} />
         </View>
 
-        <View style={styles.content}>
-          <PaymentLogo method="zalopay" size={80} style={styles.iconContainer} />
+        <ScrollView style={styles.flex} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+          <PaymentLogo method="zalopay" size={72} style={styles.iconContainer} />
 
           <Text style={styles.paymentTitle}>Thanh toán ZaloPay</Text>
-          <Text style={styles.emailText}>{phone}</Text>
+          <View style={styles.accountChip}>
+            <Ionicons name="person-circle-outline" size={16} color={ZALOPAY_COLOR} />
+            <Text style={styles.emailText}>{phone}</Text>
+          </View>
 
           <View style={styles.amountContainer}>
             <Text style={styles.amountLabel}>Số tiền cần thanh toán</Text>
             <Text style={styles.amount}>{formatCurrency(parsedAmount)}</Text>
           </View>
+        </ScrollView>
 
-          <TouchableOpacity 
-            style={[styles.payButton, isProcessing && styles.payButtonDisabled]}
-            onPress={handlePay}
-            disabled={isProcessing}
-          >
-            {isProcessing ? (
-              <ActivityIndicator color={COLORS.white} />
-            ) : (
-              <Text style={styles.payButtonText}>Thanh toán {formatCurrency(parsedAmount)}</Text>
-            )}
-          </TouchableOpacity>
-        </View>
+        <SafeAreaView edges={["bottom"]} style={styles.footer}>
+          <View style={styles.footerInner}>
+            <TouchableOpacity
+              style={[styles.payButton, isProcessing && styles.payButtonDisabled]}
+              onPress={handlePay}
+              disabled={isProcessing}
+              activeOpacity={PRESS_OPACITY}
+            >
+              {isProcessing ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
+                <Text style={styles.payButtonText}>Thanh toán {formatCurrency(parsedAmount)}</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </SafeAreaView>
 
         <Modal
           animationType="fade"
@@ -175,7 +183,7 @@ export default function ZaloPayPayment() {
           <View style={styles.modalOverlay}>
             <View style={styles.successModalContent}>
               <View style={styles.iconCircle}>
-                <Ionicons name="checkmark" size={48} color={COLORS.white} />
+                <Ionicons name="checkmark" size={36} color={THEME_COLORS.success} />
               </View>
               <Text style={styles.successTitle}>Thành công!</Text>
               <Text style={styles.successText}>Thanh toán hoàn tất.</Text>
@@ -188,40 +196,48 @@ export default function ZaloPayPayment() {
 
   return (
     <SafeAreaView style={styles.container}>
+      <StatusBar style="dark" />
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={24} color={COLORS.text} />
+        <TouchableOpacity style={styles.iconButton} onPress={() => router.back()} activeOpacity={PRESS_OPACITY}>
+          <Ionicons name="arrow-back" size={22} color={THEME_COLORS.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Thanh toán ZaloPay</Text>
-        <View style={{ width: 24 }} />
+        <View style={{ width: 40 }} />
       </View>
 
-      <View style={styles.content}>
-        <PaymentLogo method="zalopay" size={96} style={styles.logo} />
+      <ScrollView style={styles.flex} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+        <PaymentLogo method="zalopay" size={80} style={styles.logo} />
         <Text style={styles.loginHint}>Đăng nhập bằng số điện thoại Zalo của bạn</Text>
 
         <View style={styles.loginSection}>
-          <TextInput 
-            style={styles.input}
+          <TextInput
+            style={[styles.input, focusedField === "phone" && styles.inputFocused]}
             placeholder="Số điện thoại (vd: 0901 234 567)"
+            placeholderTextColor={THEME_COLORS.textMuted}
             keyboardType="phone-pad"
             autoCapitalize="none"
             value={phone}
+            onFocus={() => setFocusedField("phone")}
+            onBlur={() => setFocusedField(null)}
             onChangeText={setPhone}
           />
 
-          <TextInput 
-            style={styles.input}
+          <TextInput
+            style={[styles.input, focusedField === "pin" && styles.inputFocused]}
             placeholder="Mã PIN ZaloPay (6 số)"
+            placeholderTextColor={THEME_COLORS.textMuted}
             secureTextEntry
             keyboardType="number-pad"
             maxLength={6}
             value={pin}
+            onFocus={() => setFocusedField("pin")}
+            onBlur={() => setFocusedField(null)}
             onChangeText={(text) => setPin(text.replace(/\D/g, ''))}
           />
 
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.loginButton}
+            activeOpacity={PRESS_OPACITY}
             onPress={() => {
               if (!validateCredentials()) return
               setIsLoggedIn(true)
@@ -230,7 +246,7 @@ export default function ZaloPayPayment() {
             <Text style={styles.loginButtonText}>Đăng nhập</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity onPress={handleForgotPin}>
+          <TouchableOpacity onPress={handleForgotPin} activeOpacity={PRESS_OPACITY} style={styles.forgotButton}>
             <Text style={styles.forgotText}>Quên mã PIN?</Text>
           </TouchableOpacity>
 
@@ -240,47 +256,56 @@ export default function ZaloPayPayment() {
             <View style={styles.line} />
           </View>
 
-          <TouchableOpacity style={styles.signupButton} onPress={openZaloPay}>
+          <TouchableOpacity style={styles.signupButton} onPress={openZaloPay} activeOpacity={PRESS_OPACITY}>
             <Text style={styles.signupButtonText}>Đăng ký ZaloPay</Text>
           </TouchableOpacity>
         </View>
-      </View>
+      </ScrollView>
     </SafeAreaView>
   )
 }
 
 const styles = StyleSheet.create({
   container: {
+    ...UI.screen,
+  },
+  flex: {
     flex: 1,
-    backgroundColor: COLORS.background,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingHorizontal: SPACE.screen,
+    paddingVertical: SPACE.md,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    borderBottomColor: THEME_COLORS.border,
+  },
+  iconButton: {
+    width: 40,
+    height: 40,
+    borderRadius: RADIUS.control,
+    borderWidth: 1,
+    borderColor: THEME_COLORS.border,
+    backgroundColor: THEME_COLORS.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   headerTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: COLORS.text,
+    ...TYPOGRAPHY.h3,
   },
   content: {
-    flex: 1,
-    padding: 20,
+    paddingHorizontal: SPACE.screen,
+    paddingTop: SPACE["4xl"],
+    paddingBottom: SPACE.section,
     alignItems: 'center',
   },
   logo: {
-    marginTop: 40,
-    marginBottom: 16,
+    marginBottom: SPACE.xl,
   },
   loginHint: {
-    fontSize: 15,
-    color: COLORS.text,
-    marginBottom: 24,
+    ...TYPOGRAPHY.body,
+    marginBottom: SPACE.section,
     textAlign: 'center',
   },
   loginSection: {
@@ -288,140 +313,143 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   input: {
+    ...UI.input,
     width: '100%',
-    backgroundColor: COLORS.white,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 12,
-    padding: 16,
-    fontSize: 16,
-    marginBottom: 16,
+    marginBottom: SPACE.md,
+  },
+  inputFocused: {
+    ...(UI.inputFocused as TextStyle),
+    borderColor: ZALOPAY_COLOR,
+    boxShadow: "0px 0px 0px 3px rgba(0, 104, 255, 0.12)",
   },
   loginButton: {
+    ...UI.primaryButton,
     width: '100%',
-    backgroundColor: COLORS.primary,
-    paddingVertical: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-    marginBottom: 16,
+    marginTop: SPACE.sm,
+    backgroundColor: ZALOPAY_COLOR,
+    boxShadow: ZALOPAY_BUTTON_SHADOW,
   },
   loginButtonText: {
-    color: COLORS.white,
-    fontSize: 16,
-    fontWeight: '600',
+    ...UI.primaryButtonText,
+  },
+  forgotButton: {
+    paddingVertical: SPACE.md,
+    marginTop: SPACE.xs,
   },
   forgotText: {
-    color: COLORS.secondary,
     fontSize: 14,
-    marginBottom: 24,
+    fontWeight: '600',
+    color: ZALOPAY_COLOR,
   },
   divider: {
     flexDirection: 'row',
     alignItems: 'center',
     width: '100%',
-    marginBottom: 24,
+    marginVertical: SPACE.lg,
   },
   line: {
+    ...UI.divider,
     flex: 1,
-    height: 1,
-    backgroundColor: COLORS.border,
   },
   orText: {
-    color: COLORS.text,
-    paddingHorizontal: 16,
+    ...TYPOGRAPHY.caption,
+    paddingHorizontal: SPACE.lg,
   },
   signupButton: {
+    ...UI.secondaryButton,
     width: '100%',
-    backgroundColor: COLORS.secondary,
-    paddingVertical: 16,
-    borderRadius: 12,
-    alignItems: 'center',
   },
   signupButtonText: {
-    color: COLORS.white,
-    fontSize: 16,
-    fontWeight: '600',
+    ...UI.secondaryButtonText,
   },
   iconContainer: {
-    marginBottom: 24,
+    marginBottom: SPACE.xl,
   },
   paymentTitle: {
-    fontSize: 24,
-    fontWeight: '600',
-    color: COLORS.text,
-    marginBottom: 8,
+    ...TYPOGRAPHY.h2,
+    marginBottom: SPACE.sm,
+  },
+  accountChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: SPACE.md,
+    paddingVertical: 6,
+    borderRadius: RADIUS.pill,
+    backgroundColor: ZALOPAY_SOFT,
+    marginBottom: SPACE.section,
   },
   emailText: {
-    fontSize: 16,
-    color: COLORS.text,
-    marginBottom: 32,
+    fontSize: 14,
+    fontWeight: '600',
+    color: ZALOPAY_COLOR,
   },
   amountContainer: {
+    ...UI.card,
     width: '100%',
-    padding: 20,
-    backgroundColor: COLORS.white,
-    borderRadius: 12,
-    marginBottom: 24,
-    elevation: 2,
+    paddingVertical: SPACE["2xl"],
+    paddingHorizontal: SPACE.lg,
+    alignItems: 'center',
   },
   amountLabel: {
-    fontSize: 14,
-    color: COLORS.text,
-    marginBottom: 8,
+    ...TYPOGRAPHY.overline,
+    marginBottom: SPACE.sm,
   },
   amount: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: COLORS.primary,
+    ...TYPOGRAPHY.display,
     textAlign: 'center',
   },
+  footer: {
+    backgroundColor: THEME_COLORS.surface,
+    borderTopWidth: 1,
+    borderTopColor: THEME_COLORS.border,
+  },
+  footerInner: {
+    paddingHorizontal: SPACE.screen,
+    paddingVertical: SPACE.md,
+  },
   payButton: {
-    width: '100%',
-    backgroundColor: COLORS.primary,
-    paddingVertical: 16,
-    borderRadius: 12,
-    alignItems: 'center',
+    ...UI.primaryButton,
+    backgroundColor: ZALOPAY_COLOR,
+    boxShadow: ZALOPAY_BUTTON_SHADOW,
   },
   payButtonDisabled: {
     opacity: 0.7,
   },
   payButtonText: {
-    color: COLORS.white,
-    fontSize: 16,
-    fontWeight: '600',
+    ...UI.primaryButtonText,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(15, 23, 42, 0.45)',
     justifyContent: 'center',
     alignItems: 'center',
+    paddingHorizontal: SPACE.screen,
   },
   successModalContent: {
-    backgroundColor: COLORS.white,
-    borderRadius: 20,
-    padding: 30,
+    backgroundColor: THEME_COLORS.surface,
+    borderRadius: RADIUS.sheet,
+    padding: SPACE["3xl"],
     alignItems: 'center',
-    elevation: 5,
-    width: '80%',
+    width: '100%',
+    maxWidth: 340,
+    ...SHADOWS.raised,
   },
   iconCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: '#00C851',
+    width: 72,
+    height: 72,
+    borderRadius: RADIUS.pill,
+    backgroundColor: THEME_COLORS.successSoft,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 20,
+    marginBottom: SPACE.xl,
   },
   successTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: COLORS.text,
-    marginBottom: 8,
+    ...TYPOGRAPHY.h2,
+    marginBottom: SPACE.sm,
   },
   successText: {
-    fontSize: 16,
-    color: COLORS.text,
-    opacity: 0.8,
+    ...TYPOGRAPHY.body,
+    textAlign: 'center',
   },
 })

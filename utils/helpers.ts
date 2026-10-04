@@ -67,7 +67,7 @@ export const getInitials = (name: string): string => {
 }
 
 export const debounce = <T extends (...args: any[]) => any>(func: T, delay: number): T => {
-  let timeoutId: NodeJS.Timeout
+  let timeoutId: ReturnType<typeof setTimeout>
   return ((...args: any[]) => {
     clearTimeout(timeoutId)
     timeoutId = setTimeout(() => func.apply(null, args), delay)

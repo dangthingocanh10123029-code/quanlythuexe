@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Dimensions, TextInput, ActivityIndicator, Alert } from "react-native"
+import { type TextStyle, View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Dimensions, TextInput, ActivityIndicator, Alert } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 import { Ionicons } from "@expo/vector-icons"
 import { router, useLocalSearchParams } from "expo-router"
@@ -11,6 +11,8 @@ import { collection, addDoc, query, where, orderBy, onSnapshot, serverTimestamp 
 import { useAuth } from "../../hooks/useAuth"
 import { formatCurrency, formatDate } from "../../utils/helpers"
 import { HOTLINE } from "../../utils/constants"
+import { StatusBar } from "expo-status-bar"
+import { THEME_COLORS, RADIUS, SPACE, TYPOGRAPHY, UI, PRESS_OPACITY } from "../../utils/theme"
 
 type User = {
   id: string;
@@ -77,6 +79,7 @@ export default function CarDetailsScreen() {
   const [reviewText, setReviewText] = useState("")
   const [reviewRating, setReviewRating] = useState(5)
   const [submitting, setSubmitting] = useState(false)
+  const [focusedField, setFocusedField] = useState<string | null>(null)
 
   // Fetch reviews for this car
   useEffect(() => {
@@ -140,134 +143,142 @@ export default function CarDetailsScreen() {
   if (!car) {
     return (
       <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
-        <Text>Không tìm thấy xe</Text>
+        <Text style={styles.emptyText}>Không tìm thấy xe</Text>
       </View>
     )
   }
 
+  const specs: { icon: keyof typeof Ionicons.glyphMap; value: string; label: string }[] = [
+    { icon: "people-outline", value: `${car.seats} chỗ`, label: "Số chỗ" },
+    { icon: "water-outline", value: String(car.fuel), label: "Nhiên liệu" },
+    { icon: "car-sport-outline", value: String(car.type), label: "Loại xe" },
+    { icon: "calendar-outline", value: String(car.year), label: "Năm SX" },
+    { icon: "location-outline", value: String(car.location), label: "Khu vực" },
+    { icon: "star-outline", value: String(car.rating), label: "Đánh giá" },
+  ]
+
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView showsVerticalScrollIndicator={false}>
+    <SafeAreaView style={styles.container} edges={["top"]}>
+      <StatusBar style="dark" />
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         {/* Header with Back Button */}
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()}>
-            <Ionicons name="arrow-back" size={24} color="#ffffff" />
+          <TouchableOpacity style={styles.iconButton} onPress={() => router.back()} activeOpacity={PRESS_OPACITY}>
+            <Ionicons name="arrow-back" size={22} color={THEME_COLORS.textPrimary} />
           </TouchableOpacity>
         </View>
 
         {/* Car Name and Brand Logo Section */}
         <View style={styles.heroSection}>
           <View style={styles.heroHeader}>
-            <Text style={styles.carName}>{car.name}</Text>
+            <View style={styles.heroTitle}>
+              <Text style={styles.overline}>{car.brand}</Text>
+              <Text style={styles.carName}>{car.name}</Text>
+            </View>
             <View style={styles.brandLogoContainer}>
               {getBrandLogo(car.brand) ? (
-                <Image 
+                <Image
                   source={getBrandLogo(car.brand)}
                   style={styles.brandLogo}
                   resizeMode="contain"
                 />
               ) : (
-                <Ionicons name="car" size={48} color="#ffffff" />
+                <Ionicons name="car" size={28} color={THEME_COLORS.textSecondary} />
               )}
             </View>
           </View>
-          <Image source={car.image} style={styles.carImage} />
-          
-          {/* Image Indicators */}
-          <View style={styles.imageIndicators}>
-            {[...Array(4)].map((_, index) => (
-              <View
-                key={index}
-                style={[
-                  styles.indicator,
-                  currentImageIndex === index ? styles.activeIndicator : styles.inactiveIndicator
-                ]}
-              />
-            ))}
+
+          <View style={styles.imageWrapper}>
+            <Image source={car.image} style={styles.carImage} />
+
+            {/* Image Indicators */}
+            <View style={styles.imageIndicators}>
+              {[...Array(4)].map((_, index) => (
+                <View
+                  key={index}
+                  style={[
+                    styles.indicator,
+                    currentImageIndex === index ? styles.activeIndicator : styles.inactiveIndicator
+                  ]}
+                />
+              ))}
+            </View>
           </View>
         </View>
 
         {/* Specs Grid */}
-        <View style={styles.specsContainer}>
+        <View style={styles.block}>
+          <Text style={styles.sectionTitle}>Thông số</Text>
           <View style={styles.specsGrid}>
-            <View style={styles.specItem}>
-              <Ionicons name="calendar" size={24} color="#FFB700" />
-              <Text style={styles.specValue}>{car.year}</Text>
-              <Text style={styles.specLabel}>Năm SX</Text>
-            </View>
-            <View style={styles.specItem}>
-              <Ionicons name="car" size={24} color="#FFB700" />
-              <Text style={styles.specValue}>{car.fuel}</Text>
-              <Text style={styles.specLabel}>Nhiên liệu</Text>
-            </View>
-            <View style={styles.specItem}>
-              <Ionicons name="people" size={24} color="#FFB700" />
-              <Text style={styles.specValue}>{car.seats} chỗ</Text>
-              <Text style={styles.specLabel}>Số chỗ</Text>
-            </View>
-          </View>
-
-          <View style={styles.specsGrid}>
-            <View style={styles.specItem}>
-              <Ionicons name="car-sport" size={24} color="#FFB700" />
-              <Text style={styles.specValue}>{car.type}</Text>
-              <Text style={styles.specLabel}>Loại xe</Text>
-            </View>
-            <View style={styles.specItem}>
-              <Ionicons name="location" size={24} color="#FFB700" />
-              <Text style={styles.specValue}>{car.location}</Text>
-              <Text style={styles.specLabel}>Khu vực</Text>
-            </View>
-            <View style={styles.specItem}>
-              <Ionicons name="star" size={24} color="#FFB700" />
-              <Text style={styles.specValue}>{car.rating}</Text>
-              <Text style={styles.specLabel}>Đánh giá</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Rental Company */}
-        <View style={styles.rentalInfo}>
-          <View style={styles.rentalLogoContainer}>
-            <Ionicons name="business" size={24} color="#FFB700" />
-          </View>
-          <View style={styles.rentalDetails}>
-            <Text style={styles.rentalName}>RENTO {car.location}</Text>
-            <Text style={styles.rentalLocation}>{BRANCH_ADDRESSES[car.location] ?? car.location}</Text>
-            <Text style={styles.rentalHours}>Thứ 2 - Chủ nhật: 08:00 - 20:30</Text>
-            <Text style={styles.rentalPhone}>Hotline: {HOTLINE}</Text>
-          </View>
-          <View style={styles.ratingStars}>
-            {[...Array(5)].map((_, index) => (
-              <Ionicons key={index} name="star" size={16} color="#FFD700" />
+            {specs.map((spec) => (
+              <View key={spec.label} style={styles.specItem}>
+                <View style={styles.specIcon}>
+                  <Ionicons name={spec.icon} size={18} color={THEME_COLORS.primary} />
+                </View>
+                <Text style={styles.specValue} numberOfLines={1}>{spec.value}</Text>
+                <Text style={styles.specLabel}>{spec.label}</Text>
+              </View>
             ))}
           </View>
         </View>
 
+        {/* Rental Company */}
+        <View style={styles.block}>
+          <View style={styles.rentalInfo}>
+            <View style={styles.rentalLogoContainer}>
+              <Ionicons name="business-outline" size={22} color={THEME_COLORS.primary} />
+            </View>
+            <View style={styles.rentalDetails}>
+              <View style={styles.rentalNameRow}>
+                <Text style={styles.rentalName}>RENTO {car.location}</Text>
+                <View style={styles.ratingStars}>
+                  {[...Array(5)].map((_, index) => (
+                    <Ionicons key={index} name="star" size={12} color={THEME_COLORS.accent} />
+                  ))}
+                </View>
+              </View>
+              <Text style={styles.rentalLocation}>{BRANCH_ADDRESSES[car.location] ?? car.location}</Text>
+              <View style={styles.rentalMetaRow}>
+                <Ionicons name="time-outline" size={14} color={THEME_COLORS.textMuted} />
+                <Text style={styles.rentalMeta}>Thứ 2 - Chủ nhật: 08:00 - 20:30</Text>
+              </View>
+              <View style={styles.rentalMetaRow}>
+                <Ionicons name="call-outline" size={14} color={THEME_COLORS.textMuted} />
+                <Text style={styles.rentalMeta}>Hotline: {HOTLINE}</Text>
+              </View>
+            </View>
+          </View>
+        </View>
+
         {/* --- Reviews Section --- */}
-        <View style={styles.section}>
+        <View style={styles.block}>
           <Text style={styles.sectionTitle}>Đánh giá</Text>
           {reviewLoading ? (
-            <ActivityIndicator />
+            <ActivityIndicator color={THEME_COLORS.primary} />
           ) : reviews.length === 0 ? (
-            <Text style={{ color: "#666", marginBottom: 16 }}>Chưa có đánh giá nào. Hãy là người đầu tiên!</Text>
+            <Text style={styles.emptyText}>Chưa có đánh giá nào. Hãy là người đầu tiên!</Text>
           ) : (
             reviews.map((review) => (
               <View key={review.id} style={styles.reviewCard}>
                 <View style={styles.reviewHeader}>
+                  <View style={styles.reviewAvatar}>
+                    <Text style={styles.reviewAvatarText}>
+                      {formatUserName(review.userName).charAt(0)}
+                    </Text>
+                  </View>
                   <View style={styles.userInfo}>
                     <Text style={styles.reviewUserName}>
                       {formatUserName(review.userName)}
                     </Text>
-                    <Text style={styles.reviewEmail}>{review.userName}</Text>
+                    <Text style={styles.reviewEmail} numberOfLines={1}>{review.userName}</Text>
                   </View>
                   <View style={styles.ratingContainer}>
                     {[...Array(review.rating)].map((_, index) => (
-                      <Ionicons 
-                        key={index} 
-                        name="star" 
-                        size={16} 
-                        color="#FFD700" 
+                      <Ionicons
+                        key={index}
+                        name="star"
+                        size={14}
+                        color={THEME_COLORS.accent}
                       />
                     ))}
                   </View>
@@ -287,30 +298,34 @@ export default function CarDetailsScreen() {
             <View style={styles.reviewForm}>
               <Text style={styles.reviewFormTitle}>Viết đánh giá</Text>
               <View style={styles.ratingInputContainer}>
-                <Text style={styles.ratingLabel}>Chấm điểm:</Text>
+                <Text style={styles.ratingLabel}>Chấm điểm</Text>
                 <View style={styles.ratingStars}>
                   {[1, 2, 3, 4, 5].map((star) => (
-                    <TouchableOpacity key={star} onPress={() => setReviewRating(star)}>
+                    <TouchableOpacity key={star} onPress={() => setReviewRating(star)} activeOpacity={PRESS_OPACITY} style={styles.starButton}>
                       <Ionicons
                         name={reviewRating >= star ? "star" : "star-outline"}
-                        size={28}
-                        color="#FFD700"
+                        size={26}
+                        color={reviewRating >= star ? THEME_COLORS.accent : THEME_COLORS.borderStrong}
                       />
                     </TouchableOpacity>
                   ))}
                 </View>
               </View>
               <TextInput
-                style={styles.reviewInput}
+                style={[styles.reviewInput, focusedField === "review" && styles.inputFocused]}
                 placeholder="Chia sẻ trải nghiệm của bạn..."
+                placeholderTextColor={THEME_COLORS.textMuted}
                 value={reviewText}
                 onChangeText={setReviewText}
+                onFocus={() => setFocusedField("review")}
+                onBlur={() => setFocusedField(null)}
                 multiline
               />
               <TouchableOpacity
                 style={[styles.submitButton, submitting && { opacity: 0.6 }]}
                 onPress={handleSubmitReview}
                 disabled={submitting}
+                activeOpacity={PRESS_OPACITY}
               >
                 <Text style={styles.submitButtonText}>
                   {submitting ? "Đang gửi..." : "Gửi đánh giá"}
@@ -322,308 +337,338 @@ export default function CarDetailsScreen() {
       </ScrollView>
 
       {/* Booking Section */}
-      <View style={styles.bookingContainer}>
-        <View style={styles.priceContainer}>
-          <Text style={styles.price}>{formatCurrency(car.pricePerDay)}</Text>
-          <Text style={styles.priceLabel}>/ngày</Text>
+      <SafeAreaView edges={["bottom"]} style={styles.bookingContainer}>
+        <View style={styles.bookingInner}>
+          <View>
+            <Text style={styles.priceCaption}>Giá thuê</Text>
+            <View style={styles.priceContainer}>
+              <Text style={styles.price}>{formatCurrency(car.pricePerDay)}</Text>
+              <Text style={styles.priceLabel}>/ngày</Text>
+            </View>
+          </View>
+          <TouchableOpacity
+            style={styles.bookNowButton}
+            activeOpacity={PRESS_OPACITY}
+            onPress={() => router.push({
+              pathname: "/checkout",
+              params: { carId: id }
+            })}
+          >
+            <Text style={styles.bookNowButtonText}>Thuê ngay</Text>
+            <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
+          </TouchableOpacity>
         </View>
-        <TouchableOpacity 
-          style={styles.bookNowButton}
-          onPress={() => router.push({
-            pathname: "/checkout",
-            params: { carId: id }
-          })}
-        >
-          <Text style={styles.bookNowButtonText}>Thuê ngay</Text>
-          <Ionicons name="arrow-forward" size={20} color="#000000" />
-        </TouchableOpacity>
-      </View>
+      </SafeAreaView>
     </SafeAreaView>
   )
 }
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    backgroundColor: "#1054CF",
+    ...UI.screen,
+  },
+  scrollContent: {
+    paddingBottom: SPACE.section,
   },
   header: {
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingHorizontal: SPACE.screen,
+    paddingTop: SPACE.sm,
+    paddingBottom: SPACE.md,
+  },
+  iconButton: {
+    width: 40,
+    height: 40,
+    borderRadius: RADIUS.control,
+    borderWidth: 1,
+    borderColor: THEME_COLORS.border,
+    backgroundColor: THEME_COLORS.surface,
+    alignItems: "center",
+    justifyContent: "center",
   },
   heroSection: {
-    paddingHorizontal: 20,
+    paddingHorizontal: SPACE.screen,
   },
   heroHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 20,
+    marginBottom: SPACE.lg,
+  },
+  heroTitle: {
+    flex: 1,
+    marginRight: SPACE.md,
+  },
+  overline: {
+    ...TYPOGRAPHY.overline,
+    marginBottom: SPACE.xs,
   },
   carName: {
-    fontSize: 32,
-    fontWeight: "bold",
-    color: "#ffffff",
-    flex: 1,
-    marginRight: 12, // Add some spacing between name and logo
+    ...TYPOGRAPHY.h1,
   },
   brandLogoContainer: {
-    width: 80, // Doubled from 40
-    height: 80, // Doubled from 40
-    backgroundColor: '#1054CF',
-    borderRadius: 16, // Increased for larger container
+    width: 56,
+    height: 56,
+    borderRadius: RADIUS.control,
+    backgroundColor: THEME_COLORS.surfaceMuted,
+    borderWidth: 1,
+    borderColor: THEME_COLORS.border,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1.5, // Slightly thicker border
-    borderColor: 'rgba(255,255,255,0.3)',
-    marginLeft: 16,
   },
   brandLogo: {
-    width: 48, // Doubled from 24
-    height: 48, // Doubled from 24
-    tintColor: '#ffffff',
+    width: 32,
+    height: 32,
+    tintColor: THEME_COLORS.textPrimary,
+  },
+  imageWrapper: {
+    backgroundColor: THEME_COLORS.surfaceMuted,
+    borderRadius: RADIUS.card,
+    borderWidth: 1,
+    borderColor: THEME_COLORS.border,
+    paddingVertical: SPACE["2xl"],
+    paddingHorizontal: SPACE.lg,
   },
   carImage: {
     width: '100%',
-    height: 200,
+    height: 220,
     resizeMode: 'contain',
   },
   imageIndicators: {
     flexDirection: 'row',
     justifyContent: 'center',
-    marginTop: 20,
+    marginTop: SPACE.lg,
   },
   indicator: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginHorizontal: 4,
-    backgroundColor: 'rgba(255,255,255,0.3)',
+    width: 6,
+    height: 6,
+    borderRadius: RADIUS.pill,
+    marginHorizontal: 3,
   },
   activeIndicator: {
-    backgroundColor: '#ffffff',
-    width: 20,
+    backgroundColor: THEME_COLORS.primary,
+    width: 18,
   },
-  specsContainer: {
-    padding: 20,
+  inactiveIndicator: {
+    backgroundColor: THEME_COLORS.borderStrong,
+  },
+  block: {
+    paddingHorizontal: SPACE.screen,
+    marginTop: SPACE.section,
+  },
+  sectionTitle: {
+    ...TYPOGRAPHY.h2,
+    marginBottom: SPACE.lg,
   },
   specsGrid: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     justifyContent: 'space-between',
-    marginBottom: 20,
+    rowGap: SPACE.md,
   },
   specItem: {
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    padding: 16,
-    borderRadius: 12,
-    width: '30%',
-    alignItems: 'center',
+    width: '31.5%',
+    paddingVertical: SPACE.lg,
+    paddingHorizontal: SPACE.sm,
+    borderRadius: RADIUS.control,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.2)',
+    borderColor: THEME_COLORS.border,
+    backgroundColor: THEME_COLORS.surface,
+    alignItems: 'center',
+  },
+  specIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: RADIUS.pill,
+    backgroundColor: THEME_COLORS.primarySoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: SPACE.sm,
   },
   specValue: {
-    color: '#ffffff',
+    ...TYPOGRAPHY.bodyStrong,
     fontSize: 14,
-    fontWeight: '600',
-    marginTop: 8,
-    marginBottom: 4,
     textAlign: 'center',
   },
   specLabel: {
-    color: 'rgba(255,255,255,0.7)',
+    ...TYPOGRAPHY.caption,
     fontSize: 12,
+    marginTop: 2,
     textAlign: 'center',
   },
   rentalInfo: {
-    backgroundColor: 'rgba(255, 183, 0, 0.1)', // Translucent yellow
-    margin: 20,
-    padding: 16,
-    borderRadius: 12,
+    ...UI.card,
+    padding: SPACE.lg,
     flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 183, 0, 0.3)', // More opaque yellow border
+    alignItems: 'flex-start',
   },
   rentalLogoContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 8,
-    backgroundColor: 'rgba(255, 183, 0, 0.15)', // Slightly more opaque yellow
+    width: 44,
+    height: 44,
+    borderRadius: RADIUS.pill,
+    backgroundColor: THEME_COLORS.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 183, 0, 0.3)',
   },
   rentalDetails: {
     flex: 1,
-    marginLeft: 12,
+    marginLeft: SPACE.md,
   },
-  rentalName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFB700', // Solid yellow for the name
-  },
-  rentalLocation: {
-    fontSize: 14,
-    color: 'rgba(255, 183, 0, 0.9)', // Nearly solid yellow
-  },
-  rentalHours: {
-    fontSize: 12,
-    color: 'rgba(255, 183, 0, 0.7)', // More translucent yellow
-  },
-  rentalPhone: {
-    fontSize: 12,
-    color: 'rgba(255, 183, 0, 0.7)',
-  },
-  bookingContainer: {
+  rentalNameRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 20,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.2)',
+    marginBottom: SPACE.xs,
+  },
+  rentalName: {
+    ...TYPOGRAPHY.h3,
+    flex: 1,
+  },
+  rentalLocation: {
+    ...TYPOGRAPHY.body,
+    fontSize: 14,
+    lineHeight: 20,
+    marginBottom: SPACE.sm,
+  },
+  rentalMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: SPACE.xs,
+  },
+  rentalMeta: {
+    ...TYPOGRAPHY.caption,
+    marginLeft: 6,
+  },
+  bookingContainer: {
+    backgroundColor: THEME_COLORS.surface,
+    borderTopWidth: 1,
+    borderTopColor: THEME_COLORS.border,
+  },
+  bookingInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: SPACE.screen,
+    paddingVertical: SPACE.md,
+  },
+  priceCaption: {
+    ...TYPOGRAPHY.caption,
+    marginBottom: 2,
   },
   priceContainer: {
     flexDirection: 'row',
     alignItems: 'baseline',
   },
   price: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#ffffff',
+    ...TYPOGRAPHY.price,
+    fontSize: 20,
   },
   priceLabel: {
-    fontSize: 16,
-    color: 'rgba(255,255,255,0.8)',
-    marginLeft: 4,
+    ...TYPOGRAPHY.caption,
+    marginLeft: SPACE.xs,
   },
   bookNowButton: {
-    backgroundColor: '#FFB700',
+    ...UI.primaryButton,
     flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 24,
   },
   bookNowButtonText: {
-    color: '#000000',
-    fontSize: 16,
-    fontWeight: '600',
-    marginRight: 8,
+    ...UI.primaryButtonText,
+    marginRight: SPACE.sm,
   },
 
   // Review section styles
-  section: {
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    padding: 20,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.2)',
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: "#ffffff",
-    marginBottom: 15,
+  emptyText: {
+    ...TYPOGRAPHY.body,
+    color: THEME_COLORS.textMuted,
   },
   reviewCard: {
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.2)',
+    ...UI.card,
+    padding: SPACE.lg,
+    marginBottom: SPACE.md,
   },
   reviewHeader: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 8,
+    alignItems: "center",
+    marginBottom: SPACE.md,
+  },
+  reviewAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: RADIUS.pill,
+    backgroundColor: THEME_COLORS.surfaceMuted,
+    borderWidth: 1,
+    borderColor: THEME_COLORS.border,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: SPACE.md,
+  },
+  reviewAvatarText: {
+    ...TYPOGRAPHY.bodyStrong,
+    color: THEME_COLORS.textSecondary,
   },
   userInfo: {
     flex: 1,
   },
   reviewUserName: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#ffffff",
+    ...TYPOGRAPHY.bodyStrong,
   },
   reviewEmail: {
-    fontSize: 14,
-    color: 'rgba(255,255,255,0.8)',
+    ...TYPOGRAPHY.caption,
   },
   ratingContainer: {
     flexDirection: "row",
     alignItems: "center",
+    marginLeft: SPACE.sm,
   },
   ratingStars: {
     flexDirection: "row",
-    marginLeft: 8,
+    marginLeft: SPACE.sm,
+  },
+  starButton: {
+    paddingHorizontal: 2,
   },
   reviewComment: {
-    fontSize: 15,
-    color: '#ffffff',
-    lineHeight: 22,
+    ...TYPOGRAPHY.body,
   },
   reviewDate: {
+    ...TYPOGRAPHY.caption,
     fontSize: 12,
-    color: 'rgba(255,255,255,0.6)',
-    marginTop: 8,
+    marginTop: SPACE.sm,
   },
 
   // Review form styles
   reviewForm: {
-    marginTop: 24,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    padding: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.2)',
+    ...UI.card,
+    marginTop: SPACE.lg,
+    padding: SPACE.lg,
   },
   reviewFormTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#ffffff",
-    marginBottom: 16,
+    ...TYPOGRAPHY.h3,
+    marginBottom: SPACE.md,
   },
   ratingInputContainer: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 16,
+    justifyContent: "space-between",
+    marginBottom: SPACE.lg,
   },
   ratingLabel: {
-    fontSize: 16,
-    color: "#ffffff",
-    marginRight: 12,
+    ...TYPOGRAPHY.body,
   },
+  inputFocused: UI.inputFocused as TextStyle,
   reviewInput: {
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    borderRadius: 8,
-    padding: 12,
-    height: 100,
+    ...UI.input,
+    height: 112,
+    paddingTop: SPACE.md,
+    paddingBottom: SPACE.md,
     textAlignVertical: "top",
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.2)',
-    color: '#ffffff',
-    marginBottom: 16,
+    marginBottom: SPACE.lg,
   },
   submitButton: {
-    backgroundColor: "#FFB700",
-    borderRadius: 8,
-    padding: 12,
-    alignItems: "center",
+    ...UI.secondaryButton,
+    height: 48,
   },
   submitButtonText: {
-    color: "#ffffff",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  inactiveIndicator: {
-    backgroundColor: 'rgba(255,255,255,0.3)',
+    ...UI.secondaryButtonText,
+    color: THEME_COLORS.primary,
   },
 })
-
-

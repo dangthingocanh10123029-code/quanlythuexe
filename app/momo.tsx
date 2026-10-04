@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState } from 'react'
-import { View, Text, StyleSheet, TouchableOpacity, Image, Dimensions, Modal, Alert, ActivityIndicator, Share } from 'react-native'
+import { View, Text, StyleSheet, TouchableOpacity, Image, Dimensions, Modal, Alert, ActivityIndicator, Share, ScrollView } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons'
 import { router, useLocalSearchParams } from 'expo-router'
@@ -10,16 +10,15 @@ import { db } from '../config/firebase'
 import { formatCurrency, validatePhone } from '../utils/helpers'
 import { PAYMENT_METHODS } from '../utils/constants'
 import PaymentLogo from '../components/ui/PaymentLogo'
+import { StatusBar } from 'expo-status-bar'
+import { THEME_COLORS, RADIUS, SPACE, SHADOWS, TYPOGRAPHY, UI, PRESS_OPACITY } from '../utils/theme'
 
 const { width } = Dimensions.get('window')
 
-const COLORS = {
-  background: "#FFFFFF",
-  primary: PAYMENT_METHODS.MOMO.color, // #A50064
-  text: "#4A4A4A",
-  border: "#E8E8E8",
-  white: "#FFFFFF"
-}
+// Màu thương hiệu MoMo: chỉ dùng cho logo, điểm nhấn và nút thanh toán
+const MOMO_COLOR = PAYMENT_METHODS.MOMO.color // #A50064
+const MOMO_SOFT = "#FDF2F8"
+const MOMO_BUTTON_SHADOW = "0px 1px 2px rgba(165, 0, 100, 0.20), 0px 4px 12px rgba(165, 0, 100, 0.22)"
 
 // Quay lại màn trước; nếu không có lịch sử (vào thẳng màn hình) thì về danh sách đơn
 const goBackSafely = () => {
@@ -114,7 +113,8 @@ export default function MomoPayment() {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={["top"]}>
+      <StatusBar style="dark" />
       {/* QR Code Modal */}
       <Modal
         animationType="slide"
@@ -124,20 +124,21 @@ export default function MomoPayment() {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <TouchableOpacity 
-              style={styles.closeButton}
+            <TouchableOpacity
+              style={[styles.iconButton, styles.closeButton]}
               onPress={() => setShowQRModal(false)}
+              activeOpacity={PRESS_OPACITY}
             >
-              <Ionicons name="close" size={24} color={COLORS.text} />
+              <Ionicons name="close" size={20} color={THEME_COLORS.textSecondary} />
             </TouchableOpacity>
 
             <PaymentLogo method="momo" size={56} style={styles.modalLogo} />
-            
+
             <Text style={styles.scanText}>Quét mã QR bằng ứng dụng MoMo</Text>
 
             <View style={styles.qrContainer}>
-              <Image 
-                source={require('../assets/qr-code.jpg')} 
+              <Image
+                source={require('../assets/qr-code.jpg')}
                 style={styles.qrCode}
                 resizeMode="contain"
               />
@@ -159,7 +160,7 @@ export default function MomoPayment() {
         <View style={styles.modalOverlay}>
           <View style={styles.successModalContent}>
             <View style={styles.iconCircle}>
-              <Ionicons name="checkmark" size={48} color={COLORS.white} />
+              <Ionicons name="checkmark" size={36} color={THEME_COLORS.success} />
             </View>
             <Text style={styles.successTitle}>Thành công!</Text>
             <Text style={styles.successText}>Thanh toán hoàn tất.</Text>
@@ -168,24 +169,25 @@ export default function MomoPayment() {
       </Modal>
 
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Ionicons name="close" size={24} color={COLORS.text} />
+        <TouchableOpacity style={styles.iconButton} onPress={() => router.back()} activeOpacity={PRESS_OPACITY}>
+          <Ionicons name="close" size={22} color={THEME_COLORS.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Xác nhận thanh toán</Text>
         <View style={styles.headerRight}>
-          <TouchableOpacity onPress={handleShare}>
-            <Ionicons name="share-social-outline" size={24} color={COLORS.text} />
+          <TouchableOpacity style={styles.iconButton} onPress={handleShare} activeOpacity={PRESS_OPACITY}>
+            <Ionicons name="share-social-outline" size={20} color={THEME_COLORS.textSecondary} />
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => setShowQRModal(true)} disabled={isProcessing}>
-            <Ionicons name="ellipsis-vertical" size={24} color={COLORS.text} />
+          <TouchableOpacity style={styles.iconButton} onPress={() => setShowQRModal(true)} disabled={isProcessing} activeOpacity={PRESS_OPACITY}>
+            <Ionicons name="ellipsis-vertical" size={20} color={THEME_COLORS.textSecondary} />
           </TouchableOpacity>
         </View>
       </View>
 
-      <View style={styles.content}>
-        <PaymentLogo method="momo" size={80} style={styles.logo} />
-
-        <Text style={styles.merchantName}>RENTO - Thuê xe tự lái</Text>
+      <ScrollView style={styles.content} contentContainerStyle={styles.contentInner} showsVerticalScrollIndicator={false}>
+        <View style={styles.merchantBlock}>
+          <PaymentLogo method="momo" size={72} style={styles.logo} />
+          <Text style={styles.merchantName}>RENTO - Thuê xe tự lái</Text>
+        </View>
 
         <View style={styles.paymentDetails}>
           <View style={styles.row}>
@@ -197,268 +199,272 @@ export default function MomoPayment() {
           </View>
 
           <View style={styles.paymentMethod}>
-            <View>
-              <Text style={styles.paymentMethodText}>{PAYMENT_METHODS.MOMO.label}</Text>
-              <Text style={styles.walletPhone}>{walletPhone}</Text>
+            <View style={styles.paymentMethodLeft}>
+              <PaymentLogo method="momo" size={36} />
+              <View>
+                <Text style={styles.paymentMethodText}>{PAYMENT_METHODS.MOMO.label}</Text>
+                <Text style={styles.walletPhone}>{walletPhone}</Text>
+              </View>
             </View>
             <View style={styles.radio}>
               <View style={styles.radioInner} />
             </View>
           </View>
+        </View>
 
-          <View style={styles.amountSection}>
-            <Text style={styles.amountLabel}>SỐ TIỀN THANH TOÁN</Text>
-            <View style={styles.amountRow}>
-              <Text style={styles.amount}>{formatCurrency(amount)}</Text>
-            </View>
+        <View style={styles.amountSection}>
+          <Text style={styles.amountLabel}>SỐ TIỀN THANH TOÁN</Text>
+          <View style={styles.amountRow}>
+            <Text style={styles.amount}>{formatCurrency(amount)}</Text>
           </View>
+        </View>
+      </ScrollView>
 
-          <TouchableOpacity 
+      <SafeAreaView edges={["bottom"]} style={styles.footer}>
+        <View style={styles.footerInner}>
+          <TouchableOpacity
             style={[styles.payButton, isProcessing && styles.payButtonDisabled]}
             onPress={handlePay}
             disabled={isProcessing}
+            activeOpacity={PRESS_OPACITY}
           >
             {isProcessing ? (
-              <ActivityIndicator color={COLORS.white} />
+              <ActivityIndicator color="#FFFFFF" />
             ) : (
               <Text style={styles.payButtonText}>Thanh toán {formatCurrency(amount)}</Text>
             )}
           </TouchableOpacity>
         </View>
-      </View>
+      </SafeAreaView>
     </SafeAreaView>
   )
 }
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    backgroundColor: COLORS.primary,
+    ...UI.screen,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingHorizontal: SPACE.screen,
+    paddingVertical: SPACE.md,
+    borderBottomWidth: 1,
+    borderBottomColor: THEME_COLORS.border,
+  },
+  iconButton: {
+    width: 40,
+    height: 40,
+    borderRadius: RADIUS.control,
+    borderWidth: 1,
+    borderColor: THEME_COLORS.border,
+    backgroundColor: THEME_COLORS.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   headerTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: COLORS.white,
+    ...TYPOGRAPHY.h3,
   },
   headerRight: {
     flexDirection: 'row',
-    gap: 16,
+    gap: SPACE.sm,
   },
   content: {
     flex: 1,
-    backgroundColor: COLORS.white,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingHorizontal: 20,
-    paddingTop: 30,
+  },
+  contentInner: {
+    paddingHorizontal: SPACE.screen,
+    paddingTop: SPACE.section,
+    paddingBottom: SPACE.section,
+  },
+  merchantBlock: {
     alignItems: 'center',
+    marginBottom: SPACE.section,
   },
   logo: {
-    marginBottom: 16,
+    marginBottom: SPACE.lg,
   },
   merchantName: {
-    fontSize: 24,
-    fontWeight: '600',
-    color: COLORS.text,
-    marginBottom: 32,
+    ...TYPOGRAPHY.h2,
+    textAlign: 'center',
   },
   paymentDetails: {
-    width: '100%',
-    backgroundColor: COLORS.white,
-    borderRadius: 16,
-    padding: 20,
-    elevation: 2,
+    ...UI.card,
+    padding: SPACE.lg,
   },
   row: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: SPACE.lg,
   },
   label: {
-    fontSize: 14,
-    color: COLORS.text,
-    opacity: 0.6,
+    ...TYPOGRAPHY.overline,
   },
   balanceContainer: {
     alignItems: 'flex-end',
   },
   balanceLabel: {
+    ...TYPOGRAPHY.caption,
     fontSize: 12,
-    color: COLORS.text,
-    opacity: 0.6,
   },
   balance: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: COLORS.text,
+    ...TYPOGRAPHY.bodyStrong,
   },
   paymentMethod: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 16,
-    backgroundColor: '#F8F8F8',
-    borderRadius: 12,
-    marginBottom: 32,
+    paddingVertical: SPACE.md,
+    paddingHorizontal: SPACE.lg,
+    borderRadius: RADIUS.control,
+    borderWidth: 1,
+    borderColor: MOMO_COLOR,
+    backgroundColor: MOMO_SOFT,
+  },
+  paymentMethodLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACE.md,
   },
   paymentMethodText: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: COLORS.text,
+    ...TYPOGRAPHY.bodyStrong,
   },
   walletPhone: {
-    fontSize: 13,
-    color: COLORS.text,
-    opacity: 0.6,
+    ...TYPOGRAPHY.caption,
     marginTop: 2,
   },
   radio: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: COLORS.primary,
+    width: 20,
+    height: 20,
+    borderRadius: RADIUS.pill,
+    borderWidth: 1.5,
+    borderColor: MOMO_COLOR,
+    backgroundColor: THEME_COLORS.surface,
     alignItems: 'center',
     justifyContent: 'center',
   },
   radioInner: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: COLORS.primary,
+    width: 10,
+    height: 10,
+    borderRadius: RADIUS.pill,
+    backgroundColor: MOMO_COLOR,
   },
   amountSection: {
-    marginBottom: 24,
+    marginTop: SPACE.section,
+    alignItems: 'center',
   },
   amountLabel: {
-    fontSize: 14,
-    color: COLORS.text,
-    opacity: 0.6,
-    marginBottom: 16,
+    ...TYPOGRAPHY.overline,
+    marginBottom: SPACE.sm,
   },
   amountRow: {
     alignItems: 'center',
   },
   amount: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: COLORS.text,
+    ...TYPOGRAPHY.display,
+  },
+  footer: {
+    backgroundColor: THEME_COLORS.surface,
+    borderTopWidth: 1,
+    borderTopColor: THEME_COLORS.border,
+  },
+  footerInner: {
+    paddingHorizontal: SPACE.screen,
+    paddingVertical: SPACE.md,
   },
   payButton: {
-    backgroundColor: COLORS.primary,
-    paddingVertical: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-    marginTop: 24,
+    ...UI.primaryButton,
+    backgroundColor: MOMO_COLOR,
+    boxShadow: MOMO_BUTTON_SHADOW,
   },
   payButtonDisabled: {
     opacity: 0.7,
   },
   payButtonText: {
-    color: COLORS.white,
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  iconContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: `${COLORS.primary}10`,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 24,
+    ...UI.primaryButtonText,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(15, 23, 42, 0.45)',
     justifyContent: 'center',
     alignItems: 'center',
+    paddingHorizontal: SPACE.screen,
   },
   modalContent: {
-    width: width * 0.9,
-    backgroundColor: COLORS.primary,
-    borderRadius: 20,
-    padding: 20,
+    width: '100%',
+    maxWidth: 380,
+    backgroundColor: THEME_COLORS.surface,
+    borderRadius: RADIUS.sheet,
+    padding: SPACE["2xl"],
     alignItems: 'center',
     position: 'relative',
+    ...SHADOWS.raised,
   },
   closeButton: {
     position: 'absolute',
-    top: 16,
-    right: 16,
+    top: SPACE.lg,
+    right: SPACE.lg,
     zIndex: 1,
-    backgroundColor: COLORS.white,
-    borderRadius: 15,
-    padding: 6,
   },
   modalLogo: {
-    marginVertical: 20,
-    borderWidth: 2,
-    borderColor: COLORS.white,
+    marginTop: SPACE.sm,
+    marginBottom: SPACE.lg,
   },
   scanText: {
-    color: COLORS.white,
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 20,
+    ...TYPOGRAPHY.h3,
+    marginBottom: SPACE.xl,
     textAlign: 'center',
   },
   qrContainer: {
-    width: width * 0.7,
-    height: width * 0.7,
-    backgroundColor: COLORS.white,
-    borderRadius: 12,
-    padding: 15,
-    marginBottom: 20,
+    width: width * 0.62,
+    height: width * 0.62,
+    maxWidth: 280,
+    maxHeight: 280,
+    backgroundColor: THEME_COLORS.surface,
+    borderRadius: RADIUS.card,
+    borderWidth: 1,
+    borderColor: THEME_COLORS.border,
+    padding: SPACE.md,
+    marginBottom: SPACE.xl,
   },
   qrCode: {
     width: '100%',
     height: '100%',
   },
   merchantText: {
-    color: COLORS.white,
-    fontSize: 16,
-    marginBottom: 8,
+    ...TYPOGRAPHY.body,
+    marginBottom: SPACE.xs,
   },
   amountText: {
-    color: COLORS.white,
-    fontSize: 24,
-    fontWeight: 'bold',
+    ...TYPOGRAPHY.h2,
+    color: MOMO_COLOR,
   },
   successModalContent: {
-    backgroundColor: COLORS.white,
-    borderRadius: 20,
-    padding: 30,
+    backgroundColor: THEME_COLORS.surface,
+    borderRadius: RADIUS.sheet,
+    padding: SPACE["3xl"],
     alignItems: 'center',
-    elevation: 5,
-    width: '80%',
+    width: '100%',
+    maxWidth: 340,
+    ...SHADOWS.raised,
   },
   iconCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: '#00C851',
+    width: 72,
+    height: 72,
+    borderRadius: RADIUS.pill,
+    backgroundColor: THEME_COLORS.successSoft,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 20,
+    marginBottom: SPACE.xl,
   },
   successTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: COLORS.text,
-    marginBottom: 8,
+    ...TYPOGRAPHY.h2,
+    marginBottom: SPACE.sm,
   },
   successText: {
-    fontSize: 16,
-    color: COLORS.text,
-    opacity: 0.8,
+    ...TYPOGRAPHY.body,
+    textAlign: 'center',
   },
 })

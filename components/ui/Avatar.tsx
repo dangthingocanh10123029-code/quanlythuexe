@@ -1,4 +1,5 @@
 import { View, Image, Text, StyleSheet } from "react-native"
+import { THEME_COLORS } from "../../utils/theme"
 
 interface AvatarProps {
   source?: { uri: string }
@@ -7,7 +8,7 @@ interface AvatarProps {
   backgroundColor?: string
 }
 
-export default function Avatar({ source, size = 50, name, backgroundColor = "#4169e1" }: AvatarProps) {
+export default function Avatar({ source, size = 50, name, backgroundColor = THEME_COLORS.primarySoft }: AvatarProps) {
   const getInitials = (name: string) => {
     return name
       .split(" ")
@@ -23,7 +24,7 @@ export default function Avatar({ source, size = 50, name, backgroundColor = "#41
         <Image source={source} style={[styles.image, { width: size, height: size, borderRadius: size / 2 }]} />
       ) : (
         <View style={[styles.placeholder, { backgroundColor, width: size, height: size, borderRadius: size / 2 }]}>
-          <Text style={[styles.initials, { fontSize: size * 0.4 }]}>{name ? getInitials(name) : "?"}</Text>
+          <Text style={[styles.initials, { fontSize: size * 0.38 }]}>{name ? getInitials(name) : "?"}</Text>
         </View>
       )}
     </View>
@@ -33,6 +34,9 @@ export default function Avatar({ source, size = 50, name, backgroundColor = "#41
 const styles = StyleSheet.create({
   container: {
     overflow: "hidden",
+    borderWidth: 1,
+    borderColor: THEME_COLORS.border,
+    backgroundColor: THEME_COLORS.surfaceMuted,
   },
   image: {
     resizeMode: "cover",
@@ -42,7 +46,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   initials: {
-    color: "#ffffff",
-    fontWeight: "bold",
+    color: THEME_COLORS.primary,
+    fontWeight: "700",
   },
 })

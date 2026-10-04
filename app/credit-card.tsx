@@ -1,6 +1,6 @@
 "use client"
 
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, Modal, Image, Animated, Alert, ActivityIndicator } from 'react-native'
+import { type TextStyle, View, Text, StyleSheet, TouchableOpacity, TextInput, Modal, Image, Animated, Alert, ActivityIndicator, ScrollView } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons'
 import { router, useLocalSearchParams } from 'expo-router'
@@ -9,15 +9,9 @@ import { doc, updateDoc } from 'firebase/firestore'
 import { db } from "../config/firebase"
 import { formatCurrency } from "../utils/helpers"
 import { PAYMENT_METHODS } from "../utils/constants"
+import { StatusBar } from "expo-status-bar"
+import { THEME_COLORS, RADIUS, SPACE, SHADOWS, TYPOGRAPHY, UI, PRESS_OPACITY } from "../utils/theme"
 
-const COLORS = {
-  background: "#FFFFFF",
-  primary: "#1054CF",
-  text: "#4A4A4A",
-  border: "#E8E8E8",
-  white: "#FFFFFF",
-  error: "#FF4444"
-}
 
 // Quay lại màn trước; nếu không có lịch sử (vào thẳng màn hình) thì về danh sách đơn
 const goBackSafely = () => {
@@ -57,6 +51,7 @@ export default function CreditCardScreen() {
   const [expiry, setExpiry] = useState('')
   const [cvv, setCvv] = useState('')
   const [isFlipped, setIsFlipped] = useState(false)
+  const [focusedField, setFocusedField] = useState<string | null>(null)
   const flipAnimation = useRef(new Animated.Value(0)).current
 
   // Vào thẳng màn hình mà không có mã đơn đặt xe → báo lỗi và quay lại
@@ -185,16 +180,22 @@ export default function CreditCardScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={["top"]}>
+      <StatusBar style="dark" />
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={24} color={COLORS.text} />
+        <TouchableOpacity style={styles.iconButton} onPress={() => router.back()} activeOpacity={PRESS_OPACITY}>
+          <Ionicons name="arrow-back" size={22} color={THEME_COLORS.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Thanh toán bằng thẻ</Text>
-        <View style={{ width: 24 }} />
+        <View style={{ width: 40 }} />
       </View>
 
-      <View style={styles.content}>
+      <ScrollView
+        style={styles.content}
+        contentContainerStyle={styles.contentInner}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.cardContainer}>
           {/* Front of card */}
           <Animated.View style={[styles.cardPreview, frontAnimatedStyle]}>
@@ -210,13 +211,13 @@ export default function CreditCardScreen() {
                 resizeMode="contain"
               />
             </View>
-            <Text style={styles.cardNumber}>
+            <Text style={styles.cardNumber} numberOfLines={1} adjustsFontSizeToFit>
               {formatCardNumber(displayCardNumber())}
             </Text>
             <View style={styles.cardBottom}>
-              <View>
+              <View style={{ flex: 1, marginRight: SPACE.lg }}>
                 <Text style={styles.cardLabel}>CHỦ THẺ</Text>
-                <Text style={styles.cardValue}>
+                <Text style={styles.cardValue} numberOfLines={1}>
                   {cardName || 'HỌ VÀ TÊN'}
                 </Text>
               </View>
@@ -245,26 +246,32 @@ export default function CreditCardScreen() {
 
         <View style={styles.cardSection}>
           <Text style={styles.sectionTitle}>Thông tin thẻ</Text>
-          
-          <TextInput 
-            style={styles.input}
+
+          <TextInput
+            style={[styles.input, focusedField === "number" && styles.inputFocused]}
             placeholder="Số thẻ"
+            placeholderTextColor={THEME_COLORS.textMuted}
             keyboardType="numeric"
             maxLength={16}
             value={cardNumber}
+            onFocus={() => setFocusedField("number")}
+            onBlur={() => setFocusedField(null)}
             onChangeText={(text) => {
               const cleaned = text.replace(/\D/g, '')
               setCardNumber(cleaned)
             }}
           />
-          
+
           <View style={styles.row}>
-            <TextInput 
-              style={[styles.input, styles.expiryInput]}
+            <TextInput
+              style={[styles.input, styles.expiryInput, focusedField === "expiry" && styles.inputFocused]}
               placeholder="MM/YY"
+              placeholderTextColor={THEME_COLORS.textMuted}
               keyboardType="numeric"
               maxLength={5}
               value={expiry}
+              onFocus={() => setFocusedField("expiry")}
+              onBlur={() => setFocusedField(null)}
               onChangeText={(text) => {
                 const cleaned = text.replace(/\D/g, '')
                 if (cleaned.length >= 2) {
@@ -274,24 +281,34 @@ export default function CreditCardScreen() {
                 }
               }}
             />
-            <TextInput 
-              style={[styles.input, styles.cvvInput]}
+            <TextInput
+              style={[styles.input, styles.cvvInput, focusedField === "cvv" && styles.inputFocused]}
               placeholder="CVV"
+              placeholderTextColor={THEME_COLORS.textMuted}
               keyboardType="numeric"
               maxLength={3}
               value={cvv}
-              onFocus={() => flipCard(true)}
-              onBlur={() => flipCard(false)}
+              onFocus={() => {
+                setFocusedField("cvv")
+                flipCard(true)
+              }}
+              onBlur={() => {
+                setFocusedField(null)
+                flipCard(false)
+              }}
               onChangeText={(text) => setCvv(text.replace(/\D/g, ''))}
               secureTextEntry
             />
           </View>
 
-          <TextInput 
-            style={styles.input}
+          <TextInput
+            style={[styles.input, styles.lastInput, focusedField === "name" && styles.inputFocused]}
             placeholder="Tên chủ thẻ (không dấu)"
+            placeholderTextColor={THEME_COLORS.textMuted}
             autoCapitalize="characters"
             value={cardName}
+            onFocus={() => setFocusedField("name")}
+            onBlur={() => setFocusedField(null)}
             onChangeText={setCardName}
           />
         </View>
@@ -300,19 +317,24 @@ export default function CreditCardScreen() {
           <Text style={styles.amountLabel}>Số tiền cần thanh toán</Text>
           <Text style={styles.amount}>{formatCurrency(amount)}</Text>
         </View>
+      </ScrollView>
 
-        <TouchableOpacity 
-          style={[styles.payButton, isProcessing && styles.payButtonDisabled]}
-          onPress={handlePay}
-          disabled={isProcessing}
-        >
-          {isProcessing ? (
-            <ActivityIndicator color={COLORS.white} />
-          ) : (
-            <Text style={styles.payButtonText}>Thanh toán {formatCurrency(amount)}</Text>
-          )}
-        </TouchableOpacity>
-      </View>
+      <SafeAreaView edges={["bottom"]} style={styles.footer}>
+        <View style={styles.footerInner}>
+          <TouchableOpacity
+            style={[styles.payButton, isProcessing && styles.payButtonDisabled]}
+            onPress={handlePay}
+            disabled={isProcessing}
+            activeOpacity={PRESS_OPACITY}
+          >
+            {isProcessing ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <Text style={styles.payButtonText}>Thanh toán {formatCurrency(amount)}</Text>
+            )}
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
 
       <Modal
         animationType="fade"
@@ -323,7 +345,7 @@ export default function CreditCardScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.successModalContent}>
             <View style={styles.iconCircle}>
-              <Ionicons name="checkmark" size={48} color={COLORS.white} />
+              <Ionicons name="checkmark" size={36} color={THEME_COLORS.success} />
             </View>
             <Text style={styles.successTitle}>Thành công!</Text>
             <Text style={styles.successText}>Thanh toán hoàn tất.</Text>
@@ -336,44 +358,56 @@ export default function CreditCardScreen() {
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    backgroundColor: COLORS.background,
+    ...UI.screen,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingHorizontal: SPACE.screen,
+    paddingVertical: SPACE.md,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    borderBottomColor: THEME_COLORS.border,
+  },
+  iconButton: {
+    width: 40,
+    height: 40,
+    borderRadius: RADIUS.control,
+    borderWidth: 1,
+    borderColor: THEME_COLORS.border,
+    backgroundColor: THEME_COLORS.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   headerTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: COLORS.text,
+    ...TYPOGRAPHY.h3,
   },
   content: {
     flex: 1,
-    padding: 20,
+  },
+  contentInner: {
+    paddingHorizontal: SPACE.screen,
+    paddingTop: SPACE["2xl"],
+    paddingBottom: SPACE.section,
   },
   cardContainer: {
     height: 200,
-    marginBottom: 24,
+    marginBottom: SPACE.section,
   },
+  // Mặt thẻ minh hoạ: giữ màu riêng của thẻ
   cardPreview: {
-    backgroundColor: COLORS.primary,
-    borderRadius: 16,
-    padding: 24,
-    marginBottom: 24,
+    backgroundColor: THEME_COLORS.primary,
+    borderRadius: RADIUS.card,
+    padding: SPACE["2xl"],
     height: 200,
     justifyContent: 'space-between',
+    backfaceVisibility: 'hidden',
+    ...SHADOWS.raised,
   },
   cardTopRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
   },
   chip: {
     width: 40,
@@ -384,126 +418,121 @@ const styles = StyleSheet.create({
     height: 40,
   },
   cardNumber: {
-    color: COLORS.white,
-    fontSize: 24,
+    color: '#FFFFFF',
+    fontSize: 22,
+    fontWeight: '600',
     letterSpacing: 2,
-    marginBottom: 20,
   },
   cardBottom: {
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
   cardLabel: {
-    color: COLORS.white,
+    color: 'rgba(255, 255, 255, 0.7)',
     fontSize: 10,
-    opacity: 0.8,
-    marginBottom: 4,
+    fontWeight: '600',
+    letterSpacing: 0.8,
+    marginBottom: SPACE.xs,
   },
   cardValue: {
-    color: COLORS.white,
+    color: '#FFFFFF',
     fontSize: 14,
+    fontWeight: '600',
     letterSpacing: 1,
   },
   amountContainer: {
-    backgroundColor: COLORS.white,
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 24,
-    elevation: 2,
+    ...UI.card,
+    padding: SPACE.lg,
+    marginTop: SPACE["2xl"],
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
   },
   amountLabel: {
-    fontSize: 14,
-    color: COLORS.text,
-    marginBottom: 8,
+    ...TYPOGRAPHY.body,
+    flex: 1,
+    marginRight: SPACE.md,
   },
   amount: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: COLORS.primary,
+    ...TYPOGRAPHY.price,
+    fontSize: 22,
   },
   cardSection: {
-    backgroundColor: COLORS.white,
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 24,
-    elevation: 2,
+    ...UI.card,
+    padding: SPACE.lg,
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: COLORS.text,
-    marginBottom: 20,
+    ...TYPOGRAPHY.h3,
+    marginBottom: SPACE.lg,
   },
   input: {
-    backgroundColor: COLORS.white,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 12,
-    padding: 16,
-    fontSize: 16,
-    marginBottom: 16,
+    ...UI.input,
+    marginBottom: SPACE.md,
+  },
+  inputFocused: UI.inputFocused as TextStyle,
+  lastInput: {
+    marginBottom: 0,
   },
   row: {
     flexDirection: 'row',
   },
-  halfInput: {
-    flex: 1,
-  },
   expiryInput: {
     flex: 0.7,      // less than 1, so it's shorter
-    marginRight: 8,
+    marginRight: SPACE.md,
   },
   cvvInput: {
     flex: 1.3,      // more than 1, so it's wider
   },
+  footer: {
+    backgroundColor: THEME_COLORS.surface,
+    borderTopWidth: 1,
+    borderTopColor: THEME_COLORS.border,
+  },
+  footerInner: {
+    paddingHorizontal: SPACE.screen,
+    paddingVertical: SPACE.md,
+  },
   payButton: {
-    backgroundColor: COLORS.primary,
-    paddingVertical: 16,
-    borderRadius: 12,
-    alignItems: 'center',
+    ...UI.primaryButton,
   },
   payButtonDisabled: {
     opacity: 0.7,
   },
   payButtonText: {
-    color: COLORS.white,
-    fontSize: 16,
-    fontWeight: '600',
+    ...UI.primaryButtonText,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(15, 23, 42, 0.45)',
     justifyContent: 'center',
     alignItems: 'center',
+    paddingHorizontal: SPACE.screen,
   },
   successModalContent: {
-    backgroundColor: COLORS.white,
-    borderRadius: 20,
-    padding: 30,
+    backgroundColor: THEME_COLORS.surface,
+    borderRadius: RADIUS.sheet,
+    padding: SPACE["3xl"],
     alignItems: 'center',
-    elevation: 5,
-    width: '80%',
+    width: '100%',
+    maxWidth: 340,
+    ...SHADOWS.raised,
   },
   iconCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: '#00C851',
+    width: 72,
+    height: 72,
+    borderRadius: RADIUS.pill,
+    backgroundColor: THEME_COLORS.successSoft,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 20,
+    marginBottom: SPACE.xl,
   },
   successTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: COLORS.text,
-    marginBottom: 8,
+    ...TYPOGRAPHY.h2,
+    marginBottom: SPACE.sm,
   },
   successText: {
-    fontSize: 16,
-    color: COLORS.text,
-    opacity: 0.8,
+    ...TYPOGRAPHY.body,
+    textAlign: 'center',
   },
   cardBack: {
     position: 'absolute',
@@ -511,61 +540,44 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: COLORS.primary,
-    backfaceVisibility: 'hidden',
+    backgroundColor: THEME_COLORS.primaryPressed,
+    justifyContent: 'flex-start',
+    paddingHorizontal: 0,
   },
   magneticStrip: {
     height: 36,
-    backgroundColor: '#2a2a2a',
-    borderRadius: 6,
-    marginTop: 12,
-    marginBottom: 24,
+    backgroundColor: THEME_COLORS.textPrimary,
+    marginTop: SPACE.xs,
     width: '100%',
-  },
-  cvvContainer: {
-    padding: 20,
-    alignItems: 'flex-end',
-  },
-  cvvLabel: {
-    color: COLORS.white,
-    fontSize: 10,
-    marginBottom: 4,
-  },
-  cvvBox: {
-    backgroundColor: COLORS.white,
-    padding: 10,
-    borderRadius: 4,
-    width: 60,
-    alignItems: 'center',
   },
   cvvText: {
     fontSize: 14,
     fontWeight: '600',
-    color: COLORS.text,
+    color: THEME_COLORS.textPrimary,
+    letterSpacing: 2,
   },
   cvvBackRow: {
     flex: 1,
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'flex-end',
+    paddingHorizontal: SPACE["2xl"],
   },
   cvvLabelBox: {
     alignItems: 'center',
   },
   cvvLabelBack: {
-    color: COLORS.text,
-    fontSize: 12,
-    marginBottom: 4,
-    fontWeight: 'bold',
+    color: 'rgba(255, 255, 255, 0.85)',
+    fontSize: 11,
+    marginBottom: SPACE.xs,
+    fontWeight: '700',
     letterSpacing: 1,
   },
   cvvBoxBack: {
-    backgroundColor: COLORS.white,
+    backgroundColor: '#FFFFFF',
     paddingVertical: 6,
     paddingHorizontal: 18,
     borderRadius: 6,
     minWidth: 60,
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: COLORS.border,
   },
 })

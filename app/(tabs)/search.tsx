@@ -24,6 +24,8 @@ import { collection, addDoc, deleteDoc, getDocs, query, where, doc } from "fireb
 import { useAuth } from "../../hooks/useAuth"
 import { formatCurrency } from "../../utils/helpers"
 import { CITIES } from "../../utils/constants"
+import { StatusBar } from "expo-status-bar"
+import { THEME_COLORS, RADIUS, SPACE, SHADOWS, TYPOGRAPHY, UI, PRESS_OPACITY } from "../../utils/theme"
 
 const { width } = Dimensions.get("window")
 
@@ -92,6 +94,7 @@ export default function SearchScreen() {
   const [likedCars, setLikedCars] = useState<string[]>([])
   const [showLikeModal, setShowLikeModal] = useState(false)
   const [likedCarName, setLikedCarName] = useState("")
+  const [focusedField, setFocusedField] = useState<"search" | null>(null)
 
   const fetchLikedCars = async () => {
     if (!user?.id) return
@@ -237,75 +240,82 @@ export default function SearchScreen() {
     }
   }
 
-  const renderBrandItem = ({ item }: { item: any }) => (
-    <TouchableOpacity
-      style={[styles.brandCard, selectedBrand === item.name && styles.selectedBrandCard]}
-      onPress={() => handleBrandSelect(item.name)}
-    >
-      <Image source={item.logo} style={styles.brandLogoImg} resizeMode="contain" />
-      <Text style={[styles.brandName, selectedBrand === item.name && styles.selectedBrandName]}>{item.name}</Text>
-    </TouchableOpacity>
-  )
+  const renderBrandItem = ({ item }: { item: any }) => {
+    const isSelected = selectedBrand === item.name
+    return (
+      <TouchableOpacity
+        style={[styles.brandChip, isSelected && styles.brandChipActive]}
+        onPress={() => handleBrandSelect(item.name)}
+        activeOpacity={PRESS_OPACITY}
+      >
+        <Image source={item.logo} style={styles.brandLogoImg} resizeMode="contain" />
+        <Text style={[styles.brandName, isSelected && styles.brandNameActive]}>{item.name}</Text>
+      </TouchableOpacity>
+    )
+  }
 
   const getCardStyle = () => ({
     ...styles.carCard,
-    maxWidth: selectedBrand ? width - 32 : (width - 40) / 2,
-    height: selectedBrand ? 340 : 280, // Only increase height when brand is selected
+    maxWidth: selectedBrand ? width - SPACE.screen * 2 : (width - SPACE.screen * 2 - SPACE.md) / 2,
   });
 
   const renderCarItem = ({ item }: { item: any }) => (
-    <TouchableOpacity 
-      style={getCardStyle()} 
+    <TouchableOpacity
+      style={getCardStyle()}
       onPress={() => router.push({
         pathname: "/car-details/[id]",
         params: { id: item.id }
       })}
-      activeOpacity={0.7}
+      activeOpacity={PRESS_OPACITY}
     >
-      <View style={styles.cardHeader}>
-        <View style={styles.locationTag}>
-          <Ionicons name="location" size={16} color="#fff" />
-          <Text style={styles.locationText}>{item.location}</Text>
+      <View style={styles.carImageWrap}>
+        <Image
+          source={item.image}
+          style={[styles.carImage, selectedBrand ? styles.carImageLarge : null]}
+          resizeMode="cover"
+        />
+        <View style={styles.cardHeader}>
+          <View style={styles.locationTag}>
+            <Ionicons name="location" size={12} color={THEME_COLORS.primary} />
+            <Text style={styles.locationText} numberOfLines={1}>{item.location}</Text>
+          </View>
+          <TouchableOpacity
+            style={styles.favoriteButton}
+            onPress={() => handleLike(item)}
+            activeOpacity={PRESS_OPACITY}
+          >
+            <Ionicons
+              name={likedCars.includes(item.id) ? "heart" : "heart-outline"}
+              size={18}
+              color={likedCars.includes(item.id) ? THEME_COLORS.danger : THEME_COLORS.textSecondary}
+            />
+          </TouchableOpacity>
         </View>
-        <TouchableOpacity 
-          style={styles.favoriteButton}
-          onPress={() => handleLike(item)}
-        >
-          <Ionicons 
-            name={likedCars.includes(item.id) ? "heart" : "heart-outline"} 
-            size={20} 
-            color="#fff" 
-          />
-        </TouchableOpacity>
       </View>
 
-      <Image source={item.image} style={styles.carImage} />
-      
       <View style={styles.cardContent}>
-        <View style={styles.nameRow}>
-          <Text style={styles.carName}>{item.name}</Text>
-          <Text style={styles.carPrice}>{formatCurrency(item.pricePerDay)}/ngày</Text>
-        </View>
-        
+        <Text style={styles.carName} numberOfLines={1}>{item.name}</Text>
+
         <View style={styles.detailsRow}>
           <View style={styles.ratingContainer}>
-            <Ionicons name="star" size={16} color="#FFB700" />
-            <Text style={styles.ratingText}>{typeof item.rating === "number" ? item.rating.toFixed(1) : "–"}</Text>
+            <Ionicons name="star" size={13} color={THEME_COLORS.accent} />
+            <Text style={styles.metaText}>{typeof item.rating === "number" ? item.rating.toFixed(1) : "–"}</Text>
           </View>
-          
           <View style={styles.seatsContainer}>
-            <Ionicons name="people" size={16} color="#fff" />
-            <Text style={styles.seatsText}>{item.seats} chỗ</Text>
+            <Ionicons name="people-outline" size={13} color={THEME_COLORS.textMuted} />
+            <Text style={styles.metaText}>{item.seats} chỗ</Text>
           </View>
         </View>
+
+        <Text style={styles.carPrice} numberOfLines={1}>{formatCurrency(item.pricePerDay)}/ngày</Text>
 
         <View style={styles.bottomRow}>
           <View style={styles.conditionTag}>
             <Text style={styles.conditionText}>TỰ LÁI</Text>
           </View>
-          
+
           <View style={styles.arrowButton}>
-            <Ionicons name="arrow-forward" size={20} color="#FFB700" />
+            <Ionicons name="arrow-forward" size={16} color={THEME_COLORS.primary} />
           </View>
         </View>
       </View>
@@ -313,74 +323,90 @@ export default function SearchScreen() {
   )
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Blue Background Rectangle */}
-      <View style={styles.blueBackground}>
+    <SafeAreaView style={styles.container} edges={["top"]}>
+      <StatusBar style="dark" />
+      {/* Header trắng cố định: tiêu đề, ô tìm kiếm, chip hãng */}
+      <View style={styles.topArea}>
         <View style={styles.header}>
-          <Text style={[styles.title, { color: "#ffffff" }]}>Tìm xe</Text>
-          <TouchableOpacity 
-            style={[styles.devsButton, { backgroundColor: "#ffffff" }]} 
+          <Text style={styles.title}>Tìm xe</Text>
+          <TouchableOpacity
+            style={styles.devsButton}
             onPress={() => router.push("/developers")}
+            activeOpacity={PRESS_OPACITY}
           >
-            <Text style={[styles.devsButtonText, { color: "#1054CF" }]}>Nhóm phát triển</Text>
+            <Ionicons name="people-outline" size={16} color={THEME_COLORS.primary} />
+            <Text style={styles.devsButtonText}>Nhóm phát triển</Text>
           </TouchableOpacity>
         </View>
 
-        {/* Top Brands */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: "#ffffff" }]}>Hãng xe phổ biến</Text>
-          <FlatList
-            key="brands"
-            data={brands}
-            renderItem={renderBrandItem}
-            keyExtractor={(item) => item.id.toString()}
-            numColumns={4}
-            scrollEnabled={false}
-            contentContainerStyle={styles.brandsGrid}
-          />
-        </View>
-      </View>
-
-      <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         {/* Ô tìm kiếm */}
         <View style={styles.searchContainer}>
-          <View style={styles.searchBar}>
-            <Ionicons name="search" size={20} color="#666666" />
+          <View style={[styles.searchBar, focusedField === "search" && styles.searchBarFocused]}>
+            <Ionicons
+              name="search"
+              size={20}
+              color={focusedField === "search" ? THEME_COLORS.primary : THEME_COLORS.textMuted}
+            />
             <TextInput
               ref={searchInputRef}
               style={styles.searchInput}
               placeholder="Tìm xe, hãng xe, mẫu xe..."
-              placeholderTextColor="#999999"
+              placeholderTextColor={THEME_COLORS.textMuted}
               value={searchQuery}
               onChangeText={setSearchQuery}
+              onFocus={() => setFocusedField("search")}
+              onBlur={() => setFocusedField(null)}
               returnKeyType="search"
               autoCorrect={false}
             />
             {searchQuery.length > 0 && (
-              <TouchableOpacity onPress={() => setSearchQuery("")}>
-                <Ionicons name="close-circle" size={20} color="#999999" />
+              <TouchableOpacity onPress={() => setSearchQuery("")} activeOpacity={PRESS_OPACITY}>
+                <Ionicons name="close-circle" size={20} color={THEME_COLORS.textMuted} />
               </TouchableOpacity>
             )}
           </View>
         </View>
 
+        {/* Top Brands */}
+        <Text style={styles.brandsLabel}>Hãng xe phổ biến</Text>
+        <FlatList
+          key="brands"
+          data={brands}
+          renderItem={renderBrandItem}
+          keyExtractor={(item) => item.id.toString()}
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.brandsRow}
+        />
+      </View>
+      <View style={styles.divider} />
+
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={styles.scrollContent}
+      >
         {/* Map View */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Bản đồ</Text>
+        <View style={styles.mapSection}>
           <DummyMap />
         </View>
-        
+
         {/* All Cars / Filtered Cars */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>
+            <Text style={styles.sectionTitle} numberOfLines={1}>
               {selectedBrand ? `Xe ${selectedBrand}` : "Tất cả xe"} ({filteredCars.length})
             </Text>
             <TouchableOpacity
               style={[styles.filterButton, activeFilterCount > 0 && styles.filterButtonActive]}
               onPress={openFilterModal}
+              activeOpacity={PRESS_OPACITY}
             >
-              <Ionicons name="options" size={20} color={activeFilterCount > 0 ? "#ffffff" : "#4169e1"} />
+              <Ionicons
+                name="options-outline"
+                size={18}
+                color={activeFilterCount > 0 ? THEME_COLORS.primary : THEME_COLORS.textSecondary}
+              />
               <Text style={[styles.filterText, activeFilterCount > 0 && styles.filterTextActive]}>
                 Bộ lọc{activeFilterCount > 0 ? ` (${activeFilterCount})` : ""}
               </Text>
@@ -389,10 +415,12 @@ export default function SearchScreen() {
 
           {filteredCars.length === 0 && (
             <View style={styles.emptyState}>
-              <Ionicons name="car-outline" size={48} color="#adb5bd" />
+              <View style={styles.emptyIcon}>
+                <Ionicons name="car-outline" size={32} color={THEME_COLORS.textMuted} />
+              </View>
               <Text style={styles.emptyTitle}>Không tìm thấy xe phù hợp</Text>
               <Text style={styles.emptySubtitle}>Hãy thử đổi từ khoá hoặc bỏ bớt bộ lọc.</Text>
-              <TouchableOpacity style={styles.emptyButton} onPress={clearAll}>
+              <TouchableOpacity style={styles.emptyButton} onPress={clearAll} activeOpacity={PRESS_OPACITY}>
                 <Text style={styles.emptyButtonText}>Xoá tìm kiếm và bộ lọc</Text>
               </TouchableOpacity>
             </View>
@@ -409,9 +437,6 @@ export default function SearchScreen() {
             columnWrapperStyle={selectedBrand ? null : styles.carRow}
           />
         </View>
-
-        {/* Add bottom spacing */}
-        <View style={styles.bottomSpacing} />
       </ScrollView>
 
       {/* Filter Modal */}
@@ -424,10 +449,15 @@ export default function SearchScreen() {
         <View style={styles.filterOverlay}>
           <TouchableOpacity style={styles.filterBackdrop} activeOpacity={1} onPress={() => setShowFilterModal(false)} />
           <View style={styles.filterSheet}>
+            <View style={styles.sheetHandle} />
             <View style={styles.filterHeader}>
               <Text style={styles.filterTitle}>Bộ lọc</Text>
-              <TouchableOpacity onPress={() => setShowFilterModal(false)}>
-                <Ionicons name="close" size={24} color="#000000" />
+              <TouchableOpacity
+                style={styles.sheetCloseButton}
+                onPress={() => setShowFilterModal(false)}
+                activeOpacity={PRESS_OPACITY}
+              >
+                <Ionicons name="close" size={20} color={THEME_COLORS.textSecondary} />
               </TouchableOpacity>
             </View>
 
@@ -439,6 +469,7 @@ export default function SearchScreen() {
                     key={type}
                     style={[styles.chip, draftFilters.type === type && styles.chipSelected]}
                     onPress={() => toggleDraft("type", type)}
+                    activeOpacity={PRESS_OPACITY}
                   >
                     <Text style={[styles.chipText, draftFilters.type === type && styles.chipTextSelected]}>{type}</Text>
                   </TouchableOpacity>
@@ -452,6 +483,7 @@ export default function SearchScreen() {
                     key={fuel}
                     style={[styles.chip, draftFilters.fuel === fuel && styles.chipSelected]}
                     onPress={() => toggleDraft("fuel", fuel)}
+                    activeOpacity={PRESS_OPACITY}
                   >
                     <Text style={[styles.chipText, draftFilters.fuel === fuel && styles.chipTextSelected]}>{fuel}</Text>
                   </TouchableOpacity>
@@ -465,6 +497,7 @@ export default function SearchScreen() {
                     key={city}
                     style={[styles.chip, draftFilters.city === city && styles.chipSelected]}
                     onPress={() => toggleDraft("city", city)}
+                    activeOpacity={PRESS_OPACITY}
                   >
                     <Text style={[styles.chipText, draftFilters.city === city && styles.chipTextSelected]}>{city}</Text>
                   </TouchableOpacity>
@@ -478,6 +511,7 @@ export default function SearchScreen() {
                     key={seats}
                     style={[styles.chip, draftFilters.minSeats === seats && styles.chipSelected]}
                     onPress={() => toggleDraft("minSeats", seats)}
+                    activeOpacity={PRESS_OPACITY}
                   >
                     <Text style={[styles.chipText, draftFilters.minSeats === seats && styles.chipTextSelected]}>
                       Từ {seats} chỗ
@@ -493,6 +527,7 @@ export default function SearchScreen() {
                     key={range.id}
                     style={[styles.chip, draftFilters.priceRange === range.id && styles.chipSelected]}
                     onPress={() => toggleDraft("priceRange", range.id)}
+                    activeOpacity={PRESS_OPACITY}
                   >
                     <Text style={[styles.chipText, draftFilters.priceRange === range.id && styles.chipTextSelected]}>
                       {range.label}
@@ -503,10 +538,14 @@ export default function SearchScreen() {
             </ScrollView>
 
             <View style={styles.filterFooter}>
-              <TouchableOpacity style={styles.resetButton} onPress={() => setDraftFilters(EMPTY_FILTERS)}>
+              <TouchableOpacity
+                style={styles.resetButton}
+                onPress={() => setDraftFilters(EMPTY_FILTERS)}
+                activeOpacity={PRESS_OPACITY}
+              >
                 <Text style={styles.resetButtonText}>Đặt lại</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.applyButton} onPress={applyFilters}>
+              <TouchableOpacity style={styles.applyButton} onPress={applyFilters} activeOpacity={PRESS_OPACITY}>
                 <Text style={styles.applyButtonText}>
                   Áp dụng{draftFilterCount > 0 ? ` (${draftFilterCount})` : ""}
                 </Text>
@@ -525,7 +564,9 @@ export default function SearchScreen() {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Ionicons name="heart" size={40} color="#FF4B4B" />
+            <View style={styles.modalIcon}>
+              <Ionicons name="heart" size={28} color={THEME_COLORS.danger} />
+            </View>
             <Text style={styles.modalText}>Đã thêm {likedCarName} vào xe yêu thích!</Text>
           </View>
         </View>
@@ -534,422 +575,401 @@ export default function SearchScreen() {
   )
 }
 
+// Chiều cao thanh tab nổi (72) + khoảng cách đáy (20) + khoảng thở
+const TAB_BAR_CLEARANCE = 120
+
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    backgroundColor: "#ededed",
-    paddingHorizontal: 20, // Add this to maintain margins for other content
+    ...UI.screen,
+  },
+  topArea: {
+    backgroundColor: THEME_COLORS.background,
+    paddingBottom: SPACE.md,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20, // Reduced from 60
-    paddingVertical: 15, // Adjusted padding
-    marginBottom: 10, // Added bottom margin
+    paddingHorizontal: SPACE.screen,
+    paddingTop: SPACE.lg,
+    paddingBottom: SPACE.md,
   },
   title: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "#000000",
+    ...TYPOGRAPHY.h1,
   },
   devsButton: {
-    backgroundColor: "#ffffff",
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    height: 36,
+    paddingHorizontal: SPACE.md,
+    borderRadius: RADIUS.control,
+    backgroundColor: THEME_COLORS.primarySoft,
   },
   devsButtonText: {
-    color: "#1054CF",
-    fontSize: 14,
+    color: THEME_COLORS.primary,
+    fontSize: 13,
     fontWeight: "600",
   },
   searchContainer: {
-    paddingHorizontal: 10,
-    paddingTop: 4,
-    paddingBottom: 6,
+    paddingHorizontal: SPACE.screen,
   },
+  // Khung ô tìm kiếm (View bọc TextInput) theo UI.input
   searchBar: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#ffffff",
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+    height: UI.input.height,
+    borderRadius: RADIUS.control,
     borderWidth: 1,
-    borderColor: "#e0e0e0",
+    borderColor: THEME_COLORS.border,
+    backgroundColor: THEME_COLORS.surface,
+    paddingHorizontal: SPACE.lg,
+  },
+  searchBarFocused: {
+    ...UI.inputFocused,
   },
   searchInput: {
     flex: 1,
-    marginLeft: 12,
-    fontSize: 16,
-    color: "#000000",
+    height: "100%",
+    marginLeft: SPACE.md,
+    fontSize: 15,
+    color: THEME_COLORS.textPrimary,
   },
-  section: {
-    paddingHorizontal: 10,
-    marginBottom: 10, // Reduced spacing between sections
+  brandsLabel: {
+    ...TYPOGRAPHY.overline,
+    paddingHorizontal: SPACE.screen,
+    marginTop: SPACE.lg,
+    marginBottom: SPACE.sm,
   },
+  brandsRow: {
+    paddingHorizontal: SPACE.screen,
+    gap: SPACE.sm,
+  },
+  brandChip: {
+    ...UI.chip,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SPACE.sm,
+    paddingHorizontal: SPACE.md,
+    paddingVertical: SPACE.sm,
+  },
+  brandChipActive: {
+    ...UI.chipActive,
+  },
+  brandLogoImg: {
+    width: 22,
+    height: 22,
+  },
+  brandName: {
+    ...UI.chipText,
+  },
+  brandNameActive: {
+    ...UI.chipTextActive,
+  },
+  divider: {
+    ...UI.divider,
+  },
+  scrollContent: {
+    paddingHorizontal: SPACE.screen,
+    paddingTop: SPACE["2xl"],
+    paddingBottom: TAB_BAR_CLEARANCE,
+  },
+  mapSection: {
+    marginBottom: SPACE.section,
+  },
+  section: {},
   sectionHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 15,
+    marginBottom: SPACE.lg,
+    gap: SPACE.md,
   },
   sectionTitle: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: "#000000",
-    marginBottom: 10, // Reduced from 15
-    marginTop: 5, // Reduced from 10
+    ...TYPOGRAPHY.h2,
+    flexShrink: 1,
   },
   filterButton: {
+    ...UI.chip,
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#f8f9fa",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#e0e0e0",
+    gap: 6,
+    paddingHorizontal: SPACE.md,
+    paddingVertical: SPACE.sm,
   },
   filterText: {
-    marginLeft: 6,
-    fontSize: 14,
-    color: "#4169e1",
-    fontWeight: "600",
+    ...UI.chipText,
   },
   filterButtonActive: {
-    backgroundColor: "#1054CF",
-    borderColor: "#1054CF",
+    ...UI.chipActive,
   },
   filterTextActive: {
-    color: "#ffffff",
+    ...UI.chipTextActive,
   },
   emptyState: {
     alignItems: "center",
-    paddingVertical: 30,
-    paddingHorizontal: 20,
+    paddingVertical: SPACE.section,
+    paddingHorizontal: SPACE.screen,
+  },
+  emptyIcon: {
+    width: 64,
+    height: 64,
+    borderRadius: RADIUS.pill,
+    backgroundColor: THEME_COLORS.surfaceMuted,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: SPACE.lg,
   },
   emptyTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#343a40",
-    marginTop: 10,
+    ...TYPOGRAPHY.h3,
   },
   emptySubtitle: {
-    fontSize: 14,
-    color: "#6c757d",
-    marginTop: 4,
+    ...TYPOGRAPHY.caption,
+    marginTop: SPACE.xs,
     textAlign: "center",
   },
   emptyButton: {
-    marginTop: 14,
-    backgroundColor: "#1054CF",
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 20,
+    ...UI.secondaryButton,
+    height: 44,
+    marginTop: SPACE.xl,
+    paddingHorizontal: SPACE.xl,
   },
   emptyButtonText: {
-    color: "#ffffff",
-    fontWeight: "600",
+    ...UI.secondaryButtonText,
     fontSize: 14,
   },
+
+  // Filter sheet
   filterOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.5)",
+    backgroundColor: "rgba(15, 23, 42, 0.45)",
     justifyContent: "flex-end",
   },
   filterBackdrop: {
     flex: 1,
   },
   filterSheet: {
-    backgroundColor: "#ffffff",
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 30,
+    backgroundColor: THEME_COLORS.surface,
+    borderTopLeftRadius: RADIUS.sheet,
+    borderTopRightRadius: RADIUS.sheet,
+    paddingHorizontal: SPACE.screen,
+    paddingTop: SPACE.sm,
+    paddingBottom: SPACE["3xl"],
     maxHeight: "85%",
+    ...SHADOWS.raised,
+  },
+  sheetHandle: {
+    alignSelf: "center",
+    width: 40,
+    height: 4,
+    borderRadius: RADIUS.pill,
+    backgroundColor: THEME_COLORS.borderStrong,
+    marginBottom: SPACE.md,
   },
   filterHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 8,
+    marginBottom: SPACE.sm,
   },
   filterTitle: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: "#000000",
+    ...TYPOGRAPHY.h2,
+  },
+  sheetCloseButton: {
+    width: 36,
+    height: 36,
+    borderRadius: RADIUS.pill,
+    backgroundColor: THEME_COLORS.surfaceMuted,
+    alignItems: "center",
+    justifyContent: "center",
   },
   filterLabel: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: "#343a40",
-    marginTop: 14,
-    marginBottom: 8,
+    ...TYPOGRAPHY.overline,
+    marginTop: SPACE["2xl"],
+    marginBottom: SPACE.md,
   },
   chipRow: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 8,
+    gap: SPACE.sm,
   },
   chip: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: "#dee2e6",
-    backgroundColor: "#f8f9fa",
+    ...UI.chip,
   },
   chipSelected: {
-    backgroundColor: "#1054CF",
-    borderColor: "#1054CF",
+    ...UI.chipActive,
   },
   chipText: {
-    fontSize: 13,
-    color: "#495057",
+    ...UI.chipText,
   },
   chipTextSelected: {
-    color: "#ffffff",
-    fontWeight: "600",
+    ...UI.chipTextActive,
   },
   filterFooter: {
     flexDirection: "row",
-    gap: 12,
-    marginTop: 20,
+    gap: SPACE.md,
+    marginTop: SPACE["2xl"],
   },
   resetButton: {
+    ...UI.secondaryButton,
     flex: 1,
-    paddingVertical: 14,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "#1054CF",
-    alignItems: "center",
+    paddingHorizontal: SPACE.lg,
   },
   resetButtonText: {
-    color: "#1054CF",
-    fontWeight: "600",
-    fontSize: 15,
+    ...UI.secondaryButtonText,
   },
   applyButton: {
+    ...UI.primaryButton,
     flex: 2,
-    paddingVertical: 14,
-    borderRadius: 12,
-    backgroundColor: "#1054CF",
-    alignItems: "center",
   },
   applyButtonText: {
-    color: "#ffffff",
-    fontWeight: "600",
-    fontSize: 15,
+    ...UI.primaryButtonText,
   },
-  brandsGrid: {
-    paddingHorizontal: 4,
-    paddingTop: 0, // Removed extra top padding
-    paddingBottom: 5, // Added small bottom padding
-  },
-  brandCard: {
-    flex: 1,
-    aspectRatio: 1,
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
-    borderRadius: 50,
-    alignItems: "center",
-    justifyContent: "center",
-    margin: 8,
-    borderWidth: 1,
-    borderColor: "transparent",
-    maxWidth: (width - 80) / 4,
-    height: (width - 80) / 4,
-  },
-  selectedBrandCard: {
-    backgroundColor: "#ffffff",
-    borderColor: "#ffffff",
-  },
-  brandLogoImg: {
-    width: 28, // Smaller logo
-    height: 28, // Smaller logo
-    marginBottom: 4, // Reduced margin
-  },
-  brandName: {
-    fontSize: 10, // Smaller font
-    fontWeight: "600",
-    color: "#ffffff",
-    textAlign: "center",
-  },
-  selectedBrandName: {
-    color: "#1054CF",
-  },
-  mapContainer: {
-    height: 200,
-    backgroundColor: "#f8f9fa",
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1,
-    borderColor: "#e0e0e0",
-  },
-  mapPlaceholder: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#666666",
-    marginBottom: 8,
-  },
-  mapSubtext: {
-    fontSize: 14,
-    color: "#999999",
-  },
+
+  // Car card
   carCard: {
+    ...UI.card,
     flex: 1,
-    backgroundColor: '#1054CF',
-    borderRadius: 16,
-    margin: 8,
+    marginBottom: SPACE.md,
+  },
+  carImageWrap: {
+    backgroundColor: THEME_COLORS.surfaceMuted,
+    borderTopLeftRadius: RADIUS.card - 1,
+    borderTopRightRadius: RADIUS.card - 1,
     overflow: 'hidden',
-    elevation: 5,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    height: 280, // Reduced from 260 to 240
   },
   cardHeader: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
     flexDirection: 'row',
     justifyContent: 'space-between',
-    padding: 8, // Reduced from 12 to 8
+    alignItems: 'center',
+    padding: SPACE.sm,
+    gap: SPACE.xs,
   },
   locationTag: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
+    flexShrink: 1,
+    backgroundColor: THEME_COLORS.surface,
+    paddingHorizontal: SPACE.sm,
+    paddingVertical: 3,
+    borderRadius: RADIUS.pill,
+    gap: 3,
   },
   locationText: {
-    color: '#fff',
-    fontSize: 10,
-    marginLeft: 4,
+    color: THEME_COLORS.textSecondary,
+    fontSize: 11,
+    fontWeight: '600',
+    flexShrink: 1,
   },
   favoriteButton: {
-    padding: 4,
+    width: 32,
+    height: 32,
+    borderRadius: RADIUS.pill,
+    backgroundColor: THEME_COLORS.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   carImage: {
     width: '100%',
-    height: 100, // Reduced from 120 to 100
-    resizeMode: 'cover',
+    height: 110,
+  },
+  carImageLarge: {
+    height: 180,
   },
   cardContent: {
-    padding: 12,
+    padding: SPACE.md,
     flex: 1,
-    justifyContent: 'flex-start', // Changed from 'space-between' to 'flex-start'
-  },
-  nameRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8, // Increased from 8 to 12
   },
   carName: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#fff',
-  },
-  carPrice: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#FFB700',
+    ...TYPOGRAPHY.bodyStrong,
   },
   detailsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8, // Changed from marginVertical to marginBottom
-    gap: 16,
+    marginTop: SPACE.xs,
+    gap: SPACE.md,
+  },
+  ratingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+  },
+  seatsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+  },
+  metaText: {
+    ...TYPOGRAPHY.caption,
+    fontSize: 12,
+  },
+  carPrice: {
+    ...TYPOGRAPHY.price,
+    fontSize: 15,
+    marginTop: SPACE.sm,
   },
   bottomRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    // Removed marginTop and paddingTop
-  },
-  ratingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  ratingText: {
-    color: '#fff',
-    marginLeft: 2,
-    fontSize: 12, // Reduced from 14 to 12
+    marginTop: 'auto',
+    paddingTop: SPACE.md,
   },
   conditionTag: {
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
+    backgroundColor: THEME_COLORS.primarySoft,
+    paddingHorizontal: SPACE.sm,
+    paddingVertical: 3,
+    borderRadius: RADIUS.pill,
   },
   conditionText: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  seatsContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  seatsText: {
-    color: '#fff',
-    marginLeft: 2,
-    fontSize: 12, // Reduced from 14 to 12
+    color: THEME_COLORS.primary,
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.4,
   },
   arrowButton: {
-    backgroundColor: 'rgba(255, 183, 0, 0.2)',
-    padding: 8,
-    borderRadius: 16,
+    width: 30,
+    height: 30,
+    borderRadius: RADIUS.pill,
+    backgroundColor: THEME_COLORS.primarySoft,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   carRow: {
-    justifyContent: 'space-between',
-    paddingHorizontal: 4,
+    gap: SPACE.md,
   },
+
+  // Like modal
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(15, 23, 42, 0.45)',
     justifyContent: 'center',
     alignItems: 'center',
+    padding: SPACE.screen,
   },
   modalContent: {
-    backgroundColor: '#ffffff',
-    padding: 20,
-    borderRadius: 12,
+    ...UI.card,
+    ...SHADOWS.raised,
+    paddingVertical: SPACE["2xl"],
+    paddingHorizontal: SPACE.xl,
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
+    maxWidth: 320,
+  },
+  modalIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: RADIUS.pill,
+    backgroundColor: THEME_COLORS.dangerSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   modalText: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginTop: 10,
-    color: '#000000',
-  },
-  blueBackground: {
-    backgroundColor: "#1054CF",
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
-    marginBottom: 8, // Reduced from 10
-    paddingBottom: 5, // Reduced from 8
-    marginLeft: -20,
-    marginRight: -20,
-    paddingHorizontal: 5,
-    paddingTop: 10, // Reduced from 15
-  },
-  bottomSpacing: {
-    height: 80, // Adjust this value based on your tab bar height
+    ...TYPOGRAPHY.bodyStrong,
+    marginTop: SPACE.md,
+    textAlign: 'center',
   },
 })

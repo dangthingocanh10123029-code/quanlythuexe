@@ -18,6 +18,8 @@ import { collection, getDocs, query, where, deleteDoc, doc } from "firebase/fire
 import { useAuth } from "../hooks/useAuth"
 import { cars } from "../data/cars"
 import { formatCurrency } from "../utils/helpers"
+import { StatusBar } from "expo-status-bar"
+import { THEME_COLORS, RADIUS, SPACE, SHADOWS, TYPOGRAPHY, UI, PRESS_OPACITY } from "../utils/theme"
 
 // Update the interface first
 interface LikedCarDocument {
@@ -101,37 +103,46 @@ export default function LikedCarsScreen() {
   }
 
   const renderCarItem = ({ item }: { item: LikedCar }) => (
-    <TouchableOpacity 
+    <TouchableOpacity
       style={styles.carCard}
+      activeOpacity={PRESS_OPACITY}
       onPress={() => router.push({
         pathname: "/car-details/[id]",
         params: { id: item.carId }
       })}
     >
-      <Image source={item.image} style={styles.carImage} />
+      <View style={styles.imageWrapper}>
+        <Image source={item.image} style={styles.carImage} resizeMode="contain" />
+        <TouchableOpacity
+          onPress={() => handleUnlike(item.carId)}
+          style={styles.unlikeButton}
+          activeOpacity={PRESS_OPACITY}
+        >
+          <Ionicons name="heart" size={20} color={THEME_COLORS.danger} />
+        </TouchableOpacity>
+      </View>
       <View style={styles.cardContent}>
         <View style={styles.cardHeader}>
-          <Text style={styles.carName}>{item.name}</Text>
-          <TouchableOpacity 
-            onPress={() => handleUnlike(item.carId)}
-            style={styles.unlikeButton}
-          >
-            <Ionicons name="heart" size={24} color="#FF4B4B" />
-          </TouchableOpacity>
+          <Text style={styles.carName} numberOfLines={1}>{item.name}</Text>
+          <Text style={styles.carPrice}>{formatCurrency(item.pricePerDay)}/ngày</Text>
         </View>
-        <Text style={styles.carPrice}>{formatCurrency(item.pricePerDay)}/ngày</Text>
+        <View style={styles.metaRow}>
+          <Ionicons name="location-outline" size={14} color={THEME_COLORS.textMuted} />
+          <Text style={styles.metaText}>{item.location}</Text>
+        </View>
       </View>
     </TouchableOpacity>
   )
 
   return (
     <SafeAreaView style={styles.container}>
+      <StatusBar style="dark" />
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={24} color="#1054CF" />
+        <TouchableOpacity onPress={() => router.back()} style={styles.backButton} activeOpacity={PRESS_OPACITY}>
+          <Ionicons name="arrow-back" size={22} color={THEME_COLORS.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.title}>Xe yêu thích</Text>
-        <View style={{ width: 24 }} />
+        <View style={styles.headerSpacer} />
       </View>
 
       {likedCars.length > 0 ? (
@@ -140,10 +151,13 @@ export default function LikedCarsScreen() {
           renderItem={renderCarItem}
           keyExtractor={item => item.id}
           contentContainerStyle={styles.listContainer}
+          showsVerticalScrollIndicator={false}
         />
       ) : (
         <View style={styles.emptyState}>
-          <Ionicons name="heart-outline" size={80} color="#1054CF" />
+          <View style={styles.emptyIcon}>
+            <Ionicons name="heart-outline" size={40} color={THEME_COLORS.primary} />
+          </View>
           <Text style={styles.emptyText}>Bạn chưa có xe yêu thích nào</Text>
         </View>
       )}
@@ -153,85 +167,106 @@ export default function LikedCarsScreen() {
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    backgroundColor: "#FFB700", // Changed to yellow background
+    ...UI.screen,
   },
   header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: "rgba(16, 84, 207, 0.2)", // Translucent blue
+    paddingHorizontal: SPACE.screen,
+    paddingVertical: SPACE.md,
+    backgroundColor: THEME_COLORS.surface,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: RADIUS.pill,
+    backgroundColor: THEME_COLORS.surfaceMuted,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  headerSpacer: {
+    width: 40,
   },
   title: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "#1054CF", // Dark blue text
+    ...TYPOGRAPHY.h3,
   },
   listContainer: {
-    padding: 16,
+    paddingHorizontal: SPACE.screen,
+    paddingTop: SPACE.md,
+    paddingBottom: SPACE.section,
+    gap: SPACE.lg,
   },
   carCard: {
-    backgroundColor: "rgba(16, 84, 207, 0.1)", // Translucent blue
-    borderRadius: 16,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: "#1054CF", // Dark blue border
-    shadowColor: "#1054CF",
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 5,
+    ...UI.card,
+    overflow: "hidden",
+  },
+  imageWrapper: {
+    backgroundColor: THEME_COLORS.surfaceMuted,
+    height: 180,
+    alignItems: "center",
+    justifyContent: "center",
   },
   carImage: {
-    width: "100%",
-    height: 200,
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
+    width: "88%",
+    height: "88%",
   },
   cardContent: {
-    padding: 20,
+    padding: SPACE.lg,
+    gap: SPACE.sm,
   },
   cardHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 12,
+    gap: SPACE.md,
   },
   carName: {
-    fontSize: 20,
-    fontWeight: "700",
-    color: "#1054CF", // Dark blue text
+    ...TYPOGRAPHY.h3,
+    flex: 1,
   },
   carPrice: {
-    fontSize: 18,
-    color: "#1054CF",
-    fontWeight: "600",
+    ...TYPOGRAPHY.price,
+    fontSize: 15,
+  },
+  metaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SPACE.xs,
+  },
+  metaText: {
+    ...TYPOGRAPHY.caption,
   },
   unlikeButton: {
-    padding: 8,
-    backgroundColor: "rgba(255, 75, 75, 0.1)", // Translucent red
-    borderRadius: 20,
+    position: "absolute",
+    top: SPACE.md,
+    right: SPACE.md,
+    width: 40,
+    height: 40,
+    borderRadius: RADIUS.pill,
+    backgroundColor: THEME_COLORS.surface,
+    alignItems: "center",
+    justifyContent: "center",
+    ...SHADOWS.card,
   },
   emptyState: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "rgba(16, 84, 207, 0.05)", // Very light translucent blue
-    margin: 20,
-    borderRadius: 20,
-    borderWidth: 2,
-    borderStyle: "dashed",
-    borderColor: "#1054CF",
+    paddingHorizontal: SPACE.screen,
+    paddingBottom: SPACE.section,
+  },
+  emptyIcon: {
+    width: 88,
+    height: 88,
+    borderRadius: RADIUS.pill,
+    backgroundColor: THEME_COLORS.primarySoft,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: SPACE.lg,
   },
   emptyText: {
-    fontSize: 18,
-    color: "#1054CF",
-    marginTop: 16,
-    fontWeight: "600",
+    ...TYPOGRAPHY.body,
+    textAlign: "center",
   },
 })

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react"
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, FlatList, Image, ActivityIndicator } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
+import { StatusBar } from "expo-status-bar"
 import { Ionicons } from "@expo/vector-icons"
 import { router } from "expo-router"
 import { collection, query, where, onSnapshot } from "firebase/firestore"
@@ -11,6 +12,7 @@ import { useAuth } from "../../hooks/useAuth"
 import { cars } from "../../data/cars"
 import { formatCurrency, formatDate } from "../../utils/helpers"
 import { getBookingStatusLabel } from "../../utils/constants"
+import { PRESS_OPACITY, RADIUS, SPACE, THEME_COLORS, TYPOGRAPHY, UI } from "../../utils/theme"
 
 interface RentalHistoryItem {
   id: string
@@ -91,19 +93,21 @@ export default function HistoryScreen() {
     return unsubscribe
   }, [user])
 
-  const getStatusColor = (status: string) => {
+  // Badge trạng thái: nền soft + chữ đậm cùng tông
+  const getStatusTone = (status: string) => {
     switch (status.toLowerCase()) {
+      case "completed":
+        return { bg: THEME_COLORS.successSoft, fg: THEME_COLORS.success }
       case "active":
-        return "#00bb02"
       case "upcoming":
-        return "#1054CF"
+        return { bg: THEME_COLORS.primarySoft, fg: THEME_COLORS.primary }
       case "pending":
-        return "#ffa500"
+        return { bg: THEME_COLORS.warningSoft, fg: THEME_COLORS.warning }
       case "cancelled":
       case "canceled":
-        return "#ff4444"
+        return { bg: THEME_COLORS.dangerSoft, fg: THEME_COLORS.danger }
       default:
-        return "#666666"
+        return { bg: THEME_COLORS.surfaceMuted, fg: THEME_COLORS.textSecondary }
     }
   }
 
@@ -120,63 +124,79 @@ export default function HistoryScreen() {
   const totalRentals = completedRentals.length
   const totalDays = completedRentals.reduce((sum, rental) => sum + rental.days, 0)
 
-  const renderHistoryItem = ({ item }: { item: RentalHistoryItem }) => (
-    <TouchableOpacity style={styles.historyCard} onPress={() => router.push("/(tabs)/bookings")} activeOpacity={0.7}>
-      {item.carImage ? (
-        <Image source={item.carImage} style={styles.carImage} resizeMode="contain" />
-      ) : (
-        <View style={[styles.carImage, styles.carImagePlaceholder]}>
-          <Ionicons name="car-sport" size={32} color="#999999" />
-        </View>
-      )}
-      <View style={styles.historyInfo}>
-        <View style={styles.historyHeader}>
-          <Text style={styles.carName}>{item.carName}</Text>
-          <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) }]}>
-            <Text style={styles.statusText}>{getBookingStatusLabel(item.status)}</Text>
+  const renderHistoryItem = ({ item }: { item: RentalHistoryItem }) => {
+    const tone = getStatusTone(item.status)
+    return (
+      <TouchableOpacity
+        style={styles.historyCard}
+        onPress={() => router.push("/(tabs)/bookings")}
+        activeOpacity={PRESS_OPACITY}
+      >
+        {item.carImage ? (
+          <View style={styles.carImageWrap}>
+            <Image source={item.carImage} style={styles.carImage} resizeMode="contain" />
+          </View>
+        ) : (
+          <View style={[styles.carImageWrap, styles.carImagePlaceholder]}>
+            <Ionicons name="car-sport" size={28} color={THEME_COLORS.textMuted} />
+          </View>
+        )}
+        <View style={styles.historyInfo}>
+          <View style={styles.historyHeader}>
+            <Text style={styles.carName} numberOfLines={1}>{item.carName}</Text>
+            <View style={[styles.statusBadge, { backgroundColor: tone.bg }]}>
+              <Text style={[styles.statusText, { color: tone.fg }]}>{getBookingStatusLabel(item.status)}</Text>
+            </View>
+          </View>
+
+          <View style={styles.dateContainer}>
+            <Text style={styles.dateText}>
+              {item.startDate && item.endDate
+                ? `${formatDate(item.startDate)} - ${formatDate(item.endDate)}`
+                : "Chưa có ngày nhận xe"}
+            </Text>
+            <Text style={styles.durationText}>({item.days} ngày)</Text>
+          </View>
+
+          <View style={styles.locationContainer}>
+            <Ionicons name="location-outline" size={14} color={THEME_COLORS.textMuted} />
+            <Text style={styles.locationText} numberOfLines={1}>{item.location}</Text>
+          </View>
+
+          <View style={styles.bottomRow}>
+            <Text style={styles.totalCost}>{formatCurrency(item.totalCost)}</Text>
           </View>
         </View>
+      </TouchableOpacity>
+    )
+  }
 
-        <View style={styles.dateContainer}>
-          <Text style={styles.dateText}>
-            {item.startDate && item.endDate
-              ? `${formatDate(item.startDate)} - ${formatDate(item.endDate)}`
-              : "Chưa có ngày nhận xe"}
-          </Text>
-          <Text style={styles.durationText}>({item.days} ngày)</Text>
-        </View>
-
-        <View style={styles.locationContainer}>
-          <Ionicons name="location" size={14} color="#666666" />
-          <Text style={styles.locationText}>{item.location}</Text>
-        </View>
-
-        <View style={styles.bottomRow}>
-          <Text style={styles.totalCost}>{formatCurrency(item.totalCost)}</Text>
-        </View>
-      </View>
-    </TouchableOpacity>
-  )
+  const filters = [
+    { key: "all", label: `Tất cả (${rentalHistory.length})` },
+    { key: "active", label: `Đang thuê (${rentalHistory.filter((r) => isStatus(r, "active")).length})` },
+    { key: "completed", label: `Hoàn thành (${completedRentals.length})` },
+  ]
 
   return (
     <SafeAreaView style={styles.container}>
+      <StatusBar style="dark" />
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={24} color="#000000" />
+        <TouchableOpacity style={styles.headerButton} onPress={() => router.back()} activeOpacity={PRESS_OPACITY}>
+          <Ionicons name="arrow-back" size={22} color={THEME_COLORS.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Lịch sử thuê xe</Text>
-        <View style={{ width: 24 }} />
+        <View style={{ width: 40 }} />
       </View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Stats Section */}
         <View style={styles.statsSection}>
           <View style={styles.statCard}>
             <Text style={styles.statNumber}>{totalRentals}</Text>
             <Text style={styles.statLabel}>Chuyến đã đi</Text>
           </View>
-          <View style={styles.statCard}>
-            <Text style={styles.statNumber} numberOfLines={1} adjustsFontSizeToFit>
+          <View style={[styles.statCard, styles.statCardWide]}>
+            <Text style={[styles.statNumber, styles.statMoney]} numberOfLines={1} adjustsFontSizeToFit>
               {formatCurrency(totalSpent)}
             </Text>
             <Text style={styles.statLabel}>Tổng chi tiêu</Text>
@@ -188,40 +208,32 @@ export default function HistoryScreen() {
         </View>
 
         {/* Filter Tabs */}
-        <View style={styles.filterContainer}>
-          <TouchableOpacity
-            style={[styles.filterTab, filter === "all" && styles.activeFilterTab]}
-            onPress={() => setFilter("all")}
-          >
-            <Text style={[styles.filterText, filter === "all" && styles.activeFilterText]}>
-              Tất cả ({rentalHistory.length})
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.filterTab, filter === "active" && styles.activeFilterTab]}
-            onPress={() => setFilter("active")}
-          >
-            <Text style={[styles.filterText, filter === "active" && styles.activeFilterText]}>
-              Đang thuê ({rentalHistory.filter((r) => isStatus(r, "active")).length})
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.filterTab, filter === "completed" && styles.activeFilterTab]}
-            onPress={() => setFilter("completed")}
-          >
-            <Text style={[styles.filterText, filter === "completed" && styles.activeFilterText]}>
-              Hoàn thành ({completedRentals.length})
-            </Text>
-          </TouchableOpacity>
-        </View>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.filterContainer}
+        >
+          {filters.map((f) => (
+            <TouchableOpacity
+              key={f.key}
+              style={[styles.filterTab, filter === f.key && styles.activeFilterTab]}
+              onPress={() => setFilter(f.key)}
+              activeOpacity={PRESS_OPACITY}
+            >
+              <Text style={[styles.filterText, filter === f.key && styles.activeFilterText]}>{f.label}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
 
         {/* History List */}
         <View style={styles.historyList}>
           {loading ? (
-            <ActivityIndicator size="large" color="#1054CF" style={{ marginTop: 40 }} />
+            <ActivityIndicator size="large" color={THEME_COLORS.primary} style={{ marginTop: SPACE["4xl"] }} />
           ) : filteredHistory.length === 0 ? (
             <View style={styles.emptyState}>
-              <Ionicons name="car-outline" size={48} color="#999999" />
+              <View style={styles.emptyIcon}>
+                <Ionicons name="car-outline" size={32} color={THEME_COLORS.textMuted} />
+              </View>
               <Text style={styles.emptyText}>
                 {user ? "Chưa có chuyến thuê nào" : "Vui lòng đăng nhập để xem lịch sử thuê xe"}
               </Text>
@@ -233,6 +245,7 @@ export default function HistoryScreen() {
               keyExtractor={(item) => item.id}
               scrollEnabled={false}
               showsVerticalScrollIndicator={false}
+              ItemSeparatorComponent={() => <View style={{ height: SPACE.md }} />}
             />
           )}
         </View>
@@ -242,177 +255,152 @@ export default function HistoryScreen() {
 }
 
 const styles = StyleSheet.create({
-  carImagePlaceholder: {
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#f0f0f0",
-  },
-  emptyState: {
-    alignItems: "center",
-    paddingVertical: 40,
-    gap: 12,
-  },
-  emptyText: {
-    fontSize: 14,
-    color: "#666666",
-    textAlign: "center",
-  },
   container: {
-    flex: 1,
-    backgroundColor: "#ededed",
+    ...UI.screen,
   },
   header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingHorizontal: SPACE.screen,
+    paddingVertical: SPACE.md,
     borderBottomWidth: 1,
-    borderBottomColor: "#e0e0e0",
+    borderBottomColor: THEME_COLORS.border,
+  },
+  headerButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: THEME_COLORS.surfaceMuted,
+    alignItems: "center",
+    justifyContent: "center",
   },
   headerTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#000000",
+    ...TYPOGRAPHY.h3,
   },
   content: {
     flex: 1,
   },
+  scrollContent: {
+    paddingBottom: SPACE["4xl"],
+  },
   statsSection: {
     flexDirection: "row",
-    paddingHorizontal: 20,
-    paddingVertical: 20,
-    gap: 12,
+    paddingHorizontal: SPACE.screen,
+    paddingTop: SPACE["2xl"],
+    gap: SPACE.md,
   },
   statCard: {
+    ...UI.card,
     flex: 1,
-    backgroundColor: "#ffffff",
-    padding: 16,
-    borderRadius: 12,
+    paddingVertical: SPACE.lg,
+    paddingHorizontal: SPACE.md,
     alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
-    borderWidth: 1,
-    borderColor: "#f0f0f0",
+  },
+  statCardWide: {
+    flex: 1.4,
   },
   statNumber: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: "#1054CF",
-    marginBottom: 4,
+    ...TYPOGRAPHY.h2,
+    marginBottom: SPACE.xs,
+  },
+  statMoney: {
+    color: THEME_COLORS.primary,
   },
   statLabel: {
-    fontSize: 12,
-    color: "#666666",
+    ...TYPOGRAPHY.caption,
     textAlign: "center",
   },
   filterContainer: {
     flexDirection: "row",
-    paddingHorizontal: 20,
-    marginBottom: 20,
-    backgroundColor: "#f8f9fa",
-    marginHorizontal: 20,
-    borderRadius: 8,
-    padding: 4,
+    gap: SPACE.sm,
+    paddingHorizontal: SPACE.screen,
+    paddingTop: SPACE.section - SPACE.sm,
+    paddingBottom: SPACE.xl,
   },
   filterTab: {
-    flex: 1,
-    paddingVertical: 10,
-    alignItems: "center",
-    borderRadius: 6,
+    ...UI.chip,
   },
   activeFilterTab: {
-    backgroundColor: "#1054CF",
+    ...UI.chipActive,
   },
   filterText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#666666",
+    ...UI.chipText,
   },
   activeFilterText: {
-    color: "#ffffff",
+    ...UI.chipTextActive,
   },
   historyList: {
-    paddingHorizontal: 20,
+    paddingHorizontal: SPACE.screen,
   },
   historyCard: {
+    ...UI.card,
     flexDirection: "row",
-    backgroundColor: "#ffffff",
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
-    borderWidth: 1,
-    borderColor: "#f0f0f0",
+    padding: SPACE.lg,
+    gap: SPACE.lg,
+  },
+  carImageWrap: {
+    width: 88,
+    height: 72,
+    borderRadius: RADIUS.control,
+    backgroundColor: THEME_COLORS.surfaceMuted,
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
   },
   carImage: {
     width: 80,
     height: 60,
-    borderRadius: 8,
-    marginRight: 16,
   },
+  carImagePlaceholder: {},
   historyInfo: {
     flex: 1,
   },
   historyHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "flex-start",
-    marginBottom: 8,
+    alignItems: "center",
+    gap: SPACE.sm,
+    marginBottom: 6,
   },
   carName: {
-    fontSize: 16,
-    fontWeight: "bold",
-    color: "#000000",
+    ...TYPOGRAPHY.bodyStrong,
     flex: 1,
   },
   statusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-    marginLeft: 8,
+    paddingHorizontal: SPACE.sm,
+    paddingVertical: 3,
+    borderRadius: RADIUS.pill,
   },
   statusText: {
-    fontSize: 10,
-    fontWeight: "600",
-    color: "#ffffff",
+    fontSize: 11,
+    fontWeight: "700",
   },
   dateContainer: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 4,
+    flexWrap: "wrap",
+    marginBottom: SPACE.xs,
   },
   dateText: {
-    fontSize: 14,
-    color: "#666666",
-    marginRight: 8,
+    fontSize: 13,
+    color: THEME_COLORS.textSecondary,
+    marginRight: 6,
   },
   durationText: {
+    ...TYPOGRAPHY.caption,
     fontSize: 12,
-    color: "#999999",
   },
   locationContainer: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 8,
+    gap: SPACE.xs,
+    marginBottom: SPACE.sm,
   },
   locationText: {
+    ...TYPOGRAPHY.caption,
     fontSize: 12,
-    color: "#666666",
-    marginLeft: 4,
+    flex: 1,
   },
   bottomRow: {
     flexDirection: "row",
@@ -420,15 +408,25 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   totalCost: {
+    ...TYPOGRAPHY.price,
     fontSize: 16,
-    fontWeight: "600",
-    color: "#4169e1",
   },
-  ratingContainer: {
-    flexDirection: "row",
-    gap: 2,
+  emptyState: {
+    alignItems: "center",
+    paddingVertical: SPACE["4xl"],
+    gap: SPACE.md,
   },
-  ratingStars: {
-    color: "#FFB700",
+  emptyIcon: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: THEME_COLORS.surfaceMuted,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  emptyText: {
+    ...TYPOGRAPHY.body,
+    fontSize: 14,
+    textAlign: "center",
   },
 })

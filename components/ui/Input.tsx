@@ -1,4 +1,6 @@
-import { View, TextInput, Text, StyleSheet, type TextInputProps } from "react-native"
+import { useState } from "react"
+import { View, TextInput, Text, StyleSheet, type TextInputProps, type TextStyle } from "react-native"
+import { SPACE, THEME_COLORS, TYPOGRAPHY, UI } from "../../utils/theme"
 
 interface InputProps extends TextInputProps {
   label?: string
@@ -6,11 +8,25 @@ interface InputProps extends TextInputProps {
   helperText?: string
 }
 
-export default function Input({ label, error, helperText, style, ...props }: InputProps) {
+export default function Input({ label, error, helperText, style, onFocus, onBlur, ...props }: InputProps) {
+  const [focused, setFocused] = useState(false)
+
   return (
     <View style={styles.container}>
       {label && <Text style={styles.label}>{label}</Text>}
-      <TextInput style={[styles.input, error && styles.errorInput, style]} placeholderTextColor="#999999" {...props} />
+      <TextInput
+        style={[styles.input, focused && styles.inputFocused, !!error && styles.errorInput, style]}
+        placeholderTextColor={THEME_COLORS.textMuted}
+        onFocus={(e) => {
+          setFocused(true)
+          onFocus?.(e)
+        }}
+        onBlur={(e) => {
+          setFocused(false)
+          onBlur?.(e)
+        }}
+        {...props}
+      />
       {error && <Text style={styles.errorText}>{error}</Text>}
       {helperText && !error && <Text style={styles.helperText}>{helperText}</Text>}
     </View>
@@ -19,35 +35,29 @@ export default function Input({ label, error, helperText, style, ...props }: Inp
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: 16,
+    marginBottom: SPACE.lg,
   },
   label: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#000000",
-    marginBottom: 8,
+    ...TYPOGRAPHY.bodyStrong,
+    fontSize: 14,
+    marginBottom: SPACE.sm,
   },
   input: {
-    borderWidth: 1,
-    borderColor: "#e0e0e0",
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontSize: 16,
-    backgroundColor: "#ffffff",
-    color: "#000000",
+    ...UI.input,
+  },
+  inputFocused: {
+    ...(UI.inputFocused as TextStyle),
   },
   errorInput: {
-    borderColor: "#ff4444",
+    borderColor: THEME_COLORS.danger,
   },
   errorText: {
-    fontSize: 12,
-    color: "#ff4444",
-    marginTop: 4,
+    ...TYPOGRAPHY.caption,
+    color: THEME_COLORS.danger,
+    marginTop: SPACE.xs,
   },
   helperText: {
-    fontSize: 12,
-    color: "#666666",
-    marginTop: 4,
+    ...TYPOGRAPHY.caption,
+    marginTop: SPACE.xs,
   },
 })

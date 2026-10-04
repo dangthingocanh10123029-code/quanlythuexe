@@ -18,6 +18,14 @@ import { router } from "expo-router"
 import { signInWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth"
 import { doc, getDoc } from "firebase/firestore"
 import { auth, db } from "../config/firebase"
+import { StatusBar } from "expo-status-bar"
+import { Ionicons } from "@expo/vector-icons"
+import { THEME_COLORS, RADIUS, SPACE, SHADOWS, TYPOGRAPHY, UI, PRESS_OPACITY } from "../utils/theme"
+import type { TextStyle, ViewStyle } from "react-native"
+
+// UI.input là TextStyle; khung chứa icon + ô nhập là View nên ép kiểu sang ViewStyle
+const INPUT_BOX = UI.input as unknown as ViewStyle
+const INPUT_FOCUSED_TEXT = UI.inputFocused as unknown as TextStyle
 
 const getAuthErrorMessage = (code?: string) => {
   switch (code) {
@@ -65,6 +73,7 @@ export default function LoginScreen() {
   const [resetLoading, setResetLoading] = useState(false)
   const [resetError, setResetError] = useState("")
   const [resetSuccess, setResetSuccess] = useState(false)
+  const [focusedField, setFocusedField] = useState<string | null>(null)
 
   const openResetModal = () => {
     setResetEmail(email.trim())
@@ -159,8 +168,16 @@ export default function LoginScreen() {
     }
   }
 
+
+  const inputProps = (field: string) => ({
+    onFocus: () => setFocusedField(field),
+    onBlur: () => setFocusedField((current) => (current === field ? null : current)),
+    placeholderTextColor: THEME_COLORS.textMuted,
+  })
+
   return (
     <SafeAreaView style={styles.container}>
+      <StatusBar style="dark" />
       <Modal
         animationType="fade"
         transparent={true}
@@ -169,40 +186,43 @@ export default function LoginScreen() {
       >
         <View style={styles.modalContainer}>
           <View style={styles.modalContent}>
+            <View style={styles.modalIcon}>
+              <Ionicons name="shield-checkmark-outline" size={24} color={THEME_COLORS.primary} />
+            </View>
             <Text style={styles.modalTitle}>Bạn là quản trị viên?</Text>
             <TextInput
-              style={styles.modalInput}
+              style={[styles.modalInput, focusedField === "admin" && INPUT_FOCUSED_TEXT]}
               placeholder="Nhập mật khẩu quản trị"
               secureTextEntry
               value={adminPassword}
               onChangeText={setAdminPassword}
-              onSubmitEditing={handleAdminAccess} // Add this line
-              returnKeyType="done" // Add this line
+              onSubmitEditing={handleAdminAccess}
+              returnKeyType="done"
+              {...inputProps("admin")}
             />
             <View style={styles.modalButtons}>
-              <TouchableOpacity 
-                style={styles.modalButton} 
-                onPress={handleAdminAccess}
-                activeOpacity={0.7} // Add this line
-              >
-                <Text style={styles.modalButtonText}>Xác nhận</Text>
-              </TouchableOpacity>
-              <TouchableOpacity 
-                style={[styles.modalButton, styles.cancelButton]} 
+              <TouchableOpacity
+                style={[styles.modalSecondaryButton, styles.modalButtonFlex]}
                 onPress={() => {
                   setAdminModalVisible(false)
                   setAdminPassword("")
                 }}
-                activeOpacity={0.7} // Add this line
+                activeOpacity={PRESS_OPACITY}
               >
-                <Text style={styles.modalButtonText}>Huỷ</Text>
+                <Text style={styles.modalSecondaryButtonText}>Huỷ</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonFlex]}
+                onPress={handleAdminAccess}
+                activeOpacity={PRESS_OPACITY}
+              >
+                <Text style={styles.modalButtonText}>Xác nhận</Text>
               </TouchableOpacity>
             </View>
           </View>
         </View>
       </Modal>
 
-      {/* Add this error modal */}
       <Modal
         animationType="fade"
         transparent={true}
@@ -210,13 +230,17 @@ export default function LoginScreen() {
         onRequestClose={() => setShowErrorModal(false)}
       >
         <View style={styles.modalContainer}>
-          <View style={[styles.modalContent, styles.errorModalContent]}>
-            <TouchableOpacity 
+          <View style={styles.modalContent}>
+            <TouchableOpacity
               style={styles.closeButton}
               onPress={() => setShowErrorModal(false)}
+              activeOpacity={PRESS_OPACITY}
             >
-              <Text style={styles.closeButtonText}>✕</Text>
+              <Ionicons name="close" size={20} color={THEME_COLORS.textSecondary} />
             </TouchableOpacity>
+            <View style={[styles.modalIcon, styles.modalIconDanger]}>
+              <Ionicons name="lock-closed-outline" size={24} color={THEME_COLORS.danger} />
+            </View>
             <Text style={styles.errorTitle}>Truy cập bị từ chối</Text>
             <Text style={styles.errorMessage}>Rất tiếc! Chỉ quản trị viên mới được vào.</Text>
           </View>
@@ -230,18 +254,23 @@ export default function LoginScreen() {
         onRequestClose={() => setErrorModalVisible(false)}
       >
         <View style={styles.modalContainer}>
-          <View style={[styles.modalContent, styles.errorModalContent]}>
-            <TouchableOpacity 
+          <View style={styles.modalContent}>
+            <TouchableOpacity
               style={styles.closeButton}
               onPress={() => setErrorModalVisible(false)}
+              activeOpacity={PRESS_OPACITY}
             >
-              <Text style={styles.closeButtonText}>✕</Text>
+              <Ionicons name="close" size={20} color={THEME_COLORS.textSecondary} />
             </TouchableOpacity>
+            <View style={[styles.modalIcon, styles.modalIconDanger]}>
+              <Ionicons name="alert-circle-outline" size={24} color={THEME_COLORS.danger} />
+            </View>
             <Text style={styles.errorTitle}>{errorTitle}</Text>
             <Text style={styles.errorMessage}>{errorMessage}</Text>
-            <TouchableOpacity 
-              style={[styles.modalButton, { marginTop: 20 }]}
+            <TouchableOpacity
+              style={[styles.modalButton, styles.modalButtonFull]}
               onPress={() => setErrorModalVisible(false)}
+              activeOpacity={PRESS_OPACITY}
             >
               <Text style={styles.modalButtonText}>Đã hiểu</Text>
             </TouchableOpacity>
@@ -257,16 +286,23 @@ export default function LoginScreen() {
       >
         <View style={styles.modalContainer}>
           <View style={styles.modalContent}>
-            <TouchableOpacity style={styles.closeButton} onPress={closeResetModal}>
-              <Text style={styles.closeButtonText}>✕</Text>
+            <TouchableOpacity style={styles.closeButton} onPress={closeResetModal} activeOpacity={PRESS_OPACITY}>
+              <Ionicons name="close" size={20} color={THEME_COLORS.textSecondary} />
             </TouchableOpacity>
+            <View style={styles.modalIcon}>
+              <Ionicons name={resetSuccess ? "mail-open-outline" : "key-outline"} size={24} color={THEME_COLORS.primary} />
+            </View>
             <Text style={styles.modalTitle}>Quên mật khẩu</Text>
             {resetSuccess ? (
               <>
                 <Text style={styles.resetInfoText}>
                   Chúng tôi đã gửi email đặt lại mật khẩu tới {resetEmail.trim()}. Bạn kiểm tra hộp thư (kể cả thư rác) và làm theo hướng dẫn nhé.
                 </Text>
-                <TouchableOpacity style={[styles.modalButton, styles.resetPrimaryButton]} onPress={closeResetModal}>
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.modalButtonFull]}
+                  onPress={closeResetModal}
+                  activeOpacity={PRESS_OPACITY}
+                >
                   <Text style={styles.modalButtonText}>Đã hiểu</Text>
                 </TouchableOpacity>
               </>
@@ -276,7 +312,7 @@ export default function LoginScreen() {
                   Nhập email đã đăng ký, chúng tôi sẽ gửi đường dẫn để bạn đặt lại mật khẩu.
                 </Text>
                 <TextInput
-                  style={styles.modalInput}
+                  style={[styles.modalInput, focusedField === "reset" && INPUT_FOCUSED_TEXT]}
                   placeholder="Nhập email của bạn"
                   value={resetEmail}
                   onChangeText={(text) => {
@@ -288,23 +324,24 @@ export default function LoginScreen() {
                   autoCorrect={false}
                   returnKeyType="send"
                   onSubmitEditing={handlePasswordReset}
+                  {...inputProps("reset")}
                 />
                 {resetError ? <Text style={styles.resetErrorText}>{resetError}</Text> : null}
                 <View style={styles.modalButtons}>
                   <TouchableOpacity
-                    style={[styles.modalButton, styles.resetPrimaryButton, resetLoading && styles.disabledButton]}
-                    onPress={handlePasswordReset}
-                    disabled={resetLoading}
-                    activeOpacity={0.7}
+                    style={[styles.modalSecondaryButton, styles.modalButtonFlex]}
+                    onPress={closeResetModal}
+                    activeOpacity={PRESS_OPACITY}
                   >
-                    <Text style={styles.modalButtonText}>{resetLoading ? "Đang gửi..." : "Gửi email"}</Text>
+                    <Text style={styles.modalSecondaryButtonText}>Huỷ</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
-                    style={[styles.modalButton, styles.cancelButton]}
-                    onPress={closeResetModal}
-                    activeOpacity={0.7}
+                    style={[styles.modalButton, styles.modalButtonFlex, resetLoading && styles.disabledButton]}
+                    onPress={handlePasswordReset}
+                    disabled={resetLoading}
+                    activeOpacity={PRESS_OPACITY}
                   >
-                    <Text style={styles.modalButtonText}>Huỷ</Text>
+                    <Text style={styles.modalButtonText}>{resetLoading ? "Đang gửi..." : "Gửi email"}</Text>
                   </TouchableOpacity>
                 </View>
               </>
@@ -313,15 +350,25 @@ export default function LoginScreen() {
         </View>
       </Modal>
 
-      <TouchableOpacity 
-        style={styles.adminButton}
-        onPress={() => setAdminModalVisible(true)}
-      >
-        <Text style={styles.adminButtonText}>QUẢN TRỊ</Text>
-      </TouchableOpacity>
-
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.keyboardView}>
-        <ScrollView contentContainerStyle={styles.scrollContainer}>
+        <ScrollView contentContainerStyle={styles.scrollContainer} keyboardShouldPersistTaps="handled">
+          <View style={styles.topBar}>
+            <View style={styles.brandRow}>
+              <View style={styles.brandIcon}>
+                <Ionicons name="car-sport" size={18} color={THEME_COLORS.primary} />
+              </View>
+              <Text style={styles.brandText}>RENTO</Text>
+            </View>
+            <TouchableOpacity
+              style={styles.adminButton}
+              onPress={() => setAdminModalVisible(true)}
+              activeOpacity={PRESS_OPACITY}
+            >
+              <Ionicons name="shield-outline" size={14} color={THEME_COLORS.textSecondary} />
+              <Text style={styles.adminButtonText}>QUẢN TRỊ</Text>
+            </TouchableOpacity>
+          </View>
+
           <View style={styles.header}>
             <Text style={styles.title}>Chào mừng trở lại!</Text>
             <Text style={styles.subtitle}>Đăng nhập để tiếp tục</Text>
@@ -330,30 +377,46 @@ export default function LoginScreen() {
           <View style={styles.form}>
             <View style={styles.inputContainer}>
               <Text style={styles.label}>Email</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Nhập email của bạn"
-                value={email}
-                onChangeText={setEmail}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
+              <View style={[styles.inputWrapper, focusedField === "email" && UI.inputFocused]}>
+                <Ionicons
+                  name="mail-outline"
+                  size={20}
+                  color={focusedField === "email" ? THEME_COLORS.primary : THEME_COLORS.textMuted}
+                />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Nhập email của bạn"
+                  value={email}
+                  onChangeText={setEmail}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  {...inputProps("email")}
+                />
+              </View>
             </View>
 
             <View style={styles.inputContainer}>
               <Text style={styles.label}>Mật khẩu</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Nhập mật khẩu"
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry
-                autoCapitalize="none"
-              />
+              <View style={[styles.inputWrapper, focusedField === "password" && UI.inputFocused]}>
+                <Ionicons
+                  name="lock-closed-outline"
+                  size={20}
+                  color={focusedField === "password" ? THEME_COLORS.primary : THEME_COLORS.textMuted}
+                />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Nhập mật khẩu"
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry
+                  autoCapitalize="none"
+                  {...inputProps("password")}
+                />
+              </View>
             </View>
 
-            <TouchableOpacity style={styles.forgotPassword} onPress={openResetModal}>
+            <TouchableOpacity style={styles.forgotPassword} onPress={openResetModal} activeOpacity={PRESS_OPACITY}>
               <Text style={styles.forgotPasswordText}>Quên mật khẩu?</Text>
             </TouchableOpacity>
 
@@ -361,14 +424,14 @@ export default function LoginScreen() {
               style={[styles.loginButton, loading && styles.disabledButton]}
               onPress={handleLogin}
               disabled={loading}
-              activeOpacity={0.7}
+              activeOpacity={PRESS_OPACITY}
             >
               <Text style={styles.loginButtonText}>{loading ? "Đang đăng nhập..." : "Đăng nhập"}</Text>
             </TouchableOpacity>
 
             <View style={styles.signupContainer}>
               <Text style={styles.signupText}>Chưa có tài khoản? </Text>
-              <TouchableOpacity onPress={() => router.push("/register")}>
+              <TouchableOpacity onPress={() => router.push("/register")} activeOpacity={PRESS_OPACITY}>
                 <Text style={styles.signupLink}>Đăng ký</Text>
               </TouchableOpacity>
             </View>
@@ -381,97 +444,94 @@ export default function LoginScreen() {
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    backgroundColor: "#ffffff",
+    ...UI.screen,
   },
   keyboardView: {
     flex: 1,
   },
   scrollContainer: {
     flexGrow: 1,
+    paddingHorizontal: SPACE.screen,
+    paddingBottom: SPACE.section,
+  },
+  topBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingTop: SPACE.md,
+    marginBottom: SPACE["4xl"],
+  },
+  brandRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SPACE.sm,
+  },
+  brandIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    backgroundColor: THEME_COLORS.primarySoft,
+    alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: 24,
+  },
+  brandText: {
+    ...TYPOGRAPHY.h3,
+    fontWeight: "800",
+    letterSpacing: 1.5,
+    color: THEME_COLORS.primary,
   },
   header: {
-    alignItems: "center",
-    marginBottom: 48,
+    marginBottom: SPACE.section,
   },
   title: {
-    fontSize: 36,
-    fontWeight: "bold",
-    color: "#1054CF",
-    marginBottom: 12,
-    letterSpacing: 0.5,
+    ...TYPOGRAPHY.h1,
+    marginBottom: SPACE.sm,
   },
   subtitle: {
-    fontSize: 18,
-    color: "#666666",
-    letterSpacing: 0.5,
+    ...TYPOGRAPHY.body,
   },
   form: {
     width: "100%",
-    paddingHorizontal: 4,
   },
   inputContainer: {
-    marginBottom: 24,
+    marginBottom: SPACE.lg,
   },
   label: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#333333",
-    marginBottom: 8,
-    marginLeft: 4,
+    ...TYPOGRAPHY.bodyStrong,
+    fontSize: 14,
+    marginBottom: SPACE.sm,
+  },
+  inputWrapper: {
+    ...INPUT_BOX,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SPACE.md,
   },
   input: {
-    borderWidth: 1.5,
-    borderColor: "#e0e0e0",
-    borderRadius: 25,
-    paddingHorizontal: 24,
-    paddingVertical: 16,
-    fontSize: 16,
-    backgroundColor: "#ffffff",
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.05,
-    shadowRadius: 3.84,
-    elevation: 2,
+    flex: 1,
+    height: "100%",
+    fontSize: 15,
+    color: THEME_COLORS.textPrimary,
   },
   forgotPassword: {
     alignSelf: "flex-end",
-    marginBottom: 30,
+    marginBottom: SPACE["2xl"],
+    paddingVertical: SPACE.xs,
   },
   forgotPasswordText: {
-    color: "#4169e1",
+    color: THEME_COLORS.primary,
     fontSize: 14,
     fontWeight: "600",
   },
   loginButton: {
-    backgroundColor: "#1054CF",
-    paddingVertical: 18,
-    borderRadius: 25,
-    alignItems: "center",
-    marginBottom: 24,
-    marginTop: 16,
-    shadowColor: "#1054CF",
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.3,
-    shadowRadius: 4.65,
-    elevation: 8,
+    ...UI.primaryButton,
+    marginBottom: SPACE["2xl"],
   },
   disabledButton: {
     opacity: 0.6,
   },
   loginButtonText: {
-    color: "#ffffff",
-    fontSize: 18,
-    fontWeight: "700",
-    letterSpacing: 0.5,
+    ...UI.primaryButtonText,
   },
   signupContainer: {
     flexDirection: "row",
@@ -479,136 +539,127 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   signupText: {
-    color: "#666666",
-    fontSize: 16,
+    ...TYPOGRAPHY.body,
   },
   signupLink: {
-    color: "#1054CF",
-    fontSize: 16,
-    fontWeight: "700",
+    ...TYPOGRAPHY.bodyStrong,
+    color: THEME_COLORS.primary,
   },
   adminButton: {
-    position: 'absolute',
-    top: 50,
-    right: 20,
-    backgroundColor: '#FFB700',
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 25,
-    zIndex: 1,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.2,
-    shadowRadius: 3.84,
-    elevation: 4,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SPACE.xs,
+    height: 32,
+    paddingHorizontal: SPACE.md,
+    borderRadius: RADIUS.control,
+    borderWidth: 1,
+    borderColor: THEME_COLORS.border,
+    backgroundColor: THEME_COLORS.surface,
   },
   adminButtonText: {
-    color: "#ffffff",
-    fontSize: 14,
-    fontWeight: "700",
+    fontSize: 12,
+    fontWeight: "600",
+    letterSpacing: 0.6,
+    color: THEME_COLORS.textSecondary,
   },
   modalContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(15, 23, 42, 0.45)",
+    padding: SPACE["2xl"],
   },
   modalContent: {
-    backgroundColor: 'white',
-    borderRadius: 20,
-    padding: 24,
-    width: '80%',
-    alignItems: 'center',
+    backgroundColor: THEME_COLORS.surface,
+    borderRadius: RADIUS.sheet,
+    padding: SPACE["2xl"],
+    width: "100%",
+    maxWidth: 360,
+    alignItems: "center",
+    ...SHADOWS.raised,
+  },
+  modalIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: RADIUS.pill,
+    backgroundColor: THEME_COLORS.primarySoft,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: SPACE.lg,
+  },
+  modalIconDanger: {
+    backgroundColor: THEME_COLORS.dangerSoft,
   },
   modalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 20,
-    color: '#000000',
+    ...TYPOGRAPHY.h2,
+    marginBottom: SPACE.md,
+    textAlign: "center",
   },
   modalInput: {
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-    borderRadius: 25, // Changed from 12 to 25
-    paddingHorizontal: 20, // Increased from 16 to 20
-    paddingVertical: 12,
-    fontSize: 16,
-    backgroundColor: '#f8f9fa',
-    width: '100%',
-    marginBottom: 20,
+    ...UI.input,
+    width: "100%",
+    marginBottom: SPACE.lg,
   },
   modalButtons: {
-    flexDirection: 'row',
-    gap: 12,
+    flexDirection: "row",
+    gap: SPACE.md,
+    width: "100%",
+  },
+  modalButtonFlex: {
+    flex: 1,
+    paddingHorizontal: SPACE.md,
+  },
+  modalButtonFull: {
+    alignSelf: "stretch",
+    marginTop: SPACE.lg,
   },
   modalButton: {
-    backgroundColor: '#FFB700',
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 25, // Changed from 12 to 25
-    minWidth: 100,
-    alignItems: 'center',
+    ...UI.primaryButton,
+    height: 48,
   },
-  resetPrimaryButton: {
-    backgroundColor: '#1054CF',
+  modalSecondaryButton: {
+    ...UI.secondaryButton,
+    height: 48,
   },
-  resetInfoText: {
+  modalSecondaryButtonText: {
+    ...UI.secondaryButtonText,
     fontSize: 15,
-    color: '#666666',
-    textAlign: 'center',
-    marginBottom: 16,
-    lineHeight: 22,
-  },
-  resetErrorText: {
-    color: '#FF3B30',
-    fontSize: 14,
-    textAlign: 'center',
-    marginTop: -8,
-    marginBottom: 16,
-  },
-  cancelButton: {
-    backgroundColor: '#666666',
   },
   modalButtonText: {
-    color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '600',
+    ...UI.primaryButtonText,
+    fontSize: 15,
   },
-  errorModalContent: {
-    backgroundColor: '#ffffff',
-    padding: 24,
-    borderRadius: 20,
-    alignItems: 'center',
-    maxWidth: '80%',
+  resetInfoText: {
+    ...TYPOGRAPHY.body,
+    textAlign: "center",
+    marginBottom: SPACE.lg,
+  },
+  resetErrorText: {
+    ...TYPOGRAPHY.caption,
+    color: THEME_COLORS.danger,
+    textAlign: "center",
+    marginTop: -SPACE.sm,
+    marginBottom: SPACE.lg,
   },
   closeButton: {
-    position: 'absolute',
-    top: 12,
-    right: 12,
-    width: 24,
-    height: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  closeButtonText: {
-    fontSize: 18,
-    color: '#666666',
-    fontWeight: '600',
+    position: "absolute",
+    top: SPACE.md,
+    right: SPACE.md,
+    width: 32,
+    height: 32,
+    borderRadius: RADIUS.pill,
+    backgroundColor: THEME_COLORS.surfaceMuted,
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 1,
   },
   errorTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#FF3B30',
-    marginBottom: 12,
-    textAlign: 'center',
+    ...TYPOGRAPHY.h2,
+    marginBottom: SPACE.sm,
+    textAlign: "center",
   },
   errorMessage: {
-    fontSize: 16,
-    color: '#666666',
-    textAlign: 'center',
-    marginBottom: 8,
+    ...TYPOGRAPHY.body,
+    textAlign: "center",
   },
 })

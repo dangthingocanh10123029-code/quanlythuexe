@@ -13,6 +13,8 @@ import { onAuthStateChanged } from 'firebase/auth'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { cars } from "../../data/cars"
 import { formatCurrency } from "../../utils/helpers"
+import { StatusBar } from "expo-status-bar"
+import { THEME_COLORS, RADIUS, SPACE, SHADOWS, TYPOGRAPHY, UI, PRESS_OPACITY } from "../../utils/theme"
 
 
 const { width } = Dimensions.get("window")
@@ -22,7 +24,7 @@ const coupons = [
     id: 1,
     title: "FIRST20",
     description: "Giảm 20% cho chuyến thuê đầu tiên",
-    color: "#4169e1",
+    color: "#1054CF",
     image: require('../../assets/coup1.png')
   },
   {
@@ -206,6 +208,20 @@ export default function HomeScreen() {
     return `${hours.toString().padStart(2, '0')} : ${minutes.toString().padStart(2, '0')} : ${remainingSeconds.toString().padStart(2, '0')}`
   }
 
+  const renderStars = (rating: number, size: number) => (
+    <View style={styles.ratingContainer}>
+      {[...Array(5)].map((_, index) => (
+        <Ionicons
+          key={index}
+          name="star"
+          size={size}
+          color={index < Math.floor(rating) ? THEME_COLORS.accent : THEME_COLORS.border}
+        />
+      ))}
+      <Text style={styles.ratingText}>{rating.toFixed(1)}</Text>
+    </View>
+  )
+
   // Update the renderCarCard function
   const renderCarCard = ({ item }: { item: Car }) => (
     <TouchableOpacity
@@ -214,40 +230,30 @@ export default function HomeScreen() {
         pathname: "/car-details/[id]",
         params: { id: item.id }
       })}
-      activeOpacity={0.7}
+      activeOpacity={PRESS_OPACITY}
     >
-      <Image 
-        source={item.image} 
-        style={styles.carImage}
-        resizeMode="cover"
-      />
+      <View style={styles.carImageWrap}>
+        <Image
+          source={item.image}
+          style={styles.carImage}
+          resizeMode="cover"
+        />
+      </View>
       <View style={styles.carInfo}>
         <Text style={styles.carName}>{item.name}</Text>
         <Text style={styles.carBrand}>{item.brand}</Text>
-        <View style={styles.ratingContainer}>
-          {[...Array(5)].map((_, index) => (
-            <Ionicons
-              key={index}
-              name="star"
-              size={16}
-              color={index < Math.floor(item.rating) ? "#FFB700" : "#e0e0e0"}
-            />
-          ))}
-          <Text style={styles.ratingText}>{item.rating.toFixed(1)}</Text>
-        </View>
-        <View style={styles.carDetails}>
-          <View style={styles.detailsRow}>
-            <View style={styles.detailItem}>
-              <Ionicons name="people" size={16} color="#ffffff" />
-              <Text style={styles.detailText}>{item.seats} chỗ</Text>
-            </View>
-            <View style={styles.detailItem}>
-              <Ionicons name="speedometer" size={16} color="#ffffff" />
-              <Text style={styles.detailText}>{item.type}</Text>
-            </View>
+        {renderStars(item.rating, 16)}
+        <View style={styles.detailsRow}>
+          <View style={styles.detailItem}>
+            <Ionicons name="people-outline" size={14} color={THEME_COLORS.textSecondary} />
+            <Text style={styles.detailText}>{item.seats} chỗ</Text>
           </View>
-          <Text style={styles.carPrice}>{formatCurrency(item.pricePerDay)}/ngày</Text>
+          <View style={styles.detailItem}>
+            <Ionicons name="speedometer-outline" size={14} color={THEME_COLORS.textSecondary} />
+            <Text style={styles.detailText}>{item.type}</Text>
+          </View>
         </View>
+        <Text style={styles.carPrice}>{formatCurrency(item.pricePerDay)}/ngày</Text>
       </View>
     </TouchableOpacity>
   )
@@ -268,8 +274,6 @@ export default function HomeScreen() {
     }
   }
 
-  // Add ImageSourcePropType to imports at the top
-  // Add this function after renderCarCard
   const renderRecentCarCard = ({ item }: { item: Car }) => (
     <TouchableOpacity
       style={styles.recentCarCard}
@@ -277,131 +281,122 @@ export default function HomeScreen() {
         pathname: "/car-details/[id]",
         params: { id: item.id }
       })}
-      activeOpacity={0.7}
+      activeOpacity={PRESS_OPACITY}
     >
-      <Image 
-        source={item.image as ImageSourcePropType}
-        style={styles.recentCarImage}
-        resizeMode="cover"
-      />
+      <View style={styles.recentCarImageWrap}>
+        <Image
+          source={item.image as ImageSourcePropType}
+          style={styles.recentCarImage}
+          resizeMode="cover"
+        />
+      </View>
       <View style={styles.recentCarInfo}>
-        <Text style={styles.recentCarName}>{item.name}</Text>
-        <View style={styles.ratingContainer}>
-          {[...Array(5)].map((_, index) => (
-            <Ionicons
-              key={index}
-              name="star"
-              size={14}
-              color={index < Math.floor(item.rating) ? "#FFB700" : "#e0e0e0"}
-            />
-          ))}
-          <Text style={styles.ratingText}>{item.rating.toFixed(1)}</Text>
-        </View>
+        <Text style={styles.recentCarName} numberOfLines={1}>{item.name}</Text>
+        {renderStars(item.rating, 13)}
         <Text style={styles.recentCarPrice}>{formatCurrency(item.pricePerDay)}/ngày</Text>
       </View>
     </TouchableOpacity>
   )
 
-  // Add this function for rendering featured cars
   const renderFeaturedCarCard = ({ item }: { item: Car }) => (
-    <TouchableOpacity
-      style={styles.featuredCarCard}
-      onPress={() => router.push({
-        pathname: "/car-details/[id]",
-        params: { id: item.id }
-      })}
-      activeOpacity={0.7}
-    >
-      <Image 
-        source={item.image} 
-        style={styles.featuredCarImage}
-        resizeMode="cover"
-      />
-      <View style={styles.featuredCardOverlay}>
-        <View style={styles.featuredCarInfo}>
-          <Text style={styles.featuredCarName}>{item.name}</Text>
-          <Text style={styles.featuredCarBrand}>{item.brand}</Text>
-          <View style={styles.featuredRatingContainer}>
-            {[...Array(5)].map((_, index) => (
-              <Ionicons
-                key={index}
-                name="star"
-                size={14}
-                color={index < Math.floor(item.rating) ? "#FFB700" : "#e0e0e0"}
-              />
-            ))}
-            <Text style={styles.featuredRatingText}>{item.rating.toFixed(1)}</Text>
-          </View>
-          <View style={styles.featuredDetailsRow}>
-            <View style={styles.featuredDetailItem}>
-              <Ionicons name="people" size={14} color="#ffffff" />
-              <Text style={styles.featuredDetailText}>{item.seats} chỗ</Text>
-            </View>
-            <View style={styles.featuredDetailItem}>
-              <Ionicons name="speedometer" size={14} color="#ffffff" />
-              <Text style={styles.featuredDetailText}>{item.type}</Text>
-            </View>
-          </View>
-          <Text style={styles.featuredCarPrice}>{formatCurrency(item.pricePerDay)}/ngày</Text>
+    <View style={styles.featuredSlide}>
+      <TouchableOpacity
+        style={styles.featuredCarCard}
+        onPress={() => router.push({
+          pathname: "/car-details/[id]",
+          params: { id: item.id }
+        })}
+        activeOpacity={PRESS_OPACITY}
+      >
+        <View style={styles.featuredImageWrap}>
+          <Image
+            source={item.image}
+            style={styles.featuredCarImage}
+            resizeMode="cover"
+          />
         </View>
-      </View>
-    </TouchableOpacity>
+        <View style={styles.featuredCarInfo}>
+          <View style={styles.featuredTitleRow}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.featuredCarName} numberOfLines={1}>{item.name}</Text>
+              <Text style={styles.featuredCarBrand}>{item.brand}</Text>
+            </View>
+            {renderStars(item.rating, 13)}
+          </View>
+          <View style={styles.featuredFooter}>
+            <View style={styles.featuredDetailsRow}>
+              <View style={styles.detailItem}>
+                <Ionicons name="people-outline" size={14} color={THEME_COLORS.textSecondary} />
+                <Text style={styles.detailText}>{item.seats} chỗ</Text>
+              </View>
+              <View style={styles.detailItem}>
+                <Ionicons name="speedometer-outline" size={14} color={THEME_COLORS.textSecondary} />
+                <Text style={styles.detailText}>{item.type}</Text>
+              </View>
+            </View>
+            <Text style={styles.featuredCarPrice}>{formatCurrency(item.pricePerDay)}/ngày</Text>
+          </View>
+        </View>
+      </TouchableOpacity>
+    </View>
   )
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView showsVerticalScrollIndicator={false}>
+    <SafeAreaView style={styles.container} edges={["top"]}>
+      <StatusBar style="dark" />
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         {/* Header */}
         <View style={styles.header}>
-          <View>
-            <Text style={styles.greeting}>Xin chào, {userName}!</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.greeting} numberOfLines={1}>Xin chào, {userName}!</Text>
             <TouchableOpacity
               style={styles.locationContainer}
               onPress={() => openCarsTab({ city: "TP. Hồ Chí Minh" })}
+              activeOpacity={PRESS_OPACITY}
             >
-              <Ionicons name="location" size={16} color="#4169e1" />
+              <Ionicons name="location" size={14} color={THEME_COLORS.primary} />
               <Text style={styles.location}>TP. Hồ Chí Minh, VN</Text>
               <Text style={styles.flag}>🇻🇳</Text>
             </TouchableOpacity>
           </View>
           <View style={styles.headerButtons}>
-            <TouchableOpacity 
-              style={styles.iconButton} 
+            <TouchableOpacity
+              style={styles.iconButton}
               onPress={() => router.push("/likedcars")}
+              activeOpacity={PRESS_OPACITY}
             >
-              <Ionicons 
-                name="heart" 
-                size={24} 
-                color="#1054CF"
-              />
+              <Ionicons name="heart-outline" size={22} color={THEME_COLORS.primary} />
             </TouchableOpacity>
-            <TouchableOpacity 
-              style={styles.iconButton} 
+            <TouchableOpacity
+              style={styles.iconButton}
               onPress={() => router.push("/notifications")}
+              activeOpacity={PRESS_OPACITY}
             >
-              <Ionicons 
-                name={hasNotifications ? "notifications" : "notifications-outline"} 
-                size={24} 
-                color="#1054CF"
+              <Ionicons
+                name={hasNotifications ? "notifications" : "notifications-outline"}
+                size={22}
+                color={THEME_COLORS.primary}
               />
             </TouchableOpacity>
           </View>
         </View>
 
-        {/* Search Bar - New Component */}
+        {/* Search Bar */}
         <View style={styles.searchContainer}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.searchBar}
             onPress={() => openCarsTab({ focus: "1" })}
+            activeOpacity={PRESS_OPACITY}
           >
-            <Ionicons name="search" size={20} color="#666666" />
-            <Text style={styles.searchPlaceholder}>Tìm xe, hãng xe, mẫu xe...</Text>
-            <TouchableOpacity
-              style={styles.searchButton}
-              onPress={() => openCarsTab({ openFilter: "1" })}
-            >
-              <Ionicons name="options" size={20} color="#1054CF" />
-            </TouchableOpacity>
+            <Ionicons name="search" size={20} color={THEME_COLORS.textMuted} />
+            <Text style={styles.searchPlaceholder} numberOfLines={1}>Tìm xe, hãng xe, mẫu xe...</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.searchButton}
+            onPress={() => openCarsTab({ openFilter: "1" })}
+            activeOpacity={PRESS_OPACITY}
+          >
+            <Ionicons name="options-outline" size={22} color={THEME_COLORS.primary} />
           </TouchableOpacity>
         </View>
 
@@ -412,17 +407,21 @@ export default function HomeScreen() {
             horizontal
             pagingEnabled
             showsHorizontalScrollIndicator={false}
+            style={styles.couponList}
+            contentContainerStyle={styles.couponListContent}
             onMomentumScrollEnd={(event) => {
               const index = Math.round(event.nativeEvent.contentOffset.x / (width - 40))
               setCurrentCouponIndex(index)
             }}
             renderItem={({ item }) => (
-              <View style={[styles.couponCard, { backgroundColor: 'transparent' }]}>
-                <Image 
-                  source={item.image} 
-                  style={styles.couponImage}
-                  resizeMode="cover"
-                />
+              <View style={styles.couponSlide}>
+                <View style={[styles.couponCard, { backgroundColor: item.color }]}>
+                  <Image
+                    source={item.image}
+                    style={styles.couponImage}
+                    resizeMode="cover"
+                  />
+                </View>
               </View>
             )}
             keyExtractor={(item) => item.id.toString()}
@@ -442,48 +441,54 @@ export default function HomeScreen() {
 
         {/* Top Car Brands Section */}
         <View style={styles.brandsSection}>
+          <Text style={styles.sectionOverline}>Khám phá xe theo hãng:</Text>
           <Text style={styles.sectionTitle}>Hãng xe phổ biến</Text>
-          <Text style={styles.sectionSubtitle}>Khám phá xe theo hãng:</Text>
 
           <View style={styles.brandsGrid}>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.brandCard}
               onPress={() => openCarsTab({ brand: "Toyota" })}
+              activeOpacity={PRESS_OPACITY}
             >
-              <Image 
+              <Image
                 source={require("../../assets/brandlogos/toyota.png")}
                 style={styles.brandLogo}
                 resizeMode="contain"
               />
             </TouchableOpacity>
 
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.brandCard}
               onPress={() => openCarsTab({ brand: "BMW" })}
+              activeOpacity={PRESS_OPACITY}
             >
-              <Image 
+              <Image
                 source={require("../../assets/brandlogos/bmw.png")}
                 style={styles.brandLogo}
                 resizeMode="contain"
               />
             </TouchableOpacity>
 
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.brandCard}
               onPress={() => openCarsTab({ brand: "Mercedes" })}
+              activeOpacity={PRESS_OPACITY}
             >
-              <Image 
+              <Image
                 source={require("../../assets/brandlogos/mercedes.png")}
                 style={styles.brandLogo}
                 resizeMode="contain"
               />
             </TouchableOpacity>
 
-            <TouchableOpacity 
-              style={styles.brandCard}
+            <TouchableOpacity
+              style={[styles.brandCard, styles.brandCardMore]}
               onPress={() => openCarsTab()}
+              activeOpacity={PRESS_OPACITY}
             >
-              <Ionicons name="arrow-forward" size={24} color="#4169e1" />
+              <View style={styles.moreIcon}>
+                <Ionicons name="arrow-forward" size={18} color={THEME_COLORS.primary} />
+              </View>
               <Text style={styles.moreText}>Thêm</Text>
             </TouchableOpacity>
           </View>
@@ -492,12 +497,12 @@ export default function HomeScreen() {
         {/* Featured Cars */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Xe nổi bật</Text>
-            <TouchableOpacity onPress={() => openCarsTab()}>
+            <Text style={styles.sectionTitleInline}>Xe nổi bật</Text>
+            <TouchableOpacity onPress={() => openCarsTab()} activeOpacity={PRESS_OPACITY}>
               <Text style={styles.viewAllText}>Xem tất cả</Text>
             </TouchableOpacity>
           </View>
-          
+
           <FlatList
             data={featuredCars}
             horizontal
@@ -521,24 +526,21 @@ export default function HomeScreen() {
         {/* Recently Rented */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Thuê gần đây</Text>
-            <TouchableOpacity onPress={() => router.push("/(tabs)/bookings")}>
+            <Text style={styles.sectionTitleInline}>Thuê gần đây</Text>
+            <TouchableOpacity onPress={() => router.push("/(tabs)/bookings")} activeOpacity={PRESS_OPACITY}>
               <Text style={styles.viewAllText}>Xem tất cả</Text>
             </TouchableOpacity>
           </View>
-          
+
           <FlatList
             data={recentlyRented}
             horizontal
             showsHorizontalScrollIndicator={false}
             renderItem={renderRecentCarCard}
             keyExtractor={(item) => item.id}
-            contentContainerStyle={{ paddingRight: 20 }}
+            contentContainerStyle={styles.recentListContent}
           />
         </View>
-
-        {/* Add this at the bottom of your ScrollView, after all other sections */}
-        <View style={styles.bottomSpacer} />
       </ScrollView>
 
       <Modal
@@ -549,39 +551,43 @@ export default function HomeScreen() {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.promoModal}>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.closeButton}
               onPress={() => setShowPromoModal(false)}
+              activeOpacity={PRESS_OPACITY}
             >
-              <Ionicons name="close" size={24} color="#000000" />
+              <Ionicons name="close" size={20} color={THEME_COLORS.textSecondary} />
             </TouchableOpacity>
 
             <View style={styles.timerContainer}>
-              <Ionicons name="time-outline" size={24} color="#1054CF" />
+              <Ionicons name="time-outline" size={18} color={THEME_COLORS.primary} />
               <Text style={styles.timerText}>{formatTime(timeLeft)}</Text>
             </View>
 
-            <Image 
-              source={require('../../assets/adv cars.gif')}
-              style={styles.promoImage}
-              resizeMode="contain"
-            />
-            
+            <View style={styles.promoImageWrap}>
+              <Image
+                source={require('../../assets/adv cars.gif')}
+                style={styles.promoImage}
+                resizeMode="contain"
+              />
+            </View>
+
             <Text style={styles.promoTitle}>Quà chào mừng!</Text>
             <Text style={styles.promoDescription}>
               Giảm ngay 25% cho chuyến thuê xe đầu tiên!
               Nhập mã: <Text style={styles.promoCode}>WELCOME25</Text>
             </Text>
-            
-            <TouchableOpacity 
+
+            <TouchableOpacity
               style={styles.promoButton}
               onPress={() => {
                 setShowPromoModal(false)
                 openCarsTab()
               }}
+              activeOpacity={PRESS_OPACITY}
             >
               <Text style={styles.promoButtonText}>Xem xe ngay</Text>
-              <Ionicons name="arrow-forward" size={20} color="#ffffff" />
+              <Ionicons name="arrow-forward" size={20} color="#FFFFFF" />
             </TouchableOpacity>
           </View>
         </View>
@@ -590,534 +596,431 @@ export default function HomeScreen() {
   )
 }
 
+const BRAND_GAP = SPACE.md
+const BRAND_CARD_SIZE = (width - SPACE.screen * 2 - BRAND_GAP * 3) / 4
+// Chiều cao thanh tab nổi (72) + khoảng cách đáy (20) + khoảng thở
+const TAB_BAR_CLEARANCE = 120
+
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    backgroundColor: "#ededed",
+    ...UI.screen,
+  },
+  scrollContent: {
+    paddingBottom: TAB_BAR_CLEARANCE,
   },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "flex-start",
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 10,
+    alignItems: "center",
+    paddingHorizontal: SPACE.screen,
+    paddingTop: SPACE.lg,
+    paddingBottom: SPACE.sm,
+    backgroundColor: THEME_COLORS.background,
+    gap: SPACE.md,
   },
   greeting: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "#000000",
-    marginBottom: 5,
+    ...TYPOGRAPHY.h1,
+    marginBottom: SPACE.xs,
   },
   locationContainer: {
     flexDirection: "row",
     alignItems: "center",
+    gap: SPACE.xs,
   },
   location: {
-    fontSize: 14,
-    color: "#666666",
-    marginLeft: 5,
-    marginRight: 5,
+    ...TYPOGRAPHY.caption,
   },
   flag: {
-    fontSize: 16,
-  },
-  notificationButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#ffffff',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 2,
-  },
-  devsButton: {
-    backgroundColor: "#1054CF", // Updated blue
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-  },
-  devsButtonText: {
-    color: "#ffffff",
     fontSize: 14,
-    fontWeight: "600",
   },
+  headerButtons: {
+    flexDirection: 'row',
+    gap: SPACE.sm,
+  },
+  iconButton: {
+    width: 44,
+    height: 44,
+    borderRadius: RADIUS.pill,
+    backgroundColor: THEME_COLORS.primarySoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  // Search
   searchContainer: {
-    paddingHorizontal: 20,
-    marginTop: 10,
-    marginBottom: 15,
-  },
-  searchBar: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#ffffff",
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    gap: SPACE.md,
+    paddingHorizontal: SPACE.screen,
+    marginTop: SPACE.lg,
+  },
+  // Ô tìm kiếm dạng nút (View) mang hình dáng UI.input
+  searchBar: {
+    height: UI.input.height,
+    borderRadius: RADIUS.control,
     borderWidth: 1,
-    borderColor: "#e0e0e0",
+    borderColor: THEME_COLORS.border,
+    backgroundColor: THEME_COLORS.surface,
+    paddingHorizontal: SPACE.lg,
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
   },
   searchPlaceholder: {
     flex: 1,
-    marginLeft: 12,
-    fontSize: 14,
-    color: "#666666",
+    marginLeft: SPACE.md,
+    fontSize: 15,
+    color: THEME_COLORS.textMuted,
   },
   searchButton: {
-    padding: 4,
+    width: 48,
+    height: 48,
+    borderRadius: RADIUS.control,
+    borderWidth: 1,
+    borderColor: THEME_COLORS.border,
+    backgroundColor: THEME_COLORS.surface,
+    alignItems: "center",
+    justifyContent: "center",
   },
+
+  // Coupons
   couponSection: {
-    paddingHorizontal: 20,
-    marginVertical: 20,
+    paddingHorizontal: SPACE.screen,
+    marginTop: SPACE["2xl"],
+  },
+  couponList: {
+    overflow: "visible",
+  },
+  couponListContent: {
+    paddingVertical: SPACE.sm,
+  },
+  couponSlide: {
+    width: width - 40,
+  },
+  couponCard: {
+    height: 180,
+    borderRadius: RADIUS.card,
+    ...SHADOWS.card,
   },
   couponImage: {
     width: '100%',
     height: '100%',
-    borderRadius: 12,
-  },
-  couponCard: {
-    width: width - 40,
-    height: 200, // doubled from 120 to 240
-    borderRadius: 12,
-    overflow: 'hidden',
-    marginRight: 10,
-  },
-  couponTitle: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "#ffffff",
-    marginBottom: 8,
-  },
-  couponDescription: {
-    fontSize: 16,
-    color: "#ffffff",
-    opacity: 0.9,
+    borderRadius: RADIUS.card,
   },
   couponIndicators: {
     flexDirection: "row",
     justifyContent: "center",
-    marginTop: 15,
+    marginTop: SPACE.md,
   },
   indicator: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginHorizontal: 4,
+    height: 6,
+    borderRadius: RADIUS.pill,
+    marginHorizontal: 3,
   },
   activeIndicator: {
-    backgroundColor: "#1054CF", // Updated blue
-    width: 24,
+    backgroundColor: THEME_COLORS.primary,
+    width: 20,
   },
   inactiveIndicator: {
-    backgroundColor: "#e0e0e0",
+    backgroundColor: THEME_COLORS.borderStrong,
+    width: 6,
   },
+
+  // Sections
   brandsSection: {
-    paddingHorizontal: 20,
-    marginBottom: 30,
+    paddingHorizontal: SPACE.screen,
+    marginTop: SPACE.section,
+  },
+  sectionOverline: {
+    ...TYPOGRAPHY.overline,
+    marginBottom: SPACE.xs,
   },
   sectionTitle: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: "#000000",
-    marginBottom: 15,
+    ...TYPOGRAPHY.h2,
+    marginBottom: SPACE.lg,
   },
-  sectionSubtitle: {
-    fontSize: 14,
-    color: "#666666",
-    marginBottom: 20,
+  sectionTitleInline: {
+    ...TYPOGRAPHY.h2,
   },
   brandsGrid: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginHorizontal: -5, // Compensate for the padding in brandCard
+    gap: BRAND_GAP,
   },
   brandCard: {
-    width: (width - 60) / 4, // Divide by 4 instead of 2
-    aspectRatio: 1,
-    backgroundColor: "#ffffff",
-    borderRadius: 16,
+    ...UI.card,
+    width: BRAND_CARD_SIZE,
+    height: BRAND_CARD_SIZE,
     alignItems: "center",
     justifyContent: "center",
-    marginHorizontal: 5,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
+  },
+  brandCardMore: {
+    backgroundColor: THEME_COLORS.surfaceMuted,
+    boxShadow: "none",
+    gap: SPACE.xs,
   },
   brandLogo: {
-    width: "70%",
-    height: "70%",
+    width: "60%",
+    height: "60%",
+  },
+  moreIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: RADIUS.pill,
+    backgroundColor: THEME_COLORS.primarySoft,
+    alignItems: "center",
+    justifyContent: "center",
   },
   moreText: {
-    marginTop: 8,
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: "600",
-    color: "#4169e1",
+    color: THEME_COLORS.primary,
   },
   section: {
-    marginVertical: 24,
+    marginTop: SPACE.section,
   },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    marginBottom: 16,
+    paddingHorizontal: SPACE.screen,
+    marginBottom: SPACE.md,
   },
   viewAllText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#1054CF',
+    color: THEME_COLORS.primary,
   },
-  carCard: {
-    backgroundColor: "#1054CF",
-    borderRadius: 16,
-    marginBottom: 16,
-    overflow: 'hidden',
-    elevation: 5,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-  },
-  carImage: {
-    width: "100%",
-    height: 180,
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-  },
-  carInfo: {
-    padding: 16,
-  },
-  carName: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: "#ffffff",
-    marginBottom: 4,
-  },
-  carBrand: {
-    fontSize: 14,
-    color: "#ffffff",
-    opacity: 0.8,
-    marginBottom: 12,
-  },
+
+  // Shared car meta
   ratingContainer: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 12,
+    gap: 2,
   },
   ratingText: {
-    marginLeft: 8,
-    color: "#ffffff",
-    fontSize: 14,
+    marginLeft: SPACE.xs,
+    fontSize: 13,
     fontWeight: "600",
+    color: THEME_COLORS.textSecondary,
   },
   detailsRow: {
     flexDirection: "row",
-    gap: 16,
-    marginBottom: 12,
+    gap: SPACE.sm,
+    marginTop: SPACE.md,
+    marginBottom: SPACE.md,
   },
   detailItem: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-    gap: 6,
+    backgroundColor: THEME_COLORS.surfaceMuted,
+    borderWidth: 1,
+    borderColor: THEME_COLORS.border,
+    paddingHorizontal: 10,
+    paddingVertical: SPACE.xs,
+    borderRadius: RADIUS.pill,
+    gap: SPACE.xs,
   },
   detailText: {
-    color: "#ffffff",
-    fontSize: 14,
+    fontSize: 13,
+    fontWeight: "500",
+    color: THEME_COLORS.textSecondary,
+  },
+
+  // Generic car card (renderCarCard)
+  carCard: {
+    ...UI.card,
+    marginBottom: SPACE.lg,
+  },
+  carImageWrap: {
+    backgroundColor: THEME_COLORS.surfaceMuted,
+    borderTopLeftRadius: RADIUS.card - 1,
+    borderTopRightRadius: RADIUS.card - 1,
+    overflow: "hidden",
+  },
+  carImage: {
+    width: "100%",
+    height: 180,
+  },
+  carInfo: {
+    padding: SPACE.lg,
+  },
+  carName: {
+    ...TYPOGRAPHY.h3,
+    marginBottom: 2,
+  },
+  carBrand: {
+    ...TYPOGRAPHY.caption,
+    marginBottom: SPACE.sm,
   },
   carPrice: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#FFB700",
+    ...TYPOGRAPHY.price,
   },
-  bottomSpacer: {
-    height: 100, // Adjust this value based on your tab bar height
+
+  // Featured cars
+  featuredCarsContainer: {
+    paddingTop: SPACE.xs,
+    paddingBottom: SPACE.lg,
   },
-  
-  // Update horizontal car card styles
-  horizontalCarCard: {
-    width: width * 0.7,
-    backgroundColor: "#ffffff",
-    borderRadius: 16,
-    marginRight: 16,
-    overflow: 'hidden',
-    elevation: 4,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+  featuredSlide: {
+    width: width,
+    paddingHorizontal: SPACE.screen,
   },
-  horizontalCarImage: {
+  featuredCarCard: {
+    ...UI.card,
+  },
+  featuredImageWrap: {
+    backgroundColor: THEME_COLORS.surfaceMuted,
+    borderTopLeftRadius: RADIUS.card - 1,
+    borderTopRightRadius: RADIUS.card - 1,
+    overflow: "hidden",
+  },
+  featuredCarImage: {
     width: "100%",
-    height: 140,
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
+    height: 180,
   },
-  horizontalCarInfo: {
-    padding: 16,
+  featuredCarInfo: {
+    padding: SPACE.lg,
   },
-  horizontalCarName: {
-    fontSize: 16,
-    fontWeight: "bold",
-    color: "#1054CF",
-    marginBottom: 8,
+  featuredTitleRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: SPACE.md,
   },
-  horizontalCarPrice: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#FFB700",
+  featuredCarName: {
+    ...TYPOGRAPHY.h2,
   },
-
-  // Header styles
-  headerButtons: {
-    flexDirection: 'row',
-    gap: 12,
+  featuredCarBrand: {
+    ...TYPOGRAPHY.caption,
+    marginTop: 2,
   },
-  iconButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(16, 84, 207, 0.1)',
-    alignItems: 'center',
-    justifyContent: 'center',
+  featuredFooter: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: SPACE.lg,
+    gap: SPACE.sm,
   },
-
-  // Car details styles
-  carDetails: {
-    marginTop: 12,
+  featuredDetailsRow: {
+    flexDirection: "row",
+    gap: SPACE.sm,
+    flexShrink: 1,
+  },
+  featuredCarPrice: {
+    ...TYPOGRAPHY.price,
   },
 
-  // Modal styles
+  // Recent cars
+  recentListContent: {
+    paddingHorizontal: SPACE.screen,
+    paddingTop: SPACE.xs,
+    paddingBottom: SPACE.lg,
+    gap: SPACE.md,
+  },
+  recentCarCard: {
+    ...UI.card,
+    width: width * 0.6,
+  },
+  recentCarImageWrap: {
+    backgroundColor: THEME_COLORS.surfaceMuted,
+    borderTopLeftRadius: RADIUS.card - 1,
+    borderTopRightRadius: RADIUS.card - 1,
+    overflow: "hidden",
+  },
+  recentCarImage: {
+    width: "100%",
+    height: 130,
+  },
+  recentCarInfo: {
+    padding: SPACE.lg,
+    gap: SPACE.sm,
+  },
+  recentCarName: {
+    ...TYPOGRAPHY.h3,
+  },
+  recentCarPrice: {
+    ...TYPOGRAPHY.price,
+    fontSize: 15,
+  },
+
+  // Promo modal
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(15, 23, 42, 0.45)',
     justifyContent: 'center',
     alignItems: 'center',
+    padding: SPACE.screen,
   },
   promoModal: {
-    backgroundColor: '#FFB700',
-    width: '90%',
-    borderRadius: 20,
-    padding: 24,
+    width: '100%',
+    maxWidth: 420,
+    backgroundColor: THEME_COLORS.surface,
+    borderRadius: RADIUS.sheet,
+    borderWidth: 1,
+    borderColor: THEME_COLORS.border,
+    padding: SPACE["2xl"],
     alignItems: 'center',
+    ...SHADOWS.raised,
   },
   closeButton: {
     position: 'absolute',
-    right: 16,
-    top: 16,
+    right: SPACE.lg,
+    top: SPACE.lg,
     zIndex: 1,
+    width: 36,
+    height: 36,
+    borderRadius: RADIUS.pill,
+    backgroundColor: THEME_COLORS.surfaceMuted,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   timerContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(16, 84, 207, 0.1)',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    marginBottom: 20,
+    backgroundColor: THEME_COLORS.primarySoft,
+    paddingHorizontal: SPACE.md,
+    paddingVertical: 6,
+    borderRadius: RADIUS.pill,
+    marginBottom: SPACE.lg,
+    gap: 6,
   },
   timerText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1054CF',
-    marginLeft: 8,
+    fontSize: 14,
+    fontWeight: '700',
+    color: THEME_COLORS.primary,
+    fontVariant: ['tabular-nums'],
+  },
+  promoImageWrap: {
+    width: '100%',
+    backgroundColor: THEME_COLORS.accent,
+    borderRadius: RADIUS.card,
+    marginBottom: SPACE.xl,
+    overflow: 'hidden',
   },
   promoImage: {
     width: '100%',
-    height: 200,
-    marginBottom: 20,
+    height: 180,
   },
   promoTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#1054CF',
-    marginBottom: 12,
+    ...TYPOGRAPHY.h1,
+    marginBottom: SPACE.sm,
     textAlign: 'center',
   },
   promoDescription: {
-    fontSize: 16,
-    color: '#666666',
+    ...TYPOGRAPHY.body,
     textAlign: 'center',
-    marginBottom: 24,
-    lineHeight: 24,
+    marginBottom: SPACE["2xl"],
   },
   promoCode: {
-    color: '#1054CF',
-    fontWeight: 'bold',
+    color: THEME_COLORS.primary,
+    fontWeight: '700',
   },
   promoButton: {
-    backgroundColor: '#1054CF',
+    ...UI.primaryButton,
+    alignSelf: 'stretch',
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 32,
-    borderRadius: 12,
-    gap: 8,
+    gap: SPACE.sm,
   },
   promoButtonText: {
-    color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-
-  // Featured car styles
-  featuredCarCard: {
-    width: width - 40,
-    height: 280,
-    backgroundColor: "#FFB700",
-    borderRadius: 20,
-    overflow: 'visible', // Changed back to visible for overflow
-    borderWidth: 2,
-    borderColor: "#1054CF",
-    elevation: 8,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    marginHorizontal: 20,
-    position: 'relative',
-  },
-
-  featuredCarImage: {
-    width: "90%",
-    height: 180,
-    position: 'absolute',
-    top: -55,
-    left: "5%",
-    zIndex: 1, // Middle layer
-    borderRadius: 16,
-  },
-
-  featuredCardOverlay: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    padding: 20,
-    paddingTop: 140,
-    zIndex: 2, // Top layer
-  },
-
-  featuredCarInfo: {
-    padding: 16,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    borderRadius: 12,
-    marginTop: 'auto',
-    elevation: 3, // Add elevation for Android
-  },
-  featuredCarName: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "#ffffff",
-    marginBottom: 4,
-  },
-  featuredCarBrand: {
-    fontSize: 16,
-    color: "#ffffff",
-    opacity: 0.9,
-    marginBottom: 12,
-  },
-  featuredRatingContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 12,
-  },
-  featuredRatingText: {
-    marginLeft: 8,
-    color: "#ffffff",
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  featuredDetailsRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 16,
-  },
-  featuredDetailItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "rgba(255,255,255,0.1)",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-    gap: 8,
-  },
-  featuredDetailText: {
-    color: "#ffffff",
-    fontSize: 14,
-  },
-  featuredCarPrice: {
-    fontSize: 20,
-    fontWeight: "800",
-    color: "#ffffff",
-  },
-
-  // Recent car styles
-  recentCarCard: {
-    width: width * 0.6,
-    backgroundColor: "#ffffff",
-    borderRadius: 16,
-    marginLeft: 20,
-    overflow: 'hidden',
-    elevation: 4,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-  },
-  recentCarImage: {
-    width: "100%",
-    height: 160,
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-  },
-  recentCarInfo: {
-    padding: 16,
-  },
-  recentCarName: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#1054CF",
-    marginBottom: 8,
-  },
-  recentCarPrice: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#FFB700",
-  },
-
-  featuredCarsContainer: {
-    paddingHorizontal: 20,
-    paddingTop: 40, // Space for the overflowing image
-    paddingBottom: 10,
+    ...UI.primaryButtonText,
   },
 })

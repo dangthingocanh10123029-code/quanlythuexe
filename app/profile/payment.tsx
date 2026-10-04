@@ -1,11 +1,13 @@
 "use client"
 
 import { useState } from "react"
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert } from "react-native"
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, type TextStyle } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
+import { StatusBar } from "expo-status-bar"
 import { Ionicons } from "@expo/vector-icons"
 import { router } from "expo-router"
 import PaymentLogo from "../../components/ui/PaymentLogo"
+import { PRESS_OPACITY, RADIUS, SHADOWS, SPACE, THEME_COLORS, TYPOGRAPHY, UI } from "../../utils/theme"
 
 type SavedPaymentType = "card" | "momo" | "zalopay"
 
@@ -52,6 +54,7 @@ const paymentMethods: SavedPaymentMethod[] = [
 export default function PaymentScreen() {
   const [methods, setMethods] = useState(paymentMethods)
   const [showAddCard, setShowAddCard] = useState(false)
+  const [focusedField, setFocusedField] = useState<string | null>(null)
   const [newCard, setNewCard] = useState({
     cardNumber: "",
     expiryDate: "",
@@ -149,19 +152,36 @@ export default function PaymentScreen() {
     ])
   }
 
+  const focusProps = (field: string) => ({
+    onFocus: () => setFocusedField(field),
+    onBlur: () => setFocusedField((prev) => (prev === field ? null : prev)),
+    placeholderTextColor: THEME_COLORS.textMuted,
+  })
+  const inputStyle = (field: string) => [styles.input, focusedField === field && styles.inputFocused]
+
   return (
     <SafeAreaView style={styles.container}>
+      <StatusBar style="dark" />
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={24} color="#000000" />
+        <TouchableOpacity style={styles.headerButton} onPress={() => router.back()} activeOpacity={PRESS_OPACITY}>
+          <Ionicons name="arrow-back" size={22} color={THEME_COLORS.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Phương thức thanh toán</Text>
-        <TouchableOpacity onPress={() => setShowAddCard(!showAddCard)}>
-          <Ionicons name="add" size={24} color="#4169e1" />
+        <TouchableOpacity
+          style={[styles.headerButton, styles.headerAddButton]}
+          onPress={() => setShowAddCard(!showAddCard)}
+          activeOpacity={PRESS_OPACITY}
+        >
+          <Ionicons name={showAddCard ? "close" : "add"} size={22} color={THEME_COLORS.primary} />
         </TouchableOpacity>
       </View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.content}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
         {/* Add Card Form */}
         {showAddCard && (
           <View style={styles.addCardForm}>
@@ -170,7 +190,7 @@ export default function PaymentScreen() {
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Số thẻ</Text>
               <TextInput
-                style={styles.input}
+                style={inputStyle("cardNumber")}
                 placeholder="1234 5678 9012 3456"
                 value={newCard.cardNumber}
                 onChangeText={(text) =>
@@ -184,14 +204,15 @@ export default function PaymentScreen() {
                 }
                 keyboardType="numeric"
                 maxLength={19}
+                {...focusProps("cardNumber")}
               />
             </View>
 
             <View style={styles.row}>
-              <View style={[styles.inputGroup, { flex: 1, marginRight: 10 }]}>
+              <View style={[styles.inputGroup, styles.rowItem]}>
                 <Text style={styles.inputLabel}>Ngày hết hạn</Text>
                 <TextInput
-                  style={styles.input}
+                  style={inputStyle("expiryDate")}
                   placeholder="MM/YY"
                   value={newCard.expiryDate}
                   onChangeText={(text) => {
@@ -200,19 +221,21 @@ export default function PaymentScreen() {
                   }}
                   keyboardType="numeric"
                   maxLength={5}
+                  {...focusProps("expiryDate")}
                 />
               </View>
 
-              <View style={[styles.inputGroup, { flex: 1, marginLeft: 10 }]}>
+              <View style={[styles.inputGroup, styles.rowItem]}>
                 <Text style={styles.inputLabel}>CVV</Text>
                 <TextInput
-                  style={styles.input}
+                  style={inputStyle("cvv")}
                   placeholder="123"
                   value={newCard.cvv}
                   onChangeText={(text) => setNewCard({ ...newCard, cvv: text.replace(/\D/g, "") })}
                   keyboardType="numeric"
                   maxLength={4}
                   secureTextEntry
+                  {...focusProps("cvv")}
                 />
               </View>
             </View>
@@ -220,19 +243,24 @@ export default function PaymentScreen() {
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Tên chủ thẻ</Text>
               <TextInput
-                style={styles.input}
+                style={inputStyle("cardholderName")}
                 placeholder="NGUYEN VAN AN"
                 value={newCard.cardholderName}
                 onChangeText={(text) => setNewCard({ ...newCard, cardholderName: text.toUpperCase() })}
                 autoCapitalize="characters"
+                {...focusProps("cardholderName")}
               />
             </View>
 
             <View style={styles.formButtons}>
-              <TouchableOpacity style={styles.cancelButton} onPress={() => setShowAddCard(false)}>
+              <TouchableOpacity
+                style={styles.cancelButton}
+                onPress={() => setShowAddCard(false)}
+                activeOpacity={PRESS_OPACITY}
+              >
                 <Text style={styles.cancelButtonText}>Huỷ</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.addButton} onPress={handleAddCard}>
+              <TouchableOpacity style={styles.addButton} onPress={handleAddCard} activeOpacity={PRESS_OPACITY}>
                 <Text style={styles.addButtonText}>Thêm thẻ</Text>
               </TouchableOpacity>
             </View>
@@ -244,19 +272,16 @@ export default function PaymentScreen() {
           <Text style={styles.sectionTitle}>Phương thức đã lưu</Text>
 
           {methods.map((method) => (
-            <View key={method.id} style={styles.methodCard}>
-              <View style={styles.methodInfo}>
-                <View style={styles.methodHeader}>
-                  <PaymentLogo method={LOGO_BY_TYPE[method.type]} size={40} />
-                  <View style={styles.methodDetails}>
-                    <Text style={styles.methodName}>{method.name}</Text>
-                    {method.type === "card" && <Text style={styles.methodSubtext}>Hết hạn {method.expiryDate}</Text>}
-                    {(method.type === "momo" || method.type === "zalopay") && (
-                      <Text style={styles.methodSubtext}>Liên kết với số {method.phone}</Text>
-                    )}
-                  </View>
+            <View key={method.id} style={[styles.methodCard, method.isDefault && styles.methodCardDefault]}>
+              <View style={styles.methodHeader}>
+                <PaymentLogo method={LOGO_BY_TYPE[method.type]} size={44} />
+                <View style={styles.methodDetails}>
+                  <Text style={styles.methodName} numberOfLines={1}>{method.name}</Text>
+                  {method.type === "card" && <Text style={styles.methodSubtext}>Hết hạn {method.expiryDate}</Text>}
+                  {(method.type === "momo" || method.type === "zalopay") && (
+                    <Text style={styles.methodSubtext}>Liên kết với số {method.phone}</Text>
+                  )}
                 </View>
-
                 {method.isDefault && (
                   <View style={styles.defaultBadge}>
                     <Text style={styles.defaultText}>Mặc định</Text>
@@ -264,15 +289,27 @@ export default function PaymentScreen() {
                 )}
               </View>
 
+              <View style={styles.methodDivider} />
+
               <View style={styles.methodActions}>
-                {!method.isDefault && (
-                  <TouchableOpacity style={styles.setDefaultButton} onPress={() => setDefaultPayment(method.id)}>
+                {!method.isDefault ? (
+                  <TouchableOpacity
+                    style={styles.setDefaultButton}
+                    onPress={() => setDefaultPayment(method.id)}
+                    activeOpacity={PRESS_OPACITY}
+                  >
                     <Text style={styles.setDefaultText}>Đặt làm mặc định</Text>
                   </TouchableOpacity>
+                ) : (
+                  <View />
                 )}
 
-                <TouchableOpacity style={styles.removeButton} onPress={() => removePaymentMethod(method.id)}>
-                  <Ionicons name="trash-outline" size={20} color="#ff4444" />
+                <TouchableOpacity
+                  style={styles.removeButton}
+                  onPress={() => removePaymentMethod(method.id)}
+                  activeOpacity={PRESS_OPACITY}
+                >
+                  <Ionicons name="trash-outline" size={18} color={THEME_COLORS.danger} />
                 </TouchableOpacity>
               </View>
             </View>
@@ -281,13 +318,15 @@ export default function PaymentScreen() {
 
         {/* Security Info */}
         <View style={styles.securitySection}>
-          <View style={styles.securityHeader}>
-            <Ionicons name="shield-checkmark" size={24} color="#00bb02" />
-            <Text style={styles.securityTitle}>Thanh toán an toàn</Text>
+          <View style={styles.securityIcon}>
+            <Ionicons name="shield-checkmark" size={22} color={THEME_COLORS.success} />
           </View>
-          <Text style={styles.securityText}>
-            Thông tin thanh toán của bạn được mã hoá và bảo mật. RENTO không bao giờ lưu đầy đủ thông tin thẻ trên máy chủ.
-          </Text>
+          <View style={styles.securityBody}>
+            <Text style={styles.securityTitle}>Thanh toán an toàn</Text>
+            <Text style={styles.securityText}>
+              Thông tin thanh toán của bạn được mã hoá và bảo mật. RENTO không bao giờ lưu đầy đủ thông tin thẻ trên máy chủ.
+            </Text>
+          </View>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -296,150 +335,139 @@ export default function PaymentScreen() {
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    backgroundColor: "#ededed",
+    ...UI.screen,
   },
   header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingHorizontal: SPACE.screen,
+    paddingVertical: SPACE.md,
     borderBottomWidth: 1,
-    borderBottomColor: "#e0e0e0",
+    borderBottomColor: THEME_COLORS.border,
+  },
+  headerButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: THEME_COLORS.surfaceMuted,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  headerAddButton: {
+    backgroundColor: THEME_COLORS.primarySoft,
   },
   headerTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#000000",
+    ...TYPOGRAPHY.h3,
   },
   content: {
     flex: 1,
   },
+  scrollContent: {
+    paddingTop: SPACE["2xl"],
+    paddingBottom: SPACE["4xl"],
+  },
   addCardForm: {
-    backgroundColor: "#f8f9fa",
-    margin: 20,
-    padding: 20,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "#e0e0e0",
+    ...UI.card,
+    ...SHADOWS.raised,
+    marginHorizontal: SPACE.screen,
+    marginBottom: SPACE.section,
+    padding: SPACE.xl,
   },
   formTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#000000",
-    marginBottom: 20,
+    ...TYPOGRAPHY.h3,
+    marginBottom: SPACE.xl,
   },
   inputGroup: {
-    marginBottom: 16,
+    marginBottom: SPACE.lg,
   },
   inputLabel: {
+    ...TYPOGRAPHY.bodyStrong,
     fontSize: 14,
-    fontWeight: "600",
-    color: "#000000",
-    marginBottom: 6,
+    marginBottom: SPACE.sm,
   },
   input: {
-    borderWidth: 1,
-    borderColor: "#e0e0e0",
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    fontSize: 16,
-    backgroundColor: "#ffffff",
+    ...UI.input,
+  },
+  inputFocused: {
+    ...(UI.inputFocused as TextStyle),
   },
   row: {
     flexDirection: "row",
+    gap: SPACE.md,
+  },
+  rowItem: {
+    flex: 1,
   },
   formButtons: {
     flexDirection: "row",
-    gap: 12,
-    marginTop: 20,
+    gap: SPACE.md,
+    marginTop: SPACE.sm,
   },
   cancelButton: {
+    ...UI.secondaryButton,
     flex: 1,
-    backgroundColor: "#ffffff",
-    paddingVertical: 12,
-    borderRadius: 8,
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#e0e0e0",
+    height: 48,
+    paddingHorizontal: SPACE.lg,
   },
   cancelButtonText: {
-    color: "#666666",
-    fontSize: 16,
-    fontWeight: "600",
+    ...UI.secondaryButtonText,
+    fontSize: 15,
   },
   addButton: {
+    ...UI.primaryButton,
     flex: 1,
-    backgroundColor: "#1054CF",
-    paddingVertical: 12,
-    borderRadius: 8,
-    alignItems: "center",
+    height: 48,
+    paddingHorizontal: SPACE.lg,
   },
   addButtonText: {
-    color: "#ffffff",
-    fontSize: 16,
-    fontWeight: "600",
+    ...UI.primaryButtonText,
+    fontSize: 15,
   },
   methodsList: {
-    paddingHorizontal: 20,
+    paddingHorizontal: SPACE.screen,
   },
   sectionTitle: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: "#000000",
-    marginBottom: 16,
+    ...TYPOGRAPHY.h2,
+    marginBottom: SPACE.lg,
   },
   methodCard: {
-    backgroundColor: "#ffffff",
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: "#e0e0e0",
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
+    ...UI.card,
+    padding: SPACE.lg,
+    marginBottom: SPACE.md,
   },
-  methodInfo: {
-    marginBottom: 12,
+  methodCardDefault: {
+    borderColor: THEME_COLORS.primary,
   },
   methodHeader: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 8,
+    gap: SPACE.md,
   },
   methodDetails: {
-    marginLeft: 12,
     flex: 1,
   },
   methodName: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#000000",
+    ...TYPOGRAPHY.bodyStrong,
     marginBottom: 2,
   },
   methodSubtext: {
-    fontSize: 14,
-    color: "#666666",
+    ...TYPOGRAPHY.caption,
   },
   defaultBadge: {
-    backgroundColor: "#00bb02",
-    paddingHorizontal: 8,
+    backgroundColor: THEME_COLORS.primarySoft,
+    paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 12,
-    alignSelf: "flex-start",
+    borderRadius: RADIUS.pill,
   },
   defaultText: {
-    color: "#ffffff",
+    color: THEME_COLORS.primary,
     fontSize: 12,
-    fontWeight: "600",
+    fontWeight: "700",
+  },
+  methodDivider: {
+    ...UI.divider,
+    marginVertical: SPACE.md,
   },
   methodActions: {
     flexDirection: "row",
@@ -447,43 +475,55 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   setDefaultButton: {
-    backgroundColor: "#f8f9fa",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
+    height: 36,
+    paddingHorizontal: SPACE.md,
+    borderRadius: RADIUS.control,
     borderWidth: 1,
-    borderColor: "#4169e1",
+    borderColor: THEME_COLORS.border,
+    backgroundColor: THEME_COLORS.surface,
+    justifyContent: "center",
   },
   setDefaultText: {
-    color: "#4169e1",
+    color: THEME_COLORS.primary,
     fontSize: 14,
     fontWeight: "600",
   },
   removeButton: {
-    padding: 8,
+    width: 36,
+    height: 36,
+    borderRadius: RADIUS.control,
+    backgroundColor: THEME_COLORS.dangerSoft,
+    alignItems: "center",
+    justifyContent: "center",
   },
   securitySection: {
-    backgroundColor: "#f8fff8",
-    margin: 20,
-    padding: 20,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "#e8f5e8",
-  },
-  securityHeader: {
     flexDirection: "row",
+    gap: SPACE.md,
+    marginHorizontal: SPACE.screen,
+    marginTop: SPACE.section - SPACE.md,
+    padding: SPACE.lg,
+    borderRadius: RADIUS.card,
+    backgroundColor: THEME_COLORS.successSoft,
+  },
+  securityIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: THEME_COLORS.surface,
     alignItems: "center",
-    marginBottom: 12,
+    justifyContent: "center",
+  },
+  securityBody: {
+    flex: 1,
   },
   securityTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#00bb02",
-    marginLeft: 12,
+    ...TYPOGRAPHY.bodyStrong,
+    color: THEME_COLORS.success,
+    marginBottom: SPACE.xs,
   },
   securityText: {
+    ...TYPOGRAPHY.body,
     fontSize: 14,
-    color: "#666666",
     lineHeight: 20,
   },
 })

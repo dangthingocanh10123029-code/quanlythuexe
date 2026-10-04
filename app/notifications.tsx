@@ -1,10 +1,23 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, FlatList } from "react-native"
+import { View, Text, StyleSheet, TouchableOpacity, FlatList } from "react-native"
+import { SafeAreaView } from "react-native-safe-area-context"
+import { StatusBar } from "expo-status-bar"
 import AsyncStorage from "@react-native-async-storage/async-storage"
 import { Ionicons } from "@expo/vector-icons"
 import { router } from "expo-router"
+import { THEME_COLORS, RADIUS, SPACE, TYPOGRAPHY, UI, PRESS_OPACITY } from "../utils/theme"
+
+// Nền soft tương ứng với màu icon của từng loại thông báo
+const SOFT_BY_COLOR: Record<string, string> = {
+  [THEME_COLORS.success]: THEME_COLORS.successSoft,
+  [THEME_COLORS.primary]: THEME_COLORS.primarySoft,
+  [THEME_COLORS.warning]: THEME_COLORS.warningSoft,
+}
+// Thông báo chưa đọc: nền primarySoft nhạt (≈50%) + viền primary rất nhẹ
+const UNREAD_BG = "#F6F9FF"
+const UNREAD_BORDER = "#D6E3FB"
 
 const READ_STORAGE_KEY = "rento:readNotificationIds"
 
@@ -17,7 +30,7 @@ const initialNotifications = [
     time: "5 phút trước",
     read: false,
     icon: "checkmark-circle",
-    color: "#00bb02",
+    color: THEME_COLORS.success,
   },
   {
     id: 2,
@@ -27,7 +40,7 @@ const initialNotifications = [
     time: "2 giờ trước",
     read: false,
     icon: "time",
-    color: "#4169e1",
+    color: THEME_COLORS.primary,
   },
   {
     id: 3,
@@ -37,7 +50,7 @@ const initialNotifications = [
     time: "Hôm qua",
     read: false,
     icon: "alarm",
-    color: "#ff8c00",
+    color: THEME_COLORS.warning,
   },
   {
     id: 4,
@@ -47,7 +60,7 @@ const initialNotifications = [
     time: "Hôm qua",
     read: true,
     icon: "gift",
-    color: "#c2a300",
+    color: THEME_COLORS.warning,
   },
   {
     id: 5,
@@ -57,7 +70,7 @@ const initialNotifications = [
     time: "3 ngày trước",
     read: true,
     icon: "car",
-    color: "#00bb02",
+    color: THEME_COLORS.success,
   },
   {
     id: 6,
@@ -67,7 +80,7 @@ const initialNotifications = [
     time: "3 ngày trước",
     read: true,
     icon: "card",
-    color: "#4169e1",
+    color: THEME_COLORS.primary,
   },
   {
     id: 7,
@@ -77,7 +90,7 @@ const initialNotifications = [
     time: "1 tuần trước",
     read: true,
     icon: "car-sport",
-    color: "#c2a300",
+    color: THEME_COLORS.warning,
   },
 ]
 
@@ -134,14 +147,16 @@ export default function NotificationsScreen() {
     <TouchableOpacity
       style={[styles.notificationCard, !item.read && styles.unreadCard]}
       onPress={() => markAsRead(item.id)}
-      activeOpacity={0.7}
+      activeOpacity={PRESS_OPACITY}
     >
-      <View style={[styles.iconContainer, { backgroundColor: `${item.color}20` }]}>
-        <Ionicons name={item.icon as any} size={24} color={item.color} />
+      <View style={[styles.iconContainer, { backgroundColor: SOFT_BY_COLOR[item.color] ?? THEME_COLORS.surfaceMuted }]}>
+        <Ionicons name={item.icon as any} size={22} color={item.color} />
       </View>
       <View style={styles.notificationContent}>
         <View style={styles.notificationHeader}>
-          <Text style={[styles.notificationTitle, !item.read && styles.unreadTitle]}>{item.title}</Text>
+          <Text style={[styles.notificationTitle, !item.read && styles.unreadTitle]} numberOfLines={1}>
+            {item.title}
+          </Text>
           <Text style={styles.notificationTime}>{item.time}</Text>
         </View>
         <Text style={styles.notificationMessage}>{item.message}</Text>
@@ -154,20 +169,24 @@ export default function NotificationsScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      <StatusBar style="dark" />
       <View style={styles.header}>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.backButton}
           onPress={() => router.push("/(tabs)")}
+          activeOpacity={PRESS_OPACITY}
         >
-          <Ionicons name="arrow-back" size={24} color="#1054CF" />
+          <Ionicons name="arrow-back" size={22} color={THEME_COLORS.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.title}>Thông báo</Text>
+        <View style={styles.headerSpacer} />
       </View>
-      
+
       <View style={styles.content}>
         {unreadCount > 0 && (
           <View style={styles.actionContainer}>
-            <TouchableOpacity style={styles.markAllReadButton} onPress={markAllAsRead}>
+            <TouchableOpacity style={styles.markAllReadButton} onPress={markAllAsRead} activeOpacity={PRESS_OPACITY}>
+              <Ionicons name="checkmark-done" size={16} color={THEME_COLORS.primary} />
               <Text style={styles.markAllReadText}>Đánh dấu tất cả đã đọc</Text>
             </TouchableOpacity>
           </View>
@@ -181,6 +200,7 @@ export default function NotificationsScreen() {
             renderItem={renderNotificationItem}
             keyExtractor={(item) => item.id.toString()}
             showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.listContainer}
           />
         )}
       </View>
@@ -190,157 +210,118 @@ export default function NotificationsScreen() {
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    backgroundColor: "#1054CF", // Rich blue background
+    ...UI.screen,
   },
   header: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 20,
-    backgroundColor: "#1054CF",
+    justifyContent: "space-between",
+    paddingHorizontal: SPACE.screen,
+    paddingVertical: SPACE.md,
+    backgroundColor: THEME_COLORS.surface,
   },
   backButton: {
-    marginRight: 16,
     width: 40,
     height: 40,
-    borderRadius: 20,
-    backgroundColor: "rgba(255, 255, 255, 0.2)", // Translucent white
+    borderRadius: RADIUS.pill,
+    backgroundColor: THEME_COLORS.surfaceMuted,
     justifyContent: "center",
     alignItems: "center",
   },
+  headerSpacer: {
+    width: 40,
+  },
   title: {
-    fontSize: 28,
-    fontWeight: "bold",
-    color: "#ffffff",
+    ...TYPOGRAPHY.h3,
   },
   content: {
     flex: 1,
-    backgroundColor: "#f8f9ff",
-    borderTopLeftRadius: 30,
-    borderTopRightRadius: 30,
-    padding: 20,
-    paddingTop: 30,
+    paddingHorizontal: SPACE.screen,
+  },
+  listContainer: {
+    paddingTop: SPACE.sm,
+    paddingBottom: SPACE.section,
+    gap: SPACE.md,
   },
   actionContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-    backgroundColor: "rgba(16, 84, 207, 0.1)",
-    padding: 16,
-    borderRadius: 16,
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    marginTop: SPACE.xs,
+    marginBottom: SPACE.sm,
   },
   markAllReadButton: {
-    backgroundColor: "#1054CF",
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 20,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SPACE.xs,
+    height: 36,
+    paddingHorizontal: SPACE.md,
+    borderRadius: RADIUS.control,
+    backgroundColor: THEME_COLORS.primarySoft,
   },
   markAllReadText: {
-    color: "#ffffff",
-    fontSize: 14,
+    color: THEME_COLORS.primary,
+    fontSize: 13,
     fontWeight: "600",
   },
   notificationCard: {
+    ...UI.card,
     flexDirection: "row",
-    backgroundColor: "#ffffff",
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 12,
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: "rgba(16, 84, 207, 0.1)",
-    shadowColor: "#1054CF",
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
+    padding: SPACE.lg,
+    alignItems: "flex-start",
   },
   unreadCard: {
-    backgroundColor: "rgba(16, 84, 207, 0.05)",
-    borderColor: "#1054CF",
-    borderLeftWidth: 4,
+    backgroundColor: UNREAD_BG,
+    borderColor: UNREAD_BORDER,
   },
   iconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 44,
+    height: 44,
+    borderRadius: RADIUS.pill,
     alignItems: "center",
     justifyContent: "center",
-    marginRight: 16,
+    marginRight: SPACE.md,
   },
   notificationContent: {
     flex: 1,
+    paddingRight: SPACE.md,
   },
   notificationHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 8,
+    marginBottom: SPACE.xs,
+    gap: SPACE.sm,
   },
   notificationTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#1054CF",
+    ...TYPOGRAPHY.bodyStrong,
+    color: THEME_COLORS.textSecondary,
     flex: 1,
-    marginRight: 8,
   },
   unreadTitle: {
-    fontWeight: "800",
-    color: "#1054CF",
+    color: THEME_COLORS.textPrimary,
+    fontWeight: "700",
   },
   notificationTime: {
+    ...TYPOGRAPHY.caption,
     fontSize: 12,
-    color: "#1054CF",
-    opacity: 0.6,
-    fontWeight: "500",
   },
   notificationMessage: {
+    ...TYPOGRAPHY.body,
     fontSize: 14,
-    color: "#666666",
     lineHeight: 20,
   },
   unreadDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: "#FFB700",
-    position: 'absolute',
-    top: 16,
-    right: 16,
-    borderWidth: 2,
-    borderColor: '#ffffff',
-  },
-  emptyContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 40,
-  },
-  emptyIcon: {
-    width: 120,
-    height: 120,
-    marginBottom: 24,
-    opacity: 0.5,
+    width: 8,
+    height: 8,
+    borderRadius: RADIUS.pill,
+    backgroundColor: THEME_COLORS.primary,
+    position: "absolute",
+    top: SPACE.lg,
+    right: SPACE.md,
   },
   emptyText: {
-    fontSize: 18,
-    color: "#1054CF",
-    textAlign: 'center',
-    fontWeight: '600',
+    ...TYPOGRAPHY.body,
+    textAlign: "center",
+    marginTop: SPACE.section,
   },
-  unreadCount: {
-    backgroundColor: "#FFB700",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
-  },
-  unreadCountText: {
-    color: "#1054CF",
-    fontSize: 14,
-    fontWeight: "700",
-  }
 })

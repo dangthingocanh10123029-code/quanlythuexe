@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, FlatList, Modal, TextInput, Image } from "react-native"
+import { type ViewStyle, View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, FlatList, Modal, TextInput, Image } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 import { Ionicons } from "@expo/vector-icons"
 import { router, useLocalSearchParams } from "expo-router"
@@ -12,16 +12,12 @@ import { useAuth } from "../hooks/useAuth"
 import { formatCurrency } from "../utils/helpers"
 import { PICKUP_LOCATIONS, VAT_RATE, PAYMENT_METHODS } from "../utils/constants"
 import PaymentLogo from "../components/ui/PaymentLogo"
+import { StatusBar } from "expo-status-bar"
+import { THEME_COLORS, RADIUS, SPACE, SHADOWS, TYPOGRAPHY, UI, PRESS_OPACITY } from "../utils/theme"
 
-const COLORS = {
-  background: "#ededed",
-  primary: "#1054CF", // Blue
-  secondary: "#FFB700", // Yellow
-  white: "#ffffff",
-  black: "#000000",
-  gray: "#666666",
-  lightGray: "#e0e0e0",
-}
+
+// UI.input dùng cho View (ô chọn / khung tìm kiếm có icon)
+const INPUT_BOX = UI.input as ViewStyle
 
 const addOns = [
   { id: 1, name: "Định vị GPS", price: 100000, selected: false },
@@ -77,11 +73,12 @@ export default function CheckoutScreen() {
   const [showErrorModal, setShowErrorModal] = useState(false)
   const [errorMessage, setErrorMessage] = useState("")
   const [errorTitle, setErrorTitle] = useState("")
+  const [focusedField, setFocusedField] = useState<string | null>(null)
 
   if (!car) {
     return (
       <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
-        <Text>Không tìm thấy xe</Text>
+        <Text style={styles.priceLabel}>Không tìm thấy xe</Text>
       </View>
     )
   }
@@ -182,34 +179,43 @@ export default function CheckoutScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={["top"]}>
+      <StatusBar style="dark" />
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={24} color="#000000" />
+        <TouchableOpacity style={styles.iconButton} onPress={() => router.back()} activeOpacity={PRESS_OPACITY}>
+          <Ionicons name="arrow-back" size={22} color={THEME_COLORS.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Xác nhận đặt xe</Text>
-        <View style={{ width: 24 }} />
+        <View style={{ width: 40 }} />
       </View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView style={styles.content} contentContainerStyle={styles.contentInner} showsVerticalScrollIndicator={false}>
         {/* Car Summary */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Thông tin đặt xe</Text>
+        <View style={styles.card}>
+          <Text style={styles.overline}>Thông tin đặt xe</Text>
           <View style={styles.carSummary}>
-            <View style={styles.carDetails}>
-              <Text style={styles.carName}>{car.name}</Text>
-              <Text style={styles.carBrand}>{car.brand}</Text>
-              <Text style={styles.carLocation}>{car.location}</Text>
+            <View style={styles.carThumb}>
+              <Image source={car.image} style={styles.carThumbImage} resizeMode="contain" />
             </View>
+            <View style={styles.carDetails}>
+              <Text style={styles.carName} numberOfLines={1}>{car.name}</Text>
+              <Text style={styles.carBrand}>{car.brand}</Text>
+              <View style={styles.carLocationRow}>
+                <Ionicons name="location-outline" size={14} color={THEME_COLORS.textMuted} />
+                <Text style={styles.carLocation}>{car.location}</Text>
+              </View>
+            </View>
+          </View>
+          <View style={styles.cardDivider} />
+          <View style={styles.carPriceRow}>
+            <Text style={styles.priceLabel}>Giá thuê</Text>
             <Text style={styles.carPrice}>{formatCurrency(car.pricePerDay)}/ngày</Text>
           </View>
         </View>
 
-        {/* Duration & Location */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Thời gian & Điểm nhận xe</Text>
-          
-          <Text style={styles.inputLabel}>Thời gian thuê</Text>
+        {/* Duration */}
+        <View style={styles.card}>
+          <Text style={styles.sectionTitle}>Thời gian thuê</Text>
           <View style={styles.durationContainer}>
             {DURATIONS.map((duration) => (
               <TouchableOpacity
@@ -219,6 +225,7 @@ export default function CheckoutScreen() {
                   selectedDuration.id === duration.id && styles.selectedDurationBox
                 ]}
                 onPress={() => setSelectedDuration(duration)}
+                activeOpacity={PRESS_OPACITY}
               >
                 <Text style={[
                   styles.durationDays,
@@ -232,63 +239,76 @@ export default function CheckoutScreen() {
                 ]}>
                   ngày
                 </Text>
-                <Text style={[
-                  styles.durationPrice,
-                  selectedDuration.id === duration.id && styles.selectedDurationText
-                ]}>
+                <Text
+                  style={[
+                    styles.durationPrice,
+                    selectedDuration.id === duration.id && styles.selectedDurationText
+                  ]}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                >
                   {formatCurrency(car.pricePerDay * duration.days)}
                 </Text>
               </TouchableOpacity>
             ))}
           </View>
+        </View>
 
-          <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Điểm nhận xe</Text>
-            <TouchableOpacity 
-              style={styles.locationInput}
-              onPress={() => setShowLocationModal(true)}
-            >
-              <Ionicons name="location" size={20} color={COLORS.primary} />
-              <Text style={styles.locationText}>{pickupLocation}</Text>
-              <Ionicons name="chevron-down" size={20} color="#666666" />
-            </TouchableOpacity>
-          </View>
+        {/* Location */}
+        <View style={styles.card}>
+          <Text style={styles.sectionTitle}>Điểm nhận xe</Text>
+          <TouchableOpacity
+            style={styles.locationInput}
+            onPress={() => setShowLocationModal(true)}
+            activeOpacity={PRESS_OPACITY}
+          >
+            <Ionicons name="location-outline" size={20} color={THEME_COLORS.primary} />
+            <Text style={styles.locationText} numberOfLines={1}>{pickupLocation}</Text>
+            <Ionicons name="chevron-down" size={18} color={THEME_COLORS.textMuted} />
+          </TouchableOpacity>
         </View>
 
         {/* Add-ons */}
-        <View style={styles.section}>
+        <View style={styles.card}>
           <Text style={styles.sectionTitle}>Dịch vụ thêm</Text>
-          {selectedAddOns.map((addon) => (
-            <TouchableOpacity key={addon.id} style={styles.addonItem} onPress={() => toggleAddOn(addon.id)}>
+          {selectedAddOns.map((addon, index) => (
+            <TouchableOpacity
+              key={addon.id}
+              style={[styles.addonItem, index === selectedAddOns.length - 1 && styles.lastOption, addon.selected && styles.optionSelected]}
+              onPress={() => toggleAddOn(addon.id)}
+              activeOpacity={PRESS_OPACITY}
+            >
               <View style={styles.addonInfo}>
-                <Text style={styles.addonName}>{addon.name}</Text>
+                <Text style={[styles.addonName, addon.selected && styles.optionNameSelected]}>{addon.name}</Text>
                 <Text style={styles.addonPrice}>{formatCurrency(addon.price)}/chuyến</Text>
               </View>
               <View style={[styles.checkbox, addon.selected && styles.checkedBox]}>
-                {addon.selected && <Ionicons name="checkmark" size={16} color="#ffffff" />}
+                {addon.selected && <Ionicons name="checkmark" size={14} color="#FFFFFF" />}
               </View>
             </TouchableOpacity>
           ))}
         </View>
 
         {/* Payment Method */}
-        <View style={styles.section}>
+        <View style={styles.card}>
           <Text style={styles.sectionTitle}>Phương thức thanh toán</Text>
-          {paymentMethods.map((method) => (
+          {paymentMethods.map((method, index) => (
             <TouchableOpacity
               key={method.id}
               style={[
                 styles.paymentMethod,
-                selectedPayment === method.id && styles.selectedPaymentMethod
+                index === paymentMethods.length - 1 && styles.lastOption,
+                selectedPayment === method.id && styles.optionSelected
               ]}
               onPress={() => setSelectedPayment(method.id)}
+              activeOpacity={PRESS_OPACITY}
             >
               <View style={styles.paymentInfo}>
                 <PaymentLogo method={method.id} size={36} />
-                <View>
+                <View style={{ flex: 1 }}>
                   <Text style={[
                     styles.paymentName,
-                    selectedPayment === method.id && { color: COLORS.primary }
+                    selectedPayment === method.id && styles.optionNameSelected
                   ]}>
                     {method.name}
                   </Text>
@@ -306,48 +326,49 @@ export default function CheckoutScreen() {
         </View>
 
         {/* Price Breakdown */}
-        <View style={styles.section}>
+        <View style={styles.card}>
           <Text style={styles.sectionTitle}>Chi tiết giá</Text>
-          <View style={styles.priceBreakdown}>
-            <View style={styles.priceRow}>
-              <Text style={styles.priceLabel}>Tiền thuê xe ({selectedDuration.days} ngày)</Text>
-              <Text style={styles.priceValue}>{formatCurrency(subtotal)}</Text>
-            </View>
-            {selectedAddOns
-              .filter((addon) => addon.selected)
-              .map((addon) => (
-                <View key={addon.id} style={styles.priceRow}>
-                  <Text style={styles.priceLabel}>{addon.name}</Text>
-                  <Text style={styles.priceValue}>{formatCurrency(addon.price)}</Text>
-                </View>
-              ))}
-            <View style={styles.priceRow}>
-              <Text style={styles.priceLabel}>Thuế VAT ({Math.round(VAT_RATE * 100)}%)</Text>
-              <Text style={styles.priceValue}>{formatCurrency(tax)}</Text>
-            </View>
-            <View style={[styles.priceRow, styles.totalRow]}>
-              <Text style={styles.totalLabel}>Tổng cộng</Text>
-              <Text style={styles.totalValue}>{formatCurrency(total)}</Text>
-            </View>
+          <View style={styles.priceRow}>
+            <Text style={styles.priceLabel}>Tiền thuê xe ({selectedDuration.days} ngày)</Text>
+            <Text style={styles.priceValue}>{formatCurrency(subtotal)}</Text>
+          </View>
+          {selectedAddOns
+            .filter((addon) => addon.selected)
+            .map((addon) => (
+              <View key={addon.id} style={styles.priceRow}>
+                <Text style={styles.priceLabel}>{addon.name}</Text>
+                <Text style={styles.priceValue}>{formatCurrency(addon.price)}</Text>
+              </View>
+            ))}
+          <View style={styles.priceRow}>
+            <Text style={styles.priceLabel}>Thuế VAT ({Math.round(VAT_RATE * 100)}%)</Text>
+            <Text style={styles.priceValue}>{formatCurrency(tax)}</Text>
+          </View>
+          <View style={[styles.priceRow, styles.totalRow]}>
+            <Text style={styles.totalLabel}>Tổng cộng</Text>
+            <Text style={styles.totalValue}>{formatCurrency(total)}</Text>
           </View>
         </View>
       </ScrollView>
 
       {/* Confirm Button */}
-      <View style={styles.confirmContainer}>
-        <TouchableOpacity 
-          style={[
-            styles.continueButton,
-            (!selectedPayment || !selectedDuration) && styles.disabledButton
-          ]}
-          onPress={handleConfirmBooking}
-          disabled={!selectedPayment || !selectedDuration}
-        >
-          <Text style={styles.continueButtonText}>
-            Tiếp tục thanh toán • {formatCurrency(total)}
-          </Text>
-        </TouchableOpacity>
-      </View>
+      <SafeAreaView edges={["bottom"]} style={styles.confirmContainer}>
+        <View style={styles.confirmInner}>
+          <TouchableOpacity
+            style={[
+              styles.continueButton,
+              (!selectedPayment || !selectedDuration) && styles.disabledButton
+            ]}
+            onPress={handleConfirmBooking}
+            disabled={!selectedPayment || !selectedDuration}
+            activeOpacity={PRESS_OPACITY}
+          >
+            <Text style={styles.continueButtonText}>
+              Tiếp tục thanh toán • {formatCurrency(total)}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
 
       {/* Location Modal */}
       <Modal
@@ -358,36 +379,47 @@ export default function CheckoutScreen() {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.locationModal}>
+            <View style={styles.sheetHandle} />
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Chọn điểm nhận xe</Text>
-              <TouchableOpacity onPress={() => setShowLocationModal(false)}>
-                <Ionicons name="close" size={24} color={COLORS.black} />
+              <TouchableOpacity style={styles.iconButton} onPress={() => setShowLocationModal(false)} activeOpacity={PRESS_OPACITY}>
+                <Ionicons name="close" size={20} color={THEME_COLORS.textSecondary} />
               </TouchableOpacity>
             </View>
-            <View style={styles.searchBox}>
-              <Ionicons name="search" size={20} color={COLORS.gray} />
+            <View style={[styles.searchBox, focusedField === "search" && styles.inputFocused]}>
+              <Ionicons name="search" size={18} color={focusedField === "search" ? THEME_COLORS.primary : THEME_COLORS.textMuted} />
               <TextInput
                 style={styles.searchInput}
                 placeholder="Tìm điểm nhận xe..."
+                placeholderTextColor={THEME_COLORS.textMuted}
                 value={locationSearch}
                 onChangeText={filterLocations}
+                onFocus={() => setFocusedField("search")}
+                onBlur={() => setFocusedField(null)}
               />
             </View>
             <FlatList
               data={filteredLocations}
               keyExtractor={(item) => item}
-              renderItem={({ item }) => (
-                <TouchableOpacity
-                  style={styles.locationItem}
-                  onPress={() => {
-                    setPickupLocation(item)
-                    setShowLocationModal(false)
-                  }}
-                >
-                  <Ionicons name="location" size={20} color={COLORS.primary} />
-                  <Text style={styles.locationItemText}>{item}</Text>
-                </TouchableOpacity>
-              )}
+              renderItem={({ item }) => {
+                const active = item === pickupLocation
+                return (
+                  <TouchableOpacity
+                    style={[styles.locationItem, active && styles.optionSelected]}
+                    onPress={() => {
+                      setPickupLocation(item)
+                      setShowLocationModal(false)
+                    }}
+                    activeOpacity={PRESS_OPACITY}
+                  >
+                    <View style={[styles.locationIcon, active && styles.locationIconActive]}>
+                      <Ionicons name="location-outline" size={18} color={active ? THEME_COLORS.primary : THEME_COLORS.textSecondary} />
+                    </View>
+                    <Text style={[styles.locationItemText, active && styles.optionNameSelected]}>{item}</Text>
+                    {active && <Ionicons name="checkmark" size={18} color={THEME_COLORS.primary} />}
+                  </TouchableOpacity>
+                )
+              }}
             />
           </View>
         </View>
@@ -400,16 +432,17 @@ export default function CheckoutScreen() {
         animationType="fade"
         onRequestClose={() => setShowErrorModal(false)}
       >
-        <View style={styles.modalOverlay}>
+        <View style={[styles.modalOverlay, styles.modalOverlayCenter]}>
           <View style={styles.errorModal}>
             <View style={styles.errorIconContainer}>
-              <Ionicons name="alert-circle" size={40} color={COLORS.secondary} />
+              <Ionicons name="alert-circle-outline" size={32} color={THEME_COLORS.warning} />
             </View>
             <Text style={styles.errorTitle}>{errorTitle}</Text>
             <Text style={styles.errorMessage}>{errorMessage}</Text>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.errorButton}
               onPress={() => setShowErrorModal(false)}
+              activeOpacity={PRESS_OPACITY}
             >
               <Text style={styles.errorButtonText}>OK</Text>
             </TouchableOpacity>
@@ -422,407 +455,395 @@ export default function CheckoutScreen() {
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    backgroundColor: COLORS.background,
+    ...UI.screen,
   },
   header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingHorizontal: SPACE.screen,
+    paddingVertical: SPACE.md,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.lightGray,
+    borderBottomColor: THEME_COLORS.border,
+  },
+  iconButton: {
+    width: 40,
+    height: 40,
+    borderRadius: RADIUS.control,
+    borderWidth: 1,
+    borderColor: THEME_COLORS.border,
+    backgroundColor: THEME_COLORS.surface,
+    alignItems: "center",
+    justifyContent: "center",
   },
   headerTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: COLORS.black,
+    ...TYPOGRAPHY.h3,
   },
   content: {
     flex: 1,
   },
-  section: {
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: "#e0e0e0",
+  contentInner: {
+    paddingHorizontal: SPACE.screen,
+    paddingTop: SPACE["2xl"],
+    paddingBottom: SPACE.section,
+    gap: SPACE["2xl"],
+  },
+  card: {
+    ...UI.card,
+    padding: SPACE.lg,
+  },
+  overline: {
+    ...TYPOGRAPHY.overline,
+    marginBottom: SPACE.md,
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: COLORS.black,
-    marginBottom: 16,
+    ...TYPOGRAPHY.h3,
+    marginBottom: SPACE.lg,
+  },
+  carSummary: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  carThumb: {
+    width: 96,
+    height: 68,
+    borderRadius: RADIUS.control,
+    backgroundColor: THEME_COLORS.surfaceMuted,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: SPACE.md,
+  },
+  carThumbImage: {
+    width: 84,
+    height: 56,
   },
   carDetails: {
     flex: 1,
   },
   carName: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: COLORS.black,
-    marginBottom: 4,
-  },
-  carBrand: {
-    fontSize: 14,
-    color: COLORS.gray,
+    ...TYPOGRAPHY.h3,
     marginBottom: 2,
   },
-  carLocation: {
+  carBrand: {
+    ...TYPOGRAPHY.body,
     fontSize: 14,
-    color: COLORS.gray,
+    lineHeight: 20,
+  },
+  carLocationRow: {
     flexDirection: "row",
     alignItems: "center",
+    marginTop: 2,
   },
-  carSummary: {
+  carLocation: {
+    ...TYPOGRAPHY.caption,
+    marginLeft: SPACE.xs,
+  },
+  cardDivider: {
+    ...UI.divider,
+    marginVertical: SPACE.lg,
+  },
+  carPriceRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "flex-start",
-    backgroundColor: COLORS.white,
-    padding: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: COLORS.lightGray,
+    alignItems: "center",
   },
   carPrice: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: COLORS.primary,
-  },
-  inputGroup: {
-    marginBottom: 16,
-  },
-  inputLabel: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#000000",
-    marginBottom: 8,
-  },
-  dateInput: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#f8f9fa",
-    padding: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: COLORS.lightGray,
-  },
-  dateText: {
-    marginLeft: 12,
-    fontSize: 16,
-    color: COLORS.black,
+    ...TYPOGRAPHY.price,
   },
   locationInput: {
+    ...INPUT_BOX,
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    backgroundColor: "#f8f9fa",
-    padding: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "#e0e0e0",
   },
   locationText: {
-    marginLeft: 12,
-    fontSize: 16,
-    color: "#000000",
+    ...TYPOGRAPHY.bodyStrong,
+    marginLeft: SPACE.md,
     flex: 1,
+  },
+  lastOption: {
+    marginBottom: 0,
+  },
+  optionSelected: {
+    borderColor: THEME_COLORS.primary,
+    backgroundColor: THEME_COLORS.primarySoft,
+  },
+  optionNameSelected: {
+    color: THEME_COLORS.primary,
   },
   addonItem: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: "#f0f0f0",
+    paddingVertical: SPACE.md,
+    paddingHorizontal: SPACE.lg,
+    borderRadius: RADIUS.control,
+    borderWidth: 1,
+    borderColor: THEME_COLORS.border,
+    marginBottom: SPACE.sm,
   },
   addonInfo: {
     flex: 1,
   },
   addonName: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#000000",
-    marginBottom: 4,
+    ...TYPOGRAPHY.bodyStrong,
+    marginBottom: 2,
   },
   addonPrice: {
-    fontSize: 14,
-    color: "#666666",
+    ...TYPOGRAPHY.caption,
   },
   checkbox: {
-    width: 24,
-    height: 24,
-    borderRadius: 4,
-    borderWidth: 2,
-    borderColor: "#e0e0e0",
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    borderWidth: 1.5,
+    borderColor: THEME_COLORS.borderStrong,
+    backgroundColor: THEME_COLORS.surface,
     alignItems: "center",
     justifyContent: "center",
   },
   checkedBox: {
-    backgroundColor: "#4169e1",
-    borderColor: "#4169e1",
+    backgroundColor: THEME_COLORS.primary,
+    borderColor: THEME_COLORS.primary,
   },
   paymentMethod: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 16,
-    backgroundColor: COLORS.white,
-    borderRadius: 12,
-    marginBottom: 12,
+    paddingVertical: SPACE.md,
+    paddingHorizontal: SPACE.lg,
+    backgroundColor: THEME_COLORS.surface,
+    borderRadius: RADIUS.control,
+    marginBottom: SPACE.sm,
     borderWidth: 1,
-    borderColor: COLORS.lightGray,
-  },
-  selectedPaymentMethod: {
-    borderColor: COLORS.primary,
-    backgroundColor: `${COLORS.primary}10`,
+    borderColor: THEME_COLORS.border,
   },
   paymentInfo: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: SPACE.md,
+    marginRight: SPACE.md,
   },
   paymentName: {
-    fontSize: 16,
-    color: COLORS.gray,
+    ...TYPOGRAPHY.bodyStrong,
   },
   paymentSubtitle: {
+    ...TYPOGRAPHY.caption,
     fontSize: 12,
-    color: COLORS.gray,
     marginTop: 2,
   },
   radio: {
     width: 20,
     height: 20,
-    borderRadius: 10,
-    borderWidth: 2,
-    borderColor: COLORS.gray,
+    borderRadius: RADIUS.pill,
+    borderWidth: 1.5,
+    borderColor: THEME_COLORS.borderStrong,
+    backgroundColor: THEME_COLORS.surface,
     alignItems: 'center',
     justifyContent: 'center',
   },
   selectedRadio: {
-    borderColor: COLORS.primary,
+    borderColor: THEME_COLORS.primary,
   },
   radioDot: {
     width: 10,
     height: 10,
-    borderRadius: 5,
-    backgroundColor: COLORS.primary,
-  },
-  priceBreakdown: {
-    backgroundColor: "#f8f9fa",
-    padding: 16,
-    borderRadius: 12,
+    borderRadius: RADIUS.pill,
+    backgroundColor: THEME_COLORS.primary,
   },
   priceRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingVertical: 8,
+    paddingVertical: SPACE.sm,
   },
   priceLabel: {
-    fontSize: 16,
-    color: "#666666",
+    ...TYPOGRAPHY.body,
+    flex: 1,
+    marginRight: SPACE.md,
   },
   priceValue: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#000000",
+    ...TYPOGRAPHY.bodyStrong,
   },
   totalRow: {
     borderTopWidth: 1,
-    borderTopColor: "#e0e0e0",
-    marginTop: 8,
-    paddingTop: 16,
+    borderTopColor: THEME_COLORS.border,
+    marginTop: SPACE.sm,
+    paddingTop: SPACE.lg,
   },
   totalLabel: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#000000",
+    ...TYPOGRAPHY.h3,
   },
   totalValue: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#4169e1",
+    ...TYPOGRAPHY.price,
+    fontSize: 20,
   },
   confirmContainer: {
-    padding: 20,
-    backgroundColor: "#ffffff",
+    backgroundColor: THEME_COLORS.surface,
     borderTopWidth: 1,
-    borderTopColor: "#e0e0e0",
+    borderTopColor: THEME_COLORS.border,
+  },
+  confirmInner: {
+    paddingHorizontal: SPACE.screen,
+    paddingVertical: SPACE.md,
   },
   continueButton: {
-    backgroundColor: COLORS.secondary,
-    paddingVertical: 16,
-    borderRadius: 12,
-    alignItems: "center",
+    ...UI.primaryButton,
   },
   continueButtonText: {
-    color: COLORS.white,
-    fontSize: 18,
-    fontWeight: "600",
+    ...UI.primaryButtonText,
   },
   disabledButton: {
-    backgroundColor: "#cccccc",
+    backgroundColor: THEME_COLORS.borderStrong,
+    boxShadow: "none",
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(15, 23, 42, 0.45)',
     justifyContent: 'flex-end',
   },
-  locationModal: {
-    backgroundColor: COLORS.white,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingHorizontal: 20,
-    paddingBottom: 20,
-    maxHeight: '80%',
-  },
-  errorModal: {
-    backgroundColor: COLORS.white,
-    borderRadius: 20,
-    padding: 24,
-    width: '85%',
-    alignItems: 'center',
-    elevation: 5,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-  },
-  errorIconContainer: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
-    backgroundColor: `${COLORS.secondary}20`,
-    alignItems: 'center',
+  modalOverlayCenter: {
     justifyContent: 'center',
-    marginBottom: 16,
+    alignItems: 'center',
+    paddingHorizontal: SPACE.screen,
   },
-  errorTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: COLORS.black,
-    marginBottom: 8,
-    textAlign: 'center',
+  locationModal: {
+    backgroundColor: THEME_COLORS.surface,
+    borderTopLeftRadius: RADIUS.sheet,
+    borderTopRightRadius: RADIUS.sheet,
+    paddingHorizontal: SPACE.screen,
+    paddingBottom: SPACE["3xl"],
+    maxHeight: '80%',
+    ...SHADOWS.raised,
   },
-  errorMessage: {
-    fontSize: 16,
-    color: COLORS.gray,
-    textAlign: 'center',
-    marginBottom: 24,
-    lineHeight: 22,
-  },
-  errorButton: {
-    backgroundColor: COLORS.secondary,
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 12,
-    width: '100%',
-  },
-  errorButtonText: {
-    color: COLORS.white,
-    fontSize: 16,
-    fontWeight: '600',
-    textAlign: 'center',
+  sheetHandle: {
+    alignSelf: 'center',
+    width: 40,
+    height: 4,
+    borderRadius: RADIUS.pill,
+    backgroundColor: THEME_COLORS.border,
+    marginTop: SPACE.sm,
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 20,
+    paddingTop: SPACE.lg,
+    paddingBottom: SPACE.lg,
   },
   modalTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: COLORS.black,
+    ...TYPOGRAPHY.h2,
   },
   searchBox: {
+    ...INPUT_BOX,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.background,
-    paddingHorizontal: 12,
-    borderRadius: 12,
-    marginBottom: 16,
+    paddingHorizontal: SPACE.md,
+    marginBottom: SPACE.lg,
+  },
+  inputFocused: {
+    ...UI.inputFocused,
   },
   searchInput: {
     flex: 1,
-    paddingVertical: 12,
-    marginLeft: 8,
-    fontSize: 16,
+    height: '100%',
+    marginLeft: SPACE.sm,
+    fontSize: 15,
+    color: THEME_COLORS.textPrimary,
   },
   locationItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.lightGray,
+    paddingVertical: SPACE.md,
+    paddingHorizontal: SPACE.md,
+    borderRadius: RADIUS.control,
+    borderWidth: 1,
+    borderColor: 'transparent',
+    marginBottom: SPACE.xs,
+  },
+  locationIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: RADIUS.pill,
+    backgroundColor: THEME_COLORS.surfaceMuted,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  locationIconActive: {
+    backgroundColor: THEME_COLORS.surface,
   },
   locationItemText: {
-    marginLeft: 12,
-    fontSize: 16,
-    color: COLORS.black,
+    ...TYPOGRAPHY.body,
+    color: THEME_COLORS.textPrimary,
+    marginLeft: SPACE.md,
+    flex: 1,
+  },
+  errorModal: {
+    backgroundColor: THEME_COLORS.surface,
+    borderRadius: RADIUS.sheet,
+    padding: SPACE["2xl"],
+    width: '100%',
+    maxWidth: 360,
+    alignItems: 'center',
+    ...SHADOWS.raised,
+  },
+  errorIconContainer: {
+    width: 64,
+    height: 64,
+    borderRadius: RADIUS.pill,
+    backgroundColor: THEME_COLORS.warningSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: SPACE.lg,
+  },
+  errorTitle: {
+    ...TYPOGRAPHY.h2,
+    marginBottom: SPACE.sm,
+    textAlign: 'center',
+  },
+  errorMessage: {
+    ...TYPOGRAPHY.body,
+    textAlign: 'center',
+    marginBottom: SPACE["2xl"],
+  },
+  errorButton: {
+    ...UI.primaryButton,
+    alignSelf: 'stretch',
+  },
+  errorButtonText: {
+    ...UI.primaryButtonText,
   },
   durationContainer: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 16,
+    gap: SPACE.sm,
   },
   durationBox: {
     flex: 1,
     alignItems: "center",
-    paddingVertical: 12,
-    borderRadius: 12,
-    backgroundColor: "#f8f9fa",
+    paddingVertical: SPACE.md,
+    paddingHorizontal: SPACE.xs,
+    borderRadius: RADIUS.control,
+    backgroundColor: THEME_COLORS.surface,
     borderWidth: 1,
-    borderColor: COLORS.lightGray,
-    marginHorizontal: 4,
+    borderColor: THEME_COLORS.border,
   },
   selectedDurationBox: {
-    backgroundColor: COLORS.primary,
-    borderColor: COLORS.primary,
+    backgroundColor: THEME_COLORS.primarySoft,
+    borderColor: THEME_COLORS.primary,
   },
   durationDays: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: COLORS.black,
+    ...TYPOGRAPHY.h2,
   },
   durationLabel: {
-    fontSize: 14,
-    color: COLORS.gray,
+    ...TYPOGRAPHY.caption,
+    marginBottom: SPACE.xs,
   },
   durationPrice: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: "600",
-    color: COLORS.primary,
+    color: THEME_COLORS.textSecondary,
   },
   selectedDurationText: {
-    color: COLORS.white,
-  },
-  paymentOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-    borderRadius: 12,
-    marginBottom: 12,
-  },
-  selectedPayment: {
-    borderColor: '#1054CF',
-    backgroundColor: '#f0f6ff',
-  },
-  paymentLogo: {
-    width: 80,
-    height: 24,
-    marginRight: 12,
-  },
-  paymentText: {
-    fontSize: 16,
-    color: '#333333',
-    marginLeft: 12,
+    color: THEME_COLORS.primary,
   },
 })

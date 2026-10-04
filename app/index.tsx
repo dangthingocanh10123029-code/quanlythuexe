@@ -1,13 +1,13 @@
 "use client"
 
-import { View, Text, StyleSheet, TouchableOpacity, Dimensions } from "react-native"
+import { View, Text, StyleSheet, TouchableOpacity, Image } from "react-native"
 import { useState } from "react"
 import { router } from "expo-router"
 import { SafeAreaView } from "react-native-safe-area-context"
+import { StatusBar } from "expo-status-bar"
 import { Ionicons } from '@expo/vector-icons'
 import Swiper from 'react-native-swiper'
-
-const { width } = Dimensions.get('window')
+import { THEME_COLORS, RADIUS, SPACE, TYPOGRAPHY, UI, PRESS_OPACITY } from "../utils/theme"
 
 interface FeatureItemProps {
   icon: keyof typeof Ionicons.glyphMap
@@ -16,7 +16,9 @@ interface FeatureItemProps {
 
 const FeatureItem: React.FC<FeatureItemProps> = ({ icon, text }) => (
   <View style={styles.featureItem}>
-    <Ionicons name={icon} size={24} color="#FFB700" />
+    <View style={styles.featureIcon}>
+      <Ionicons name={icon} size={20} color={THEME_COLORS.primary} />
+    </View>
     <Text style={styles.featureText}>{text}</Text>
   </View>
 )
@@ -26,6 +28,15 @@ export default function WelcomeScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      <StatusBar style="dark" />
+
+      <View style={styles.brandRow}>
+        <View style={styles.brandIcon}>
+          <Ionicons name="car-sport" size={18} color={THEME_COLORS.primary} />
+        </View>
+        <Text style={styles.brandText}>RENTO</Text>
+      </View>
+
       <Swiper
         loop={false}
         showsPagination={false}
@@ -33,8 +44,10 @@ export default function WelcomeScreen() {
         onIndexChanged={setCurrentIndex}
       >
         <View style={styles.slide}>
-          <Ionicons name="car-sport" size={80} color="#FFB700" />
-          <Text style={styles.logoText}>RENTO</Text>
+          <View style={styles.illustration}>
+            <Image source={require('../assets/adv cars.gif')} style={styles.illustrationImage} resizeMode="contain" />
+          </View>
+          <Text style={styles.overline}>RENTO</Text>
           <Text style={styles.title}>Chọn xe ưng ý, đi đâu cũng dễ</Text>
           <Text style={styles.description}>Hàng trăm mẫu xe từ sedan, SUV đến xe thể thao đang chờ bạn</Text>
           <View style={styles.featureContainer}>
@@ -45,8 +58,12 @@ export default function WelcomeScreen() {
         </View>
 
         <View style={styles.slide}>
-          <Ionicons name="calendar" size={80} color="#FFB700" />
-          <Text style={styles.logoText}>ĐẶT XE NHANH</Text>
+          <View style={styles.illustration}>
+            <View style={styles.iconIllustration}>
+              <Ionicons name="calendar" size={72} color={THEME_COLORS.primary} />
+            </View>
+          </View>
+          <Text style={styles.overline}>ĐẶT XE NHANH</Text>
           <Text style={styles.title}>Đặt xe chỉ trong vài phút</Text>
           <Text style={styles.description}>Thủ tục gọn nhẹ, thanh toán an toàn qua MoMo, ZaloPay hoặc thẻ ngân hàng</Text>
           <View style={styles.featureContainer}>
@@ -57,13 +74,16 @@ export default function WelcomeScreen() {
         </View>
 
         <View style={styles.slide}>
-          <Ionicons name="key" size={80} color="#FFB700" />
-          <Text style={styles.logoText}>THUÊ XE NHÉ?</Text>
+          <View style={styles.illustration}>
+            <Image source={require('../assets/modal_360.gif')} style={styles.illustrationImage} resizeMode="contain" />
+          </View>
+          <Text style={styles.overline}>THUÊ XE NHÉ?</Text>
           <Text style={styles.title}>Sẵn sàng lên đường</Text>
           <Text style={styles.description}>Mỗi chuyến đi, một trải nghiệm đáng nhớ</Text>
-          <TouchableOpacity 
-            style={styles.button} 
+          <TouchableOpacity
+            style={styles.button}
             onPress={() => router.replace('/login')}
+            activeOpacity={PRESS_OPACITY}
           >
             <Text style={styles.buttonText}>Bắt đầu ngay</Text>
           </TouchableOpacity>
@@ -87,82 +107,119 @@ export default function WelcomeScreen() {
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    backgroundColor: '#1054CF',
+    ...UI.screen,
+  },
+  brandRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACE.sm,
+    paddingHorizontal: SPACE.screen,
+    paddingTop: SPACE.md,
+  },
+  brandIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    backgroundColor: THEME_COLORS.primarySoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  brandText: {
+    ...TYPOGRAPHY.h3,
+    fontWeight: '800',
+    letterSpacing: 1.5,
+    color: THEME_COLORS.primary,
   },
   wrapper: {},
   slide: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 20,
+    paddingHorizontal: SPACE.screen,
+    paddingBottom: 96,
   },
-  logoText: {
-    fontSize: 40,
-    fontWeight: 'bold',
-    color: '#fff',
-    marginBottom: 20,
+  illustration: {
+    width: '100%',
+    height: 220,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: SPACE.section,
+  },
+  illustrationImage: {
+    width: '100%',
+    height: '100%',
+  },
+  iconIllustration: {
+    width: 160,
+    height: 160,
+    borderRadius: 80,
+    backgroundColor: THEME_COLORS.primarySoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  overline: {
+    ...TYPOGRAPHY.overline,
+    color: THEME_COLORS.primary,
+    marginBottom: SPACE.sm,
   },
   title: {
-    fontSize: 24,
-    color: '#fff',
-    fontWeight: '600',
-    marginBottom: 15,
+    ...TYPOGRAPHY.display,
     textAlign: 'center',
+    marginBottom: SPACE.md,
   },
   description: {
-    fontSize: 16,
-    color: '#fff',
+    ...TYPOGRAPHY.body,
     textAlign: 'center',
-    marginBottom: 40,
+    paddingHorizontal: SPACE.sm,
   },
   button: {
-    paddingVertical: 15,
-    paddingHorizontal: 50,
-    borderRadius: 30,
-    marginTop: 20,
-    backgroundColor: '#FFB700',
-    elevation: 3,
+    ...UI.primaryButton,
+    alignSelf: 'stretch',
+    marginTop: SPACE.section,
   },
   buttonText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#fff',
+    ...UI.primaryButtonText,
   },
   progressContainer: {
     flexDirection: 'row',
     position: 'absolute',
-    bottom: 50,
+    bottom: 48,
     alignSelf: 'center',
-    gap: 8,
+    gap: SPACE.sm,
   },
   progressDot: {
     width: 8,
     height: 8,
-    borderRadius: 4,
-    backgroundColor: 'rgba(255,255,255,0.5)',
+    borderRadius: RADIUS.pill,
+    backgroundColor: THEME_COLORS.border,
   },
   activeProgressDot: {
     width: 24,
-    backgroundColor: '#FFB700',
+    backgroundColor: THEME_COLORS.primary,
   },
   featureContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
+    justifyContent: 'space-between',
     width: '100%',
-    marginTop: 30,
+    marginTop: SPACE.section,
+    gap: SPACE.md,
   },
   featureItem: {
+    flex: 1,
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    padding: 15,
-    borderRadius: 12,
-    width: width * 0.25,
+    gap: SPACE.sm,
+  },
+  featureIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: RADIUS.pill,
+    backgroundColor: THEME_COLORS.primarySoft,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   featureText: {
-    color: '#fff',
-    marginTop: 8,
-    fontSize: 12,
+    ...TYPOGRAPHY.caption,
+    color: THEME_COLORS.textSecondary,
     textAlign: 'center',
   },
 })

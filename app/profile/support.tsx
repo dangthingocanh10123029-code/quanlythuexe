@@ -1,14 +1,16 @@
 "use client"
 
 import { useRef, useState } from "react"
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, Linking, Modal } from "react-native"
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, Linking, Modal, type TextStyle } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
+import { StatusBar } from "expo-status-bar"
 import { Ionicons } from "@expo/vector-icons"
 import { router } from "expo-router"
 import { collection, addDoc, serverTimestamp } from "firebase/firestore"
 import { db } from "../../config/firebase"
 import { useAuth } from "../../hooks/useAuth"
 import { HOTLINE, SUPPORT_EMAIL } from "../../utils/constants"
+import { PRESS_OPACITY, RADIUS, SHADOWS, SPACE, THEME_COLORS, TYPOGRAPHY, UI } from "../../utils/theme"
 
 const BUG_REPORT_SUBJECT = "Báo lỗi ứng dụng"
 
@@ -139,6 +141,7 @@ export default function SupportScreen() {
   const [showContactForm, setShowContactForm] = useState(false)
   const [showGuide, setShowGuide] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  const [focusedField, setFocusedField] = useState<string | null>(null)
   const [contactForm, setContactForm] = useState({
     subject: "",
     message: "",
@@ -238,36 +241,53 @@ export default function SupportScreen() {
     }
   }
 
+  const focusProps = (field: string) => ({
+    onFocus: () => setFocusedField(field),
+    onBlur: () => setFocusedField((prev) => (prev === field ? null : prev)),
+    placeholderTextColor: THEME_COLORS.textMuted,
+  })
+
+  const quickActions = [
+    {
+      key: "contact",
+      icon: "create-outline",
+      label: "Liên hệ",
+      onPress: () => (showContactForm ? setShowContactForm(false) : openContactForm()),
+    },
+    { key: "guide", icon: "document-text-outline", label: "Hướng dẫn", onPress: () => setShowGuide(true) },
+    { key: "bug", icon: "bug-outline", label: "Báo lỗi", onPress: () => openContactForm(BUG_REPORT_SUBJECT) },
+  ]
+
   return (
     <SafeAreaView style={styles.container}>
+      <StatusBar style="dark" />
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={24} color="#000000" />
+        <TouchableOpacity style={styles.headerButton} onPress={() => router.back()} activeOpacity={PRESS_OPACITY}>
+          <Ionicons name="arrow-back" size={22} color={THEME_COLORS.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Trợ giúp & Hỗ trợ</Text>
-        <View style={{ width: 24 }} />
+        <View style={{ width: 40 }} />
       </View>
 
-      <ScrollView ref={scrollRef} style={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        ref={scrollRef}
+        style={styles.content}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
         {/* Quick Actions */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Hỗ trợ nhanh</Text>
           <View style={styles.quickActions}>
-            <TouchableOpacity
-              style={styles.quickAction}
-              onPress={() => (showContactForm ? setShowContactForm(false) : openContactForm())}
-            >
-              <Ionicons name="create" size={24} color="#4169e1" />
-              <Text style={styles.quickActionText}>Liên hệ</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.quickAction} onPress={() => setShowGuide(true)}>
-              <Ionicons name="document-text" size={24} color="#4169e1" />
-              <Text style={styles.quickActionText}>Hướng dẫn</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.quickAction} onPress={() => openContactForm(BUG_REPORT_SUBJECT)}>
-              <Ionicons name="bug" size={24} color="#4169e1" />
-              <Text style={styles.quickActionText}>Báo lỗi</Text>
-            </TouchableOpacity>
+            {quickActions.map((qa) => (
+              <TouchableOpacity key={qa.key} style={styles.quickAction} onPress={qa.onPress} activeOpacity={PRESS_OPACITY}>
+                <View style={styles.quickActionIcon}>
+                  <Ionicons name={qa.icon as any} size={22} color={THEME_COLORS.primary} />
+                </View>
+                <Text style={styles.quickActionText}>{qa.label}</Text>
+              </TouchableOpacity>
+            ))}
           </View>
         </View>
 
@@ -284,10 +304,11 @@ export default function SupportScreen() {
               <View style={styles.inputGroup}>
                 <Text style={styles.inputLabel}>Tiêu đề</Text>
                 <TextInput
-                  style={styles.input}
+                  style={[styles.input, focusedField === "subject" && styles.inputFocused]}
                   placeholder="Bạn cần hỗ trợ về vấn đề gì?"
                   value={contactForm.subject}
                   onChangeText={(text) => setContactForm({ ...contactForm, subject: text })}
+                  {...focusProps("subject")}
                 />
               </View>
 
@@ -299,6 +320,7 @@ export default function SupportScreen() {
                       key={priority}
                       style={[styles.priorityButton, contactForm.priority === priority && styles.selectedPriority]}
                       onPress={() => setContactForm({ ...contactForm, priority })}
+                      activeOpacity={PRESS_OPACITY}
                     >
                       <Text
                         style={[styles.priorityText, contactForm.priority === priority && styles.selectedPriorityText]}
@@ -313,24 +335,30 @@ export default function SupportScreen() {
               <View style={styles.inputGroup}>
                 <Text style={styles.inputLabel}>Nội dung</Text>
                 <TextInput
-                  style={[styles.input, styles.textArea]}
+                  style={[styles.input, styles.textArea, focusedField === "message" && styles.inputFocused]}
                   placeholder="Mô tả chi tiết vấn đề hoặc câu hỏi của bạn..."
                   value={contactForm.message}
                   onChangeText={(text) => setContactForm({ ...contactForm, message: text })}
                   multiline
                   numberOfLines={5}
                   textAlignVertical="top"
+                  {...focusProps("message")}
                 />
               </View>
 
               <View style={styles.formButtons}>
-                <TouchableOpacity style={styles.cancelButton} onPress={() => setShowContactForm(false)}>
+                <TouchableOpacity
+                  style={styles.cancelButton}
+                  onPress={() => setShowContactForm(false)}
+                  activeOpacity={PRESS_OPACITY}
+                >
                   <Text style={styles.cancelButtonText}>Huỷ</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={[styles.submitButton, submitting && { opacity: 0.6 }]}
+                  style={[styles.submitButton, submitting && styles.buttonDisabled]}
                   onPress={handleSubmitForm}
                   disabled={submitting}
+                  activeOpacity={PRESS_OPACITY}
                 >
                   <Text style={styles.submitButtonText}>{submitting ? "Đang gửi..." : "Gửi tin nhắn"}</Text>
                 </TouchableOpacity>
@@ -348,16 +376,19 @@ export default function SupportScreen() {
                 key={option.id}
                 style={styles.contactOption}
                 onPress={() => handleContactAction(option.action, option.value)}
+                activeOpacity={PRESS_OPACITY}
               >
                 <View style={styles.contactOptionLeft}>
-                  <Ionicons name={option.icon as any} size={24} color="#4169e1" />
+                  <View style={styles.contactIcon}>
+                    <Ionicons name={`${option.icon}-outline` as any} size={20} color={THEME_COLORS.primary} />
+                  </View>
                   <View style={styles.contactOptionText}>
                     <Text style={styles.contactOptionTitle}>{option.title}</Text>
                     <Text style={styles.contactOptionDescription}>{option.description}</Text>
                     <Text style={styles.contactOptionValue}>{option.value}</Text>
                   </View>
                 </View>
-                <Ionicons name="chevron-forward" size={20} color="#cccccc" />
+                <Ionicons name="chevron-forward" size={18} color={THEME_COLORS.textMuted} />
               </TouchableOpacity>
             ))}
           </View>
@@ -367,19 +398,33 @@ export default function SupportScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Câu hỏi thường gặp</Text>
           <View style={styles.faqContainer}>
-            {faqData.map((faq) => (
-              <View key={faq.id} style={styles.faqItem}>
-                <TouchableOpacity style={styles.faqQuestion} onPress={() => toggleFaq(faq.id)}>
-                  <Text style={styles.faqQuestionText}>{faq.question}</Text>
-                  <Ionicons name={expandedFaq === faq.id ? "chevron-up" : "chevron-down"} size={20} color="#666666" />
-                </TouchableOpacity>
-                {expandedFaq === faq.id && (
-                  <View style={styles.faqAnswer}>
-                    <Text style={styles.faqAnswerText}>{faq.answer}</Text>
-                  </View>
-                )}
-              </View>
-            ))}
+            {faqData.map((faq, index) => {
+              const expanded = expandedFaq === faq.id
+              return (
+                <View key={faq.id}>
+                  {index > 0 && <View style={styles.faqDivider} />}
+                  <TouchableOpacity
+                    style={styles.faqQuestion}
+                    onPress={() => toggleFaq(faq.id)}
+                    activeOpacity={PRESS_OPACITY}
+                  >
+                    <Text style={[styles.faqQuestionText, expanded && styles.faqQuestionTextActive]}>
+                      {faq.question}
+                    </Text>
+                    <Ionicons
+                      name={expanded ? "chevron-up" : "chevron-down"}
+                      size={18}
+                      color={expanded ? THEME_COLORS.primary : THEME_COLORS.textMuted}
+                    />
+                  </TouchableOpacity>
+                  {expanded && (
+                    <View style={styles.faqAnswer}>
+                      <Text style={styles.faqAnswerText}>{faq.answer}</Text>
+                    </View>
+                  )}
+                </View>
+              )
+            })}
           </View>
         </View>
 
@@ -387,14 +432,16 @@ export default function SupportScreen() {
         <View style={styles.section}>
           <View style={styles.emergencyCard}>
             <View style={styles.emergencyHeader}>
-              <Ionicons name="warning" size={24} color="#ff4444" />
+              <View style={styles.emergencyIcon}>
+                <Ionicons name="warning-outline" size={20} color={THEME_COLORS.danger} />
+              </View>
               <Text style={styles.emergencyTitle}>Liên hệ khẩn cấp</Text>
             </View>
             <Text style={styles.emergencyText}>
               Gặp sự cố khẩn cấp trong lúc thuê xe (tai nạn, hỏng xe, mất giấy tờ...)? Gọi ngay đường dây nóng 24/7:
             </Text>
-            <TouchableOpacity style={styles.emergencyButton} onPress={callHotline}>
-              <Ionicons name="call" size={20} color="#ffffff" />
+            <TouchableOpacity style={styles.emergencyButton} onPress={callHotline} activeOpacity={PRESS_OPACITY}>
+              <Ionicons name="call" size={18} color={THEME_COLORS.danger} />
               <Text style={styles.emergencyButtonText}>Gọi khẩn cấp: {HOTLINE}</Text>
             </TouchableOpacity>
           </View>
@@ -405,10 +452,15 @@ export default function SupportScreen() {
       <Modal animationType="slide" transparent visible={showGuide} onRequestClose={() => setShowGuide(false)}>
         <View style={styles.guideOverlay}>
           <View style={styles.guideContent}>
+            <View style={styles.guideHandle} />
             <View style={styles.guideHeader}>
               <Text style={styles.guideTitle}>Hướng dẫn đặt xe</Text>
-              <TouchableOpacity onPress={() => setShowGuide(false)}>
-                <Ionicons name="close" size={24} color="#666666" />
+              <TouchableOpacity
+                style={styles.guideCloseIcon}
+                onPress={() => setShowGuide(false)}
+                activeOpacity={PRESS_OPACITY}
+              >
+                <Ionicons name="close" size={20} color={THEME_COLORS.textSecondary} />
               </TouchableOpacity>
             </View>
             <ScrollView showsVerticalScrollIndicator={false}>
@@ -419,7 +471,7 @@ export default function SupportScreen() {
                   </View>
                   <View style={styles.guideStepBody}>
                     <View style={styles.guideStepTitleRow}>
-                      <Ionicons name={step.icon as any} size={18} color="#4169e1" />
+                      <Ionicons name={step.icon as any} size={16} color={THEME_COLORS.primary} />
                       <Text style={styles.guideStepTitle}>{step.title}</Text>
                     </View>
                     <Text style={styles.guideStepDescription}>{step.description}</Text>
@@ -427,7 +479,11 @@ export default function SupportScreen() {
                 </View>
               ))}
             </ScrollView>
-            <TouchableOpacity style={styles.guideCloseButton} onPress={() => setShowGuide(false)}>
+            <TouchableOpacity
+              style={styles.guideCloseButton}
+              onPress={() => setShowGuide(false)}
+              activeOpacity={PRESS_OPACITY}
+            >
               <Text style={styles.guideCloseButtonText}>Đã hiểu</Text>
             </TouchableOpacity>
           </View>
@@ -438,45 +494,318 @@ export default function SupportScreen() {
 }
 
 const styles = StyleSheet.create({
+  container: {
+    ...UI.screen,
+  },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: SPACE.screen,
+    paddingVertical: SPACE.md,
+    borderBottomWidth: 1,
+    borderBottomColor: THEME_COLORS.border,
+  },
+  headerButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: THEME_COLORS.surfaceMuted,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  headerTitle: {
+    ...TYPOGRAPHY.h3,
+  },
+  content: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingTop: SPACE["2xl"],
+    paddingBottom: SPACE.lg,
+  },
+  section: {
+    paddingHorizontal: SPACE.screen,
+    marginBottom: SPACE.section,
+  },
+  sectionTitle: {
+    ...TYPOGRAPHY.h3,
+    marginBottom: SPACE.md,
+  },
+  // Hỗ trợ nhanh
+  quickActions: {
+    flexDirection: "row",
+    gap: SPACE.md,
+  },
+  quickAction: {
+    ...UI.card,
+    flex: 1,
+    alignItems: "center",
+    paddingVertical: SPACE.lg,
+    paddingHorizontal: SPACE.sm,
+  },
+  quickActionIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: THEME_COLORS.primarySoft,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: SPACE.sm,
+  },
+  quickActionText: {
+    fontSize: 13,
+    color: THEME_COLORS.textPrimary,
+    fontWeight: "600",
+    textAlign: "center",
+  },
+  // Form gửi yêu cầu
+  contactForm: {
+    ...UI.card,
+    padding: SPACE.xl,
+  },
+  inputGroup: {
+    marginBottom: SPACE.lg,
+  },
+  inputLabel: {
+    ...TYPOGRAPHY.bodyStrong,
+    fontSize: 14,
+    marginBottom: SPACE.sm,
+  },
+  input: {
+    ...UI.input,
+  },
+  inputFocused: {
+    ...(UI.inputFocused as TextStyle),
+  },
+  textArea: {
+    height: undefined,
+    minHeight: 120,
+    paddingTop: SPACE.md,
+    paddingBottom: SPACE.md,
+    textAlignVertical: "top",
+  },
+  priorityContainer: {
+    flexDirection: "row",
+    gap: SPACE.sm,
+  },
+  priorityButton: {
+    ...UI.chip,
+    flex: 1,
+    alignItems: "center",
+    paddingHorizontal: SPACE.sm,
+  },
+  selectedPriority: {
+    ...UI.chipActive,
+  },
+  priorityText: {
+    ...UI.chipText,
+  },
+  selectedPriorityText: {
+    ...UI.chipTextActive,
+  },
+  formButtons: {
+    flexDirection: "row",
+    gap: SPACE.md,
+    marginTop: SPACE.sm,
+  },
+  cancelButton: {
+    ...UI.secondaryButton,
+    flex: 1,
+    height: 48,
+    paddingHorizontal: SPACE.lg,
+  },
+  cancelButtonText: {
+    ...UI.secondaryButtonText,
+    fontSize: 15,
+  },
+  submitButton: {
+    ...UI.primaryButton,
+    flex: 1.4,
+    height: 48,
+    paddingHorizontal: SPACE.lg,
+  },
+  submitButtonText: {
+    ...UI.primaryButtonText,
+    fontSize: 15,
+  },
+  buttonDisabled: {
+    opacity: 0.6,
+  },
+  // Kênh liên hệ
+  contactOptions: {
+    gap: SPACE.md,
+  },
+  contactOption: {
+    ...UI.card,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: SPACE.lg,
+  },
+  contactOptionLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+    gap: SPACE.md,
+  },
+  contactIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: THEME_COLORS.primarySoft,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  contactOptionText: {
+    flex: 1,
+  },
+  contactOptionTitle: {
+    ...TYPOGRAPHY.bodyStrong,
+    marginBottom: 2,
+  },
+  contactOptionDescription: {
+    ...TYPOGRAPHY.caption,
+    marginBottom: 2,
+  },
+  contactOptionValue: {
+    fontSize: 13,
+    color: THEME_COLORS.primary,
+    fontWeight: "600",
+  },
+  // FAQ dạng accordion trong một thẻ
+  faqContainer: {
+    ...UI.card,
+    overflow: "hidden",
+  },
+  faqDivider: {
+    ...UI.divider,
+    marginHorizontal: SPACE.lg,
+  },
+  faqQuestion: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: SPACE.lg,
+    paddingVertical: SPACE.lg,
+    gap: SPACE.md,
+  },
+  faqQuestionText: {
+    ...TYPOGRAPHY.bodyStrong,
+    flex: 1,
+  },
+  faqQuestionTextActive: {
+    color: THEME_COLORS.primary,
+  },
+  faqAnswer: {
+    paddingHorizontal: SPACE.lg,
+    paddingBottom: SPACE.lg,
+  },
+  faqAnswerText: {
+    ...TYPOGRAPHY.body,
+    fontSize: 14,
+    lineHeight: 21,
+  },
+  // Khẩn cấp
+  emergencyCard: {
+    ...UI.card,
+    padding: SPACE.xl,
+  },
+  emergencyHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SPACE.md,
+    marginBottom: SPACE.md,
+  },
+  emergencyIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: THEME_COLORS.dangerSoft,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  emergencyTitle: {
+    ...TYPOGRAPHY.h3,
+  },
+  emergencyText: {
+    ...TYPOGRAPHY.body,
+    fontSize: 14,
+    lineHeight: 20,
+    marginBottom: SPACE.lg,
+  },
+  emergencyButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: SPACE.sm,
+    height: 48,
+    borderRadius: RADIUS.control,
+    backgroundColor: THEME_COLORS.dangerSoft,
+  },
+  emergencyButtonText: {
+    color: THEME_COLORS.danger,
+    fontSize: 15,
+    fontWeight: "700",
+  },
+  // Modal hướng dẫn (bottom sheet)
   guideOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    backgroundColor: "rgba(15, 23, 42, 0.45)",
     justifyContent: "flex-end",
   },
   guideContent: {
-    backgroundColor: "#ffffff",
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    padding: 20,
+    backgroundColor: THEME_COLORS.surface,
+    borderTopLeftRadius: RADIUS.sheet,
+    borderTopRightRadius: RADIUS.sheet,
+    paddingHorizontal: SPACE.screen,
+    paddingTop: SPACE.md,
+    paddingBottom: SPACE["2xl"],
     maxHeight: "85%",
+    ...SHADOWS.raised,
+  },
+  guideHandle: {
+    alignSelf: "center",
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: THEME_COLORS.borderStrong,
+    marginBottom: SPACE.lg,
   },
   guideHeader: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 16,
+    marginBottom: SPACE.xl,
   },
   guideTitle: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: "#000000",
+    ...TYPOGRAPHY.h2,
+  },
+  guideCloseIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: THEME_COLORS.surfaceMuted,
+    alignItems: "center",
+    justifyContent: "center",
   },
   guideStep: {
     flexDirection: "row",
-    marginBottom: 16,
+    marginBottom: SPACE.xl,
   },
   guideStepNumber: {
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: "#1054CF",
+    backgroundColor: THEME_COLORS.primarySoft,
     alignItems: "center",
     justifyContent: "center",
-    marginRight: 12,
+    marginRight: SPACE.md,
   },
   guideStepNumberText: {
-    color: "#ffffff",
-    fontWeight: "bold",
+    color: THEME_COLORS.primary,
+    fontWeight: "700",
+    fontSize: 13,
   },
   guideStepBody: {
     flex: 1,
@@ -485,280 +814,22 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    marginBottom: 4,
+    marginBottom: SPACE.xs,
   },
   guideStepTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#000000",
+    ...TYPOGRAPHY.bodyStrong,
     flexShrink: 1,
   },
   guideStepDescription: {
+    ...TYPOGRAPHY.body,
     fontSize: 14,
-    color: "#666666",
     lineHeight: 20,
   },
   guideCloseButton: {
-    backgroundColor: "#1054CF",
-    borderRadius: 12,
-    paddingVertical: 14,
-    alignItems: "center",
-    marginTop: 8,
+    ...UI.primaryButton,
+    marginTop: SPACE.sm,
   },
   guideCloseButtonText: {
-    color: "#ffffff",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  container: {
-    flex: 1,
-    backgroundColor: "#ededed",
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: "#e0e0e0",
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#000000",
-  },
-  content: {
-    flex: 1,
-  },
-  section: {
-    paddingHorizontal: 20,
-    marginBottom: 30,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: "#000000",
-    marginBottom: 16,
-  },
-  quickActions: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-    backgroundColor: "#f8f9fa",
-    borderRadius: 12,
-    padding: 20,
-  },
-  quickAction: {
-    alignItems: "center",
-    color: "#1054CF",
-  },
-  quickActionText: {
-    fontSize: 12,
-    color: "#4169e1",
-    fontWeight: "600",
-    marginTop: 8,
-    textAlign: "center",
-  },
-  contactForm: {
-    backgroundColor: "#f8f9fa",
-    borderRadius: 12,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: "#e0e0e0",
-  },
-  inputGroup: {
-    marginBottom: 16,
-  },
-  inputLabel: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#000000",
-    marginBottom: 6,
-  },
-  input: {
-    backgroundColor: "#ffffff",
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    borderWidth: 1,
-    borderColor: "#e0e0e0",
-  },
-  textArea: {
-    minHeight: 100,
-    textAlignVertical: "top",
-  },
-  priorityContainer: {
-    flexDirection: "row",
-    gap: 8,
-  },
-  priorityButton: {
-    flex: 1,
-    backgroundColor: "#ffffff",
-    paddingVertical: 8,
-    borderRadius: 6,
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#e0e0e0",
-  },
-  selectedPriority: {
-    backgroundColor: "#4169e1",
-    borderColor: "#4169e1",
-  },
-  priorityText: {
-    fontSize: 14,
-    color: "#666666",
-    fontWeight: "600",
-  },
-  selectedPriorityText: {
-    color: "#ffffff",
-  },
-  formButtons: {
-    flexDirection: "row",
-    gap: 12,
-    marginTop: 16,
-  },
-  cancelButton: {
-    flex: 1,
-    backgroundColor: "#ffffff",
-    paddingVertical: 12,
-    borderRadius: 8,
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#e0e0e0",
-  },
-  cancelButtonText: {
-    color: "#666666",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  submitButton: {
-    flex: 1,
-    backgroundColor: "#1054CF",
-    paddingVertical: 12,
-    borderRadius: 8,
-    alignItems: "center",
-  },
-  submitButtonText: {
-    color: "#ffffff",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  contactOptions: {
-    gap: 12,
-  },
-  contactOption: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    backgroundColor: "#ffffff",
-    borderRadius: 12,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: "#e0e0e0",
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  contactOptionLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    flex: 1,
-  },
-  contactOptionText: {
-    marginLeft: 16,
-    flex: 1,
-  },
-  contactOptionTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#000000",
-    marginBottom: 2,
-  },
-  contactOptionDescription: {
-    fontSize: 14,
-    color: "#666666",
-    marginBottom: 2,
-  },
-  contactOptionValue: {
-    fontSize: 12,
-    color: "#4169e1",
-    fontWeight: "600",
-  },
-  faqContainer: {
-    gap: 12,
-  },
-  faqItem: {
-    backgroundColor: "#ffffff",
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "#e0e0e0",
-    overflow: "hidden",
-  },
-  faqQuestion: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    padding: 16,
-  },
-  faqQuestionText: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#000000",
-    flex: 1,
-    marginRight: 12,
-  },
-  faqAnswer: {
-    paddingHorizontal: 16,
-    paddingBottom: 16,
-    borderTopWidth: 1,
-    borderTopColor: "#f0f0f0",
-  },
-  faqAnswerText: {
-    fontSize: 14,
-    color: "#666666",
-    lineHeight: 20,
-  },
-  emergencyCard: {
-    backgroundColor: "#fff5f5",
-    borderRadius: 12,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: "#ffe0e0",
-  },
-  emergencyHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 12,
-  },
-  emergencyTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#ff4444",
-    marginLeft: 12,
-  },
-  emergencyText: {
-    fontSize: 14,
-    color: "#666666",
-    lineHeight: 20,
-    marginBottom: 16,
-  },
-  emergencyButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#ff4444",
-    paddingVertical: 12,
-    borderRadius: 8,
-    gap: 8,
-  },
-  emergencyButtonText: {
-    color: "#ffffff",
-    fontSize: 16,
-    fontWeight: "600",
+    ...UI.primaryButtonText,
   },
 })

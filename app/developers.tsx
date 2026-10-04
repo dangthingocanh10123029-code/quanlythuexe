@@ -5,6 +5,8 @@ import { SafeAreaView } from "react-native-safe-area-context"
 import { Ionicons } from "@expo/vector-icons"
 import { router } from "expo-router"
 import { SUPPORT_EMAIL } from "../utils/constants"
+import { StatusBar } from "expo-status-bar"
+import { THEME_COLORS, RADIUS, SPACE, TYPOGRAPHY, UI, PRESS_OPACITY } from "../utils/theme"
 
 const handleContactSupport = async () => {
   const url = `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent("Liên hệ hỗ trợ RENTO")}`
@@ -60,15 +62,16 @@ const developers = [
 export default function DevelopersScreen() {
   return (
     <SafeAreaView style={styles.container}>
+      <StatusBar style="dark" />
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={24} color="#000000" />
+        <TouchableOpacity onPress={() => router.back()} style={styles.backButton} activeOpacity={PRESS_OPACITY}>
+          <Ionicons name="arrow-back" size={22} color={THEME_COLORS.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Nhóm phát triển</Text>
-        <View style={{ width: 24 }} />
+        <View style={styles.headerSpacer} />
       </View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer} showsVerticalScrollIndicator={false}>
         <View style={styles.introSection}>
           <Text style={styles.introTitle}>Đội ngũ phát triển RENTO</Text>
           <Text style={styles.introText}>
@@ -84,9 +87,9 @@ export default function DevelopersScreen() {
               <View style={styles.developerInfo}>
                 <Text style={styles.developerName}>{developer.name}</Text>
                 <Text style={styles.developerRole}>{developer.role}</Text>
-                <TouchableOpacity style={styles.emailContainer}>
-                  <Ionicons name="mail" size={16} color="#4169e1" />
-                  <Text style={styles.developerEmail}>{developer.email}</Text>
+                <TouchableOpacity style={styles.emailContainer} activeOpacity={PRESS_OPACITY}>
+                  <Ionicons name="mail-outline" size={14} color={THEME_COLORS.primary} />
+                  <Text style={styles.developerEmail} numberOfLines={1}>{developer.email}</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -123,8 +126,8 @@ export default function DevelopersScreen() {
           <Text style={styles.contactTitle}>Liên hệ với chúng tôi</Text>
           <Text style={styles.contactText}>Bạn có câu hỏi hay góp ý? Chúng tôi luôn sẵn sàng lắng nghe!</Text>
 
-          <TouchableOpacity style={styles.contactButton} onPress={handleContactSupport}>
-            <Ionicons name="mail" size={20} color="#ffffff" />
+          <TouchableOpacity style={styles.contactButton} onPress={handleContactSupport} activeOpacity={PRESS_OPACITY}>
+            <Ionicons name="mail" size={20} color="#FFFFFF" />
             <Text style={styles.contactButtonText}>Liên hệ hỗ trợ</Text>
           </TouchableOpacity>
         </View>
@@ -133,172 +136,145 @@ export default function DevelopersScreen() {
   )
 }
 
-const COLORS = {
-  primary: "#4169e1",
-  background: "#ffffff",
-}
-
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    backgroundColor: COLORS.background,
+    ...UI.screen,
   },
   header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: "#e0e0e0",
+    paddingHorizontal: SPACE.screen,
+    paddingVertical: SPACE.md,
+    backgroundColor: THEME_COLORS.surface,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: RADIUS.pill,
+    backgroundColor: THEME_COLORS.surfaceMuted,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  headerSpacer: {
+    width: 40,
   },
   headerTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#000000",
+    ...TYPOGRAPHY.h3,
   },
   content: {
     flex: 1,
   },
+  contentContainer: {
+    paddingHorizontal: SPACE.screen,
+    paddingBottom: SPACE.section,
+  },
   introSection: {
-    padding: 20,
-    alignItems: "center",
+    paddingTop: SPACE.lg,
+    marginBottom: SPACE.section,
   },
   introTitle: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "#000000",
-    marginBottom: 12,
-    textAlign: "center",
+    ...TYPOGRAPHY.h1,
+    marginBottom: SPACE.sm,
   },
   introText: {
-    fontSize: 16,
-    color: "#666666",
-    textAlign: "center",
-    lineHeight: 24,
+    ...TYPOGRAPHY.body,
   },
   teamGrid: {
-    padding: 20,
-    gap: 16,
+    gap: SPACE.md,
+    marginBottom: SPACE.section,
   },
   developerCard: {
+    ...UI.card,
     flexDirection: "row",
-    backgroundColor: "#ffffff",
-    borderRadius: 16,
-    padding: 20,
+    padding: SPACE.lg,
     alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
-    borderWidth: 1,
-    borderColor: "#f0f0f0",
   },
   avatar: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    marginRight: 16,
+    width: 64,
+    height: 64,
+    borderRadius: RADIUS.pill,
+    marginRight: SPACE.lg,
+    backgroundColor: THEME_COLORS.surfaceMuted,
   },
   developerInfo: {
     flex: 1,
   },
   developerName: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#000000",
-    marginBottom: 4,
+    ...TYPOGRAPHY.h3,
+    marginBottom: 2,
   },
   developerRole: {
-    fontSize: 14,
-    color: "#666666",
-    marginBottom: 8,
+    ...TYPOGRAPHY.caption,
+    color: THEME_COLORS.textSecondary,
+    marginBottom: SPACE.sm,
   },
   emailContainer: {
     flexDirection: "row",
     alignItems: "center",
+    gap: SPACE.xs,
   },
   developerEmail: {
-    color: COLORS.primary,
-    fontSize: 14,
-    marginLeft: 6,
+    flex: 1,
+    color: THEME_COLORS.primary,
+    fontSize: 13,
+    fontWeight: "500",
   },
   aboutSection: {
-    padding: 20,
-    backgroundColor: "#f8f9fa",
-    margin: 20,
-    borderRadius: 16,
+    ...UI.card,
+    padding: SPACE.xl,
+    marginBottom: SPACE.section,
   },
   aboutTitle: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: "#000000",
-    marginBottom: 12,
+    ...TYPOGRAPHY.h2,
+    marginBottom: SPACE.sm,
   },
   aboutText: {
-    fontSize: 16,
-    color: "#666666",
-    lineHeight: 24,
-    marginBottom: 20,
+    ...TYPOGRAPHY.body,
   },
   techStack: {
-    marginTop: 16,
+    marginTop: SPACE.xl,
   },
   techTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#000000",
-    marginBottom: 12,
+    ...TYPOGRAPHY.overline,
+    marginBottom: SPACE.md,
   },
   techItems: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 8,
+    gap: SPACE.sm,
   },
   techItem: {
-    backgroundColor: COLORS.primary,
-    paddingHorizontal: 12,
+    backgroundColor: THEME_COLORS.primarySoft,
+    paddingHorizontal: SPACE.md,
     paddingVertical: 6,
-    borderRadius: 16,
+    borderRadius: RADIUS.pill,
   },
   techText: {
-    color: "#ffffff",
-    fontSize: 12,
+    color: THEME_COLORS.primary,
+    fontSize: 13,
     fontWeight: "600",
   },
   contactSection: {
-    padding: 20,
     alignItems: "center",
   },
   contactTitle: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: "#000000",
-    marginBottom: 12,
+    ...TYPOGRAPHY.h2,
+    marginBottom: SPACE.sm,
+    textAlign: "center",
   },
   contactText: {
-    fontSize: 16,
-    color: "#666666",
+    ...TYPOGRAPHY.body,
     textAlign: "center",
-    marginBottom: 20,
+    marginBottom: SPACE.xl,
   },
   contactButton: {
+    ...UI.primaryButton,
     flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: COLORS.primary,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 12,
-    gap: 8,
+    alignSelf: "stretch",
+    gap: SPACE.sm,
   },
   contactButtonText: {
-    color: "#ffffff",
-    fontSize: 16,
-    fontWeight: "600",
+    ...UI.primaryButtonText,
   },
 })
-

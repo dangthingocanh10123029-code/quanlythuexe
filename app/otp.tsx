@@ -5,10 +5,18 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from "reac
 import { SafeAreaView } from "react-native-safe-area-context"
 import { router } from "expo-router"
 import { auth } from "../config/firebase"
+import { StatusBar } from "expo-status-bar"
+import { Ionicons } from "@expo/vector-icons"
+import { THEME_COLORS, RADIUS, SPACE, TYPOGRAPHY, UI, PRESS_OPACITY } from "../utils/theme"
+import type { TextStyle } from "react-native"
+
+// UI.inputFocused là ViewStyle; ô OTP là TextInput nên ép kiểu sang TextStyle
+const INPUT_FOCUSED_TEXT = UI.inputFocused as unknown as TextStyle
 
 export default function OTPScreen() {
   const [otp, setOtp] = useState(["", "", "", ""])
   const [loading, setLoading] = useState(false)
+  const [focusedIndex, setFocusedIndex] = useState<number | null>(0)
   const inputRefs = useRef<Array<TextInput | null>>([])
 
   const handleOtpChange = (value: string, index: number) => {
@@ -65,8 +73,19 @@ export default function OTPScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      <StatusBar style="dark" />
+      <View style={styles.brandRow}>
+        <View style={styles.brandIcon}>
+          <Ionicons name="car-sport" size={18} color={THEME_COLORS.primary} />
+        </View>
+        <Text style={styles.brandText}>RENTO</Text>
+      </View>
+
       <View style={styles.content}>
         <View style={styles.header}>
+          <View style={styles.headerIcon}>
+            <Ionicons name="mail-unread-outline" size={28} color={THEME_COLORS.primary} />
+          </View>
           <Text style={styles.title}>Xác thực tài khoản</Text>
           <Text style={styles.subtitle}>Nhập mã gồm 4 chữ số vừa được gửi tới email của bạn</Text>
         </View>
@@ -78,14 +97,21 @@ export default function OTPScreen() {
               ref={(el) => {
                 inputRefs.current[index] = el
               }}
-              style={[styles.otpInput, digit ? styles.otpInputFilled : null]}
+              style={[
+                styles.otpInput,
+                digit ? styles.otpInputFilled : null,
+                focusedIndex === index && styles.otpInputFocused,
+              ]}
               value={digit}
               onChangeText={(value) => handleOtpChange(value, index)}
               onKeyPress={({ nativeEvent }) => handleKeyPress(nativeEvent.key, index)}
+              onFocus={() => setFocusedIndex(index)}
+              onBlur={() => setFocusedIndex((current) => (current === index ? null : current))}
               keyboardType="numeric"
               maxLength={1}
               textAlign="center"
               autoFocus={index === 0}
+              selectionColor={THEME_COLORS.primary}
             />
           ))}
         </View>
@@ -94,7 +120,7 @@ export default function OTPScreen() {
           style={[styles.verifyButton, loading && styles.disabledButton]}
           onPress={handleVerify}
           disabled={loading}
-          activeOpacity={0.7}
+          activeOpacity={PRESS_OPACITY}
         >
           <Text style={styles.verifyButtonText}>
             {loading ? "Đang xác thực..." : "Xác thực"}
@@ -103,7 +129,7 @@ export default function OTPScreen() {
 
         <View style={styles.resendContainer}>
           <Text style={styles.resendText}>Chưa nhận được mã? </Text>
-          <TouchableOpacity onPress={handleResend}>
+          <TouchableOpacity onPress={handleResend} activeOpacity={PRESS_OPACITY}>
             <Text style={styles.resendLink}>Gửi lại</Text>
           </TouchableOpacity>
         </View>
@@ -114,67 +140,92 @@ export default function OTPScreen() {
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    backgroundColor: "#1054CF", // Changed to blue background
+    ...UI.screen,
+  },
+  brandRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SPACE.sm,
+    paddingHorizontal: SPACE.screen,
+    paddingTop: SPACE.md,
+  },
+  brandIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    backgroundColor: THEME_COLORS.primarySoft,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  brandText: {
+    ...TYPOGRAPHY.h3,
+    fontWeight: "800",
+    letterSpacing: 1.5,
+    color: THEME_COLORS.primary,
   },
   content: {
     flex: 1,
     justifyContent: "center",
-    paddingHorizontal: 24,
+    paddingHorizontal: SPACE.screen,
+    paddingBottom: SPACE["4xl"],
   },
   header: {
     alignItems: "center",
-    marginBottom: 40,
+    marginBottom: SPACE.section,
+  },
+  headerIcon: {
+    width: 64,
+    height: 64,
+    borderRadius: RADIUS.pill,
+    backgroundColor: THEME_COLORS.primarySoft,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: SPACE.xl,
   },
   title: {
-    fontSize: 28,
-    fontWeight: "bold",
-    color: "#ffffff", // Changed to white
-    marginBottom: 8,
+    ...TYPOGRAPHY.h1,
+    marginBottom: SPACE.sm,
+    textAlign: "center",
   },
   subtitle: {
-    fontSize: 16,
-    color: "#ffffff", // Changed to white
+    ...TYPOGRAPHY.body,
     textAlign: "center",
-    opacity: 0.8,
   },
   otpContainer: {
     flexDirection: "row",
-    justifyContent: "center", // Changed to center
-    gap: 12, // Added gap between inputs
-    marginBottom: 40,
-    paddingHorizontal: 20,
+    justifyContent: "center",
+    gap: SPACE.md,
+    marginBottom: SPACE.section,
   },
   otpInput: {
-    width: 60,
-    height: 60,
-    borderWidth: 2,
-    borderColor: "#FFB700", // Changed to yellow
-    borderRadius: 12,
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "#FFB700", // Changed to yellow
-    backgroundColor: "rgba(255, 255, 255, 0.1)", // Translucent white
-    textAlign: "center", // Ensure number is centered
+    width: 56,
+    height: 56,
+    borderWidth: 1,
+    borderColor: THEME_COLORS.border,
+    borderRadius: RADIUS.control,
+    fontSize: 22,
+    fontWeight: "700",
+    color: THEME_COLORS.textPrimary,
+    backgroundColor: THEME_COLORS.surface,
+    textAlign: "center",
   },
   otpInputFilled: {
-    borderColor: "#FFB700", // Changed to yellow
-    backgroundColor: "rgba(255, 255, 255, 0.2)", // More visible when filled
+    borderColor: THEME_COLORS.borderStrong,
+    backgroundColor: THEME_COLORS.surfaceMuted,
+  },
+  otpInputFocused: {
+    ...INPUT_FOCUSED_TEXT,
+    backgroundColor: THEME_COLORS.surface,
   },
   verifyButton: {
-    backgroundColor: "#FFB700", // Changed to yellow
-    paddingVertical: 16,
-    borderRadius: 12,
-    alignItems: "center",
-    marginBottom: 20,
+    ...UI.primaryButton,
+    marginBottom: SPACE["2xl"],
   },
   disabledButton: {
     opacity: 0.6,
   },
   verifyButtonText: {
-    color: "#ffffff", // Changed to white
-    fontSize: 18,
-    fontWeight: "600",
+    ...UI.primaryButtonText,
   },
   resendContainer: {
     flexDirection: "row",
@@ -182,13 +233,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   resendText: {
-    color: "#ffffff", // Changed to white
-    fontSize: 16,
-    opacity: 0.8,
+    ...TYPOGRAPHY.body,
   },
   resendLink: {
-    color: "#FFB700", // Changed to yellow
-    fontSize: 16,
-    fontWeight: "600",
+    ...TYPOGRAPHY.bodyStrong,
+    color: THEME_COLORS.primary,
   },
 })

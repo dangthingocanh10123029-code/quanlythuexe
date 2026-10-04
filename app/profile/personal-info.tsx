@@ -1,7 +1,8 @@
 "use client"
 
 import { useState } from "react"
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, Image, Platform } from "react-native"
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, Image, Platform, type TextStyle } from "react-native"
+import { StatusBar } from "expo-status-bar"
 import DateTimePicker from "@react-native-community/datetimepicker"
 import { SafeAreaView } from "react-native-safe-area-context"
 import { Ionicons } from "@expo/vector-icons"
@@ -12,6 +13,7 @@ import { updateProfile } from "firebase/auth" // Add this import
 import { db, auth } from "../../config/firebase"
 import { useAuth } from "../../hooks/useAuth"
 import { formatDate } from "../../utils/helpers"
+import { PRESS_OPACITY, RADIUS, SPACE, THEME_COLORS, TYPOGRAPHY, UI } from "../../utils/theme"
 
 // Chuyển chuỗi "dd/mm/yyyy" thành Date (mặc định 15/01/1990 nếu không đọc được)
 const parseDob = (value?: string): Date => {
@@ -27,6 +29,7 @@ export default function PersonalInfoScreen() {
   const { user, refresh } = useAuth()
   const [isEditing, setIsEditing] = useState(false)
   const [showDobPicker, setShowDobPicker] = useState(false)
+  const [focusedField, setFocusedField] = useState<string | null>(null)
   const [userInfo, setUserInfo] = useState({
     fullName: user?.fullName || auth.currentUser?.displayName || "Nguyễn Văn An",
     email: user?.email || auth.currentUser?.email || "nguyenvanan@gmail.com",
@@ -110,29 +113,46 @@ export default function PersonalInfoScreen() {
     }
   }
 
+  // style ô nhập theo trạng thái (đang sửa / chỉ xem / đang focus)
+  const inputStyle = (field: string, extra?: TextStyle) => [
+    styles.input,
+    extra,
+    !isEditing && styles.disabledInput,
+    isEditing && focusedField === field && styles.inputFocused,
+  ]
+
+  const focusProps = (field: string) => ({
+    onFocus: () => setFocusedField(field),
+    onBlur: () => setFocusedField((prev) => (prev === field ? null : prev)),
+  })
+
   return (
     <SafeAreaView style={styles.container}>
+      <StatusBar style="dark" />
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={24} color="#ffffff" />
+        <TouchableOpacity style={styles.headerButton} onPress={() => router.back()} activeOpacity={PRESS_OPACITY}>
+          <Ionicons name="arrow-back" size={22} color={THEME_COLORS.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Thông tin cá nhân</Text>
         <TouchableOpacity
           onPress={() => {
             setIsEditing(!isEditing)
             setShowDobPicker(false)
+            setFocusedField(null)
           }}
+          activeOpacity={PRESS_OPACITY}
         >
-          <Text style={styles.editText}>{isEditing ? "Huỷ" : "Chỉnh sửa"}</Text>
+          <Text style={[styles.editText, isEditing && styles.editTextCancel]}>{isEditing ? "Huỷ" : "Chỉnh sửa"}</Text>
         </TouchableOpacity>
       </View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Avatar Section */}
         <View style={styles.avatarSection}>
           <TouchableOpacity
             onPress={isEditing ? pickImage : undefined}
             style={styles.avatarContainer}
+            activeOpacity={isEditing ? PRESS_OPACITY : 1}
           >
             <Image
               source={{
@@ -142,7 +162,7 @@ export default function PersonalInfoScreen() {
             />
             {isEditing && (
               <View style={styles.cameraIcon}>
-                <Ionicons name="camera" size={20} color="#ffffff" />
+                <Ionicons name="camera" size={18} color="#FFFFFF" />
               </View>
             )}
           </TouchableOpacity>
@@ -154,10 +174,12 @@ export default function PersonalInfoScreen() {
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Họ và tên</Text>
             <TextInput
-              style={[styles.input, !isEditing && styles.disabledInput]}
+              style={inputStyle("fullName")}
               value={userInfo.fullName}
               onChangeText={(text) => setUserInfo({ ...userInfo, fullName: text })}
               editable={isEditing}
+              placeholderTextColor={THEME_COLORS.textMuted}
+              {...focusProps("fullName")}
             />
           </View>
 
@@ -170,24 +192,31 @@ export default function PersonalInfoScreen() {
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Số điện thoại</Text>
             <TextInput
-              style={[styles.input, !isEditing && styles.disabledInput]}
+              style={inputStyle("phone")}
               value={userInfo.phone}
               onChangeText={(text) => setUserInfo({ ...userInfo, phone: text })}
               editable={isEditing}
               placeholder="0901 234 567"
+              placeholderTextColor={THEME_COLORS.textMuted}
               keyboardType="phone-pad"
+              {...focusProps("phone")}
             />
           </View>
 
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Ngày sinh</Text>
             <TouchableOpacity
-              style={[styles.input, styles.dateInput, !isEditing && styles.disabledInput]}
+              style={[
+                styles.dateInput,
+                !isEditing && styles.dateInputDisabled,
+                isEditing && showDobPicker && styles.dateInputFocused,
+              ]}
               disabled={!isEditing}
               onPress={() => setShowDobPicker((prev) => !prev)}
+              activeOpacity={PRESS_OPACITY}
             >
               <Text style={[styles.dateText, !isEditing && styles.dateTextDisabled]}>{userInfo.dateOfBirth}</Text>
-              {isEditing && <Ionicons name="calendar" size={20} color="#FFB700" />}
+              {isEditing && <Ionicons name="calendar-outline" size={20} color={THEME_COLORS.primary} />}
             </TouchableOpacity>
             {isEditing && showDobPicker && (
               <View style={Platform.OS === "ios" ? styles.iosPickerContainer : undefined}>
@@ -199,9 +228,14 @@ export default function PersonalInfoScreen() {
                   minimumDate={new Date(1900, 0, 1)}
                   onChange={onDobChange}
                   locale="vi-VN"
+                  textColor={THEME_COLORS.textPrimary}
                 />
                 {Platform.OS === "ios" && (
-                  <TouchableOpacity style={styles.pickerDoneButton} onPress={() => setShowDobPicker(false)}>
+                  <TouchableOpacity
+                    style={styles.pickerDoneButton}
+                    onPress={() => setShowDobPicker(false)}
+                    activeOpacity={PRESS_OPACITY}
+                  >
                     <Text style={styles.pickerDoneText}>Xong</Text>
                   </TouchableOpacity>
                 )}
@@ -212,32 +246,36 @@ export default function PersonalInfoScreen() {
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Địa chỉ</Text>
             <TextInput
-              style={[styles.input, styles.textArea, !isEditing && styles.disabledInput]}
+              style={inputStyle("address", styles.textArea)}
               value={userInfo.address}
               onChangeText={(text) => setUserInfo({ ...userInfo, address: text })}
               editable={isEditing}
               placeholder="Số nhà, tên đường, phường/xã, quận/huyện, tỉnh/thành phố"
+              placeholderTextColor={THEME_COLORS.textMuted}
               multiline
               numberOfLines={3}
+              {...focusProps("address")}
             />
           </View>
 
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Liên hệ khẩn cấp</Text>
             <TextInput
-              style={[styles.input, !isEditing && styles.disabledInput]}
+              style={inputStyle("emergencyContact")}
               value={userInfo.emergencyContact}
               onChangeText={(text) => setUserInfo({ ...userInfo, emergencyContact: text })}
               editable={isEditing}
               placeholder="Số điện thoại người thân"
+              placeholderTextColor={THEME_COLORS.textMuted}
               keyboardType="phone-pad"
+              {...focusProps("emergencyContact")}
             />
           </View>
         </View>
 
         {isEditing && (
           <View style={styles.buttonContainer}>
-            <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
+            <TouchableOpacity style={styles.saveButton} onPress={handleSave} activeOpacity={PRESS_OPACITY}>
               <Text style={styles.saveButtonText}>Lưu thay đổi</Text>
             </TouchableOpacity>
           </View>
@@ -249,147 +287,159 @@ export default function PersonalInfoScreen() {
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    backgroundColor: "#1054CF",
+    ...UI.screen,
   },
   header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingHorizontal: SPACE.screen,
+    paddingVertical: SPACE.md,
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(255, 255, 255, 0.1)",
+    borderBottomColor: THEME_COLORS.border,
+  },
+  headerButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: THEME_COLORS.surfaceMuted,
+    alignItems: "center",
+    justifyContent: "center",
   },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: "600",
-    color: "#ffffff",
+    ...TYPOGRAPHY.h3,
   },
   editText: {
-    fontSize: 16,
-    color: "#FFB700",
+    fontSize: 15,
+    color: THEME_COLORS.primary,
     fontWeight: "600",
+  },
+  editTextCancel: {
+    color: THEME_COLORS.textSecondary,
   },
   content: {
     flex: 1,
   },
+  scrollContent: {
+    paddingBottom: SPACE["4xl"],
+  },
   avatarSection: {
     alignItems: "center",
-    paddingVertical: 30,
-    borderBottomWidth: 1,
-    borderBottomColor: "rgba(255, 255, 255, 0.1)",
+    paddingTop: SPACE["3xl"],
+    paddingBottom: SPACE["2xl"],
   },
   avatarContainer: {
-    position: 'relative',
-    width: 120,
-    height: 120,
-    marginBottom: 12,
+    position: "relative",
+    width: 112,
+    height: 112,
+    marginBottom: SPACE.md,
   },
   avatar: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    borderWidth: 3,
-    borderColor: "#FFB700",
+    width: 112,
+    height: 112,
+    borderRadius: 56,
+    borderWidth: 1,
+    borderColor: THEME_COLORS.border,
+    backgroundColor: THEME_COLORS.surfaceMuted,
   },
   cameraIcon: {
     position: "absolute",
-    bottom: 0,
-    right: 0,
-    backgroundColor: "rgba(255, 183, 0, 0.2)",
-    borderRadius: 20,
-    width: 40,
-    height: 40,
+    bottom: 2,
+    right: 2,
+    backgroundColor: THEME_COLORS.primary,
+    borderRadius: 18,
+    width: 36,
+    height: 36,
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 2,
-    borderColor: "#FFB700",
+    borderWidth: 3,
+    borderColor: THEME_COLORS.surface,
   },
   avatarText: {
-    fontSize: 16,
-    color: "#ffffff",
-    opacity: 0.8,
+    ...TYPOGRAPHY.caption,
   },
   form: {
-    padding: 20,
+    paddingHorizontal: SPACE.screen,
   },
   inputGroup: {
-    marginBottom: 20,
+    marginBottom: SPACE.xl,
   },
   label: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#ffffff",
-    marginBottom: 8,
+    ...TYPOGRAPHY.bodyStrong,
+    fontSize: 14,
+    marginBottom: SPACE.sm,
   },
   input: {
-    borderWidth: 1,
-    borderColor: "#FFB700",
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontSize: 16,
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
-    color: "#ffffff",
+    ...UI.input,
+  },
+  inputFocused: {
+    ...(UI.inputFocused as TextStyle),
   },
   disabledInput: {
-    backgroundColor: "rgba(0, 0, 0, 0.2)",
-    borderColor: "rgba(255, 255, 255, 0.2)",
-    color: "rgba(255, 255, 255, 0.6)",
+    backgroundColor: THEME_COLORS.surfaceMuted,
+    borderColor: THEME_COLORS.border,
+    color: THEME_COLORS.textSecondary,
   },
+  // ô ngày sinh là TouchableOpacity (View) nên dựng lại từ các thuộc tính của UI.input
   dateInput: {
+    height: 48,
+    borderRadius: RADIUS.control,
+    borderWidth: 1,
+    borderColor: THEME_COLORS.border,
+    backgroundColor: THEME_COLORS.surface,
+    paddingHorizontal: SPACE.lg,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
   },
+  dateInputDisabled: {
+    backgroundColor: THEME_COLORS.surfaceMuted,
+  },
+  dateInputFocused: {
+    ...UI.inputFocused,
+  },
   dateText: {
-    fontSize: 16,
-    color: "#ffffff",
+    fontSize: 15,
+    color: THEME_COLORS.textPrimary,
   },
   dateTextDisabled: {
-    color: "rgba(255, 255, 255, 0.6)",
+    color: THEME_COLORS.textSecondary,
   },
   iosPickerContainer: {
-    marginTop: 8,
-    backgroundColor: "#ffffff",
-    borderRadius: 12,
+    ...UI.card,
+    marginTop: SPACE.sm,
     overflow: "hidden",
   },
   pickerDoneButton: {
     alignItems: "center",
-    paddingVertical: 12,
+    paddingVertical: SPACE.md,
     borderTopWidth: 1,
-    borderTopColor: "#e0e0e0",
+    borderTopColor: THEME_COLORS.border,
   },
   pickerDoneText: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: "600",
-    color: "#1054CF",
+    color: THEME_COLORS.primary,
   },
   textArea: {
-    minHeight: 80,
+    height: undefined,
+    minHeight: 96,
+    paddingTop: SPACE.md,
+    paddingBottom: SPACE.md,
     textAlignVertical: "top",
   },
   helperText: {
-    fontSize: 12,
-    color: "#666666",
-    marginTop: 4,
+    ...TYPOGRAPHY.caption,
+    marginTop: SPACE.xs,
   },
   buttonContainer: {
-    padding: 20,
+    paddingHorizontal: SPACE.screen,
+    paddingTop: SPACE.md,
   },
   saveButton: {
-    backgroundColor: "#FFB700",
-    paddingVertical: 16,
-    borderRadius: 16,
-    alignItems: "center",
-    marginTop: 20,
+    ...UI.primaryButton,
   },
   saveButtonText: {
-    color: "#ffffff",
-    fontSize: 18,
-    fontWeight: "600",
+    ...UI.primaryButtonText,
   },
 })
-
