@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState } from 'react'
-import { View, Text, StyleSheet, TouchableOpacity, Image, Dimensions, Modal, Alert, ActivityIndicator, Share, ScrollView } from 'react-native'
+import { View, Text, StyleSheet, TouchableOpacity, Image, Dimensions, Modal, Alert, Share, ScrollView } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons'
 import { router, useLocalSearchParams } from 'expo-router'
@@ -9,9 +9,11 @@ import { doc, updateDoc } from 'firebase/firestore'
 import { db } from '../config/firebase'
 import { formatCurrency, validatePhone } from '../utils/helpers'
 import { PAYMENT_METHODS } from '../utils/constants'
+import { PAYMENT_ASSETS } from '../data/assets'
 import PaymentLogo from '../components/ui/PaymentLogo'
 import { StatusBar } from 'expo-status-bar'
 import { THEME_COLORS, RADIUS, SPACE, SHADOWS, TYPOGRAPHY, UI, PRESS_OPACITY } from '../utils/theme'
+import { AppHeader, PrimaryButton } from '../components'
 
 const { width } = Dimensions.get('window')
 
@@ -138,7 +140,7 @@ export default function MomoPayment() {
 
             <View style={styles.qrContainer}>
               <Image
-                source={require('../assets/qr-code.jpg')}
+                source={PAYMENT_ASSETS.qrCode}
                 style={styles.qrCode}
                 resizeMode="contain"
               />
@@ -168,20 +170,22 @@ export default function MomoPayment() {
         </View>
       </Modal>
 
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.iconButton} onPress={() => router.back()} activeOpacity={PRESS_OPACITY}>
-          <Ionicons name="close" size={22} color={THEME_COLORS.textPrimary} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Xác nhận thanh toán</Text>
-        <View style={styles.headerRight}>
+      <AppHeader
+        title="Xác nhận thanh toán"
+        onBack={goBackSafely}
+        backIcon="close"
+        sideWidth={92}
+        right={(
+          <View style={styles.headerRight}>
           <TouchableOpacity style={styles.iconButton} onPress={handleShare} activeOpacity={PRESS_OPACITY}>
             <Ionicons name="share-social-outline" size={20} color={THEME_COLORS.textSecondary} />
           </TouchableOpacity>
           <TouchableOpacity style={styles.iconButton} onPress={() => setShowQRModal(true)} disabled={isProcessing} activeOpacity={PRESS_OPACITY}>
             <Ionicons name="ellipsis-vertical" size={20} color={THEME_COLORS.textSecondary} />
           </TouchableOpacity>
-        </View>
-      </View>
+          </View>
+        )}
+      />
 
       <ScrollView style={styles.content} contentContainerStyle={styles.contentInner} showsVerticalScrollIndicator={false}>
         <View style={styles.merchantBlock}>
@@ -222,18 +226,13 @@ export default function MomoPayment() {
 
       <SafeAreaView edges={["bottom"]} style={styles.footer}>
         <View style={styles.footerInner}>
-          <TouchableOpacity
-            style={[styles.payButton, isProcessing && styles.payButtonDisabled]}
+          <PrimaryButton
+            title={`Thanh toán ${formatCurrency(amount)}`}
             onPress={handlePay}
-            disabled={isProcessing}
-            activeOpacity={PRESS_OPACITY}
-          >
-            {isProcessing ? (
-              <ActivityIndicator color="#FFFFFF" />
-            ) : (
-              <Text style={styles.payButtonText}>Thanh toán {formatCurrency(amount)}</Text>
-            )}
-          </TouchableOpacity>
+            loading={isProcessing}
+            icon="shield-checkmark-outline"
+            style={styles.payButton}
+          />
         </View>
       </SafeAreaView>
     </SafeAreaView>
@@ -244,15 +243,6 @@ const styles = StyleSheet.create({
   container: {
     ...UI.screen,
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: SPACE.screen,
-    paddingVertical: SPACE.md,
-    borderBottomWidth: 1,
-    borderBottomColor: THEME_COLORS.border,
-  },
   iconButton: {
     width: 40,
     height: 40,
@@ -262,9 +252,6 @@ const styles = StyleSheet.create({
     backgroundColor: THEME_COLORS.surface,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  headerTitle: {
-    ...TYPOGRAPHY.h3,
   },
   headerRight: {
     flexDirection: 'row',
@@ -375,19 +362,12 @@ const styles = StyleSheet.create({
     paddingVertical: SPACE.md,
   },
   payButton: {
-    ...UI.primaryButton,
     backgroundColor: MOMO_COLOR,
     boxShadow: MOMO_BUTTON_SHADOW,
   },
-  payButtonDisabled: {
-    opacity: 0.7,
-  },
-  payButtonText: {
-    ...UI.primaryButtonText,
-  },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.45)',
+    backgroundColor: THEME_COLORS.overlay,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: SPACE.screen,

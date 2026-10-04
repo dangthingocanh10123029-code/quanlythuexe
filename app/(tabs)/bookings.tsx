@@ -7,7 +7,7 @@ import { Ionicons } from "@expo/vector-icons"
 import { router } from "expo-router"
 import DateTimePicker from "@react-native-community/datetimepicker"
 import { db } from "../../config/firebase"
-import { collection, query, where, orderBy, onSnapshot, doc, updateDoc } from "firebase/firestore"
+import { collection, query, where, onSnapshot, doc, updateDoc } from "firebase/firestore"
 import { useAuth } from "../../hooks/useAuth"
 import { formatCurrency, formatDate } from "../../utils/helpers"
 import { getBookingStatusLabel, PAYMENT_METHODS } from "../../utils/constants"
@@ -169,17 +169,17 @@ export default function BookingsScreen() {
 
     const fetchBookings = () => {
       const bookingsRef = collection(db, "bookings")
-      const q = query(
-        bookingsRef,
-        where("userId", "==", user.id),
-        orderBy("createdAt", "desc")
-      )
+      // Không dùng orderBy: where + orderBy cần composite index trên Firestore → sắp xếp phía client
+      const q = query(bookingsRef, where("userId", "==", user.id))
 
       const unsubscribe = onSnapshot(q, (snapshot) => {
         const bookingsData = snapshot.docs.map(doc => ({
           id: doc.id,
           ...doc.data()
         })) as Booking[]
+        const toTime = (value: any) =>
+          value?.toDate ? value.toDate().getTime() : value ? new Date(value).getTime() || 0 : 0
+        bookingsData.sort((a: any, b: any) => toTime(b.createdAt) - toTime(a.createdAt))
         setBookings(bookingsData)
         setLoading(false)
       }, (error) => {
@@ -909,7 +909,7 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(15, 23, 42, 0.45)",
+    backgroundColor: THEME_COLORS.overlay,
     justifyContent: "flex-end",
   },
   modalSheet: {

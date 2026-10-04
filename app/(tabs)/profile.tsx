@@ -76,9 +76,9 @@ const menuItems = [
 export default function ProfileScreen() {
   const { user, isAdmin } = useAuth()
   const [userProfile, setUserProfile] = useState({
-    name: user?.fullName || auth.currentUser?.displayName || "Nguyễn Văn An",
-    email: user?.email || auth.currentUser?.email || "nguyenvanan@gmail.com",
-    phone: user?.phone || "+84 901 234 567",
+    name: user?.fullName || auth.currentUser?.displayName || "Người dùng RENTO",
+    email: user?.email || auth.currentUser?.email || "",
+    phone: user?.phone || "",
     avatar: user?.avatar || auth.currentUser?.photoURL || "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgdmlld0JveD0iMCAwIDEwMCAxMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxjaXJjbGUgY3g9IjUwIiBjeT0iNTAiIHI9IjUwIiBmaWxsPSIjNDE2OWUxIi8+Cjx0ZXh0IHg9IjUwIiB5PSI1NSIgZmlsbD0id2hpdGUiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIiBmb250LWZhbWlseT0ic3lzdGVtLXVpIiBmb250LXNpemU9IjI0IiBmb250LXdlaWdodD0iYm9sZCI+TkE8L3RleHQ+Cjwvc3ZnPgo=",
     memberSince: formatMemberSince(user?.createdAt),
   })
@@ -88,9 +88,9 @@ export default function ProfileScreen() {
     useCallback(() => {
       setUserProfile(prev => ({
         ...prev,
-        name: user?.fullName || auth.currentUser?.displayName || "Nguyễn Văn An",
-        email: user?.email || auth.currentUser?.email || "nguyenvanan@gmail.com",
-        phone: user?.phone || "+84 901 234 567",
+        name: user?.fullName || auth.currentUser?.displayName || "Người dùng RENTO",
+        email: user?.email || auth.currentUser?.email || "",
+        phone: user?.phone || "",
         avatar: user?.avatar || auth.currentUser?.photoURL || prev.avatar,
         memberSince: formatMemberSince(user?.createdAt),
       }))
@@ -174,7 +174,7 @@ export default function ProfileScreen() {
           <View style={styles.userInfo}>
             <Text style={styles.userName} numberOfLines={1}>{userProfile.name}</Text>
             <Text style={styles.userEmail} numberOfLines={1}>{userProfile.email}</Text>
-            <Text style={styles.userPhone} numberOfLines={1}>{userProfile.phone}</Text>
+            {!!userProfile.phone && <Text style={styles.userPhone} numberOfLines={1}>{userProfile.phone}</Text>}
           </View>
           <TouchableOpacity
             style={styles.editButton}
@@ -388,7 +388,7 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(15, 23, 42, 0.45)",
+    backgroundColor: THEME_COLORS.overlay,
     justifyContent: "center",
     alignItems: "center",
     padding: SPACE.screen,

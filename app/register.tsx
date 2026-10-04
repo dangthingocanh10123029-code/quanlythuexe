@@ -4,7 +4,6 @@ import { useState } from "react"
 import {
   View,
   Text,
-  TextInput,
   TouchableOpacity,
   StyleSheet,
   Alert,
@@ -21,11 +20,7 @@ import { auth, db } from "../config/firebase"
 import { StatusBar } from "expo-status-bar"
 import { Ionicons } from "@expo/vector-icons"
 import { THEME_COLORS, RADIUS, SPACE, SHADOWS, TYPOGRAPHY, UI, PRESS_OPACITY } from "../utils/theme"
-import type { TextStyle, ViewStyle } from "react-native"
-
-// UI.input là TextStyle; khung chứa icon + ô nhập là View nên ép kiểu sang ViewStyle
-const INPUT_BOX = UI.input as unknown as ViewStyle
-const INPUT_FOCUSED_TEXT = UI.inputFocused as unknown as TextStyle
+import { AppInput, PrimaryButton } from "../components"
 
 export default function RegisterScreen() {
   const [formData, setFormData] = useState({
@@ -38,7 +33,6 @@ export default function RegisterScreen() {
   const [modalVisible, setModalVisible] = useState(false)
   const [modalTitle, setModalTitle] = useState("")
   const [modalMessage, setModalMessage] = useState("")
-  const [focusedField, setFocusedField] = useState<string | null>(null)
 
   const handleInputChange = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }))
@@ -188,43 +182,31 @@ export default function RegisterScreen() {
 
           <View style={styles.form}>
             {fields.map((field) => {
-              const focused = focusedField === field.key
               const isPassword = field.key === "password" || field.key === "confirmPassword"
               return (
-                <View key={field.key} style={styles.inputContainer}>
-                  <Text style={styles.label}>{field.label}</Text>
-                  <View style={[styles.inputWrapper, focused && UI.inputFocused]}>
-                    <Ionicons
-                      name={field.icon}
-                      size={20}
-                      color={focused ? THEME_COLORS.primary : THEME_COLORS.textMuted}
-                    />
-                    <TextInput
-                      style={styles.input}
-                      placeholder={field.placeholder}
-                      placeholderTextColor={THEME_COLORS.textMuted}
-                      value={formData[field.key]}
-                      onChangeText={(value) => handleInputChange(field.key, value)}
-                      onFocus={() => setFocusedField(field.key)}
-                      onBlur={() => setFocusedField((current) => (current === field.key ? null : current))}
-                      secureTextEntry={isPassword}
-                      autoCapitalize={field.key === "fullName" ? "words" : "none"}
-                      keyboardType={field.key === "email" ? "email-address" : "default"}
-                      autoCorrect={field.key === "email" ? false : undefined}
-                    />
-                  </View>
-                </View>
+                <AppInput
+                  key={field.key}
+                  label={field.label}
+                  icon={field.icon}
+                  placeholder={field.placeholder}
+                  value={formData[field.key]}
+                  onChangeText={(value) => handleInputChange(field.key, value)}
+                  secureTextEntry={isPassword}
+                  autoCapitalize={field.key === "fullName" ? "words" : "none"}
+                  keyboardType={field.key === "email" ? "email-address" : "default"}
+                  autoCorrect={field.key === "email" ? false : undefined}
+                  containerStyle={styles.inputContainer}
+                />
               )
             })}
 
-            <TouchableOpacity
-              style={[styles.registerButton, loading && styles.disabledButton]}
+            <PrimaryButton
+              title="Tạo tài khoản"
               onPress={handleRegister}
-              disabled={loading}
-              activeOpacity={PRESS_OPACITY}
-            >
-              <Text style={styles.registerButtonText}>{loading ? "Đang tạo tài khoản..." : "Tạo tài khoản"}</Text>
-            </TouchableOpacity>
+              loading={loading}
+              icon="arrow-forward"
+              style={styles.registerButton}
+            />
 
             <View style={styles.loginContainer}>
               <Text style={styles.loginText}>Đã có tài khoản? </Text>
@@ -288,33 +270,9 @@ const styles = StyleSheet.create({
   inputContainer: {
     marginBottom: SPACE.lg,
   },
-  label: {
-    ...TYPOGRAPHY.bodyStrong,
-    fontSize: 14,
-    marginBottom: SPACE.sm,
-  },
-  inputWrapper: {
-    ...INPUT_BOX,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: SPACE.md,
-  },
-  input: {
-    flex: 1,
-    height: "100%",
-    fontSize: 15,
-    color: THEME_COLORS.textPrimary,
-  },
   registerButton: {
-    ...UI.primaryButton,
     marginTop: SPACE.sm,
     marginBottom: SPACE["2xl"],
-  },
-  disabledButton: {
-    opacity: 0.7,
-  },
-  registerButtonText: {
-    ...UI.primaryButtonText,
   },
   loginContainer: {
     flexDirection: "row",
@@ -330,7 +288,7 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(15, 23, 42, 0.45)",
+    backgroundColor: THEME_COLORS.overlay,
     justifyContent: "center",
     alignItems: "center",
     padding: SPACE["2xl"],

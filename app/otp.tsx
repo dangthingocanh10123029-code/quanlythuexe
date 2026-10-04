@@ -1,42 +1,18 @@
 "use client"
 
-import { useState, useRef } from "react"
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from "react-native"
+import { useState } from "react"
+import { View, Text, TouchableOpacity, StyleSheet, Alert } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 import { router } from "expo-router"
 import { auth } from "../config/firebase"
 import { StatusBar } from "expo-status-bar"
 import { Ionicons } from "@expo/vector-icons"
 import { THEME_COLORS, RADIUS, SPACE, TYPOGRAPHY, UI, PRESS_OPACITY } from "../utils/theme"
-import type { TextStyle } from "react-native"
-
-// UI.inputFocused là ViewStyle; ô OTP là TextInput nên ép kiểu sang TextStyle
-const INPUT_FOCUSED_TEXT = UI.inputFocused as unknown as TextStyle
+import { OTPInput, PrimaryButton } from "../components"
 
 export default function OTPScreen() {
   const [otp, setOtp] = useState(["", "", "", ""])
   const [loading, setLoading] = useState(false)
-  const [focusedIndex, setFocusedIndex] = useState<number | null>(0)
-  const inputRefs = useRef<Array<TextInput | null>>([])
-
-  const handleOtpChange = (value: string, index: number) => {
-    // Allow only numeric input
-    if (!/^[0-9]?$/.test(value)) return
-
-    const newOtp = [...otp]
-    newOtp[index] = value
-    setOtp(newOtp)
-
-    if (value && index < 3) {
-      inputRefs.current[index + 1]?.focus()
-    }
-  }
-
-  const handleKeyPress = (key: string, index: number) => {
-    if (key === "Backspace" && !otp[index] && index > 0) {
-      inputRefs.current[index - 1]?.focus()
-    }
-  }
 
   const handleVerify = async () => {
     const otpCode = otp.join("")
@@ -68,7 +44,6 @@ export default function OTPScreen() {
   const handleResend = () => {
     Alert.alert("Đã gửi lại mã", "Mã xác thực (OTP) mới đã được gửi tới email của bạn")
     setOtp(["", "", "", ""])
-    inputRefs.current[0]?.focus()
   }
 
   return (
@@ -90,42 +65,15 @@ export default function OTPScreen() {
           <Text style={styles.subtitle}>Nhập mã gồm 4 chữ số vừa được gửi tới email của bạn</Text>
         </View>
 
-        <View style={styles.otpContainer}>
-          {otp.map((digit, index) => (
-            <TextInput
-              key={index}
-              ref={(el) => {
-                inputRefs.current[index] = el
-              }}
-              style={[
-                styles.otpInput,
-                digit ? styles.otpInputFilled : null,
-                focusedIndex === index && styles.otpInputFocused,
-              ]}
-              value={digit}
-              onChangeText={(value) => handleOtpChange(value, index)}
-              onKeyPress={({ nativeEvent }) => handleKeyPress(nativeEvent.key, index)}
-              onFocus={() => setFocusedIndex(index)}
-              onBlur={() => setFocusedIndex((current) => (current === index ? null : current))}
-              keyboardType="numeric"
-              maxLength={1}
-              textAlign="center"
-              autoFocus={index === 0}
-              selectionColor={THEME_COLORS.primary}
-            />
-          ))}
-        </View>
+        <OTPInput value={otp} onChange={setOtp} style={styles.otpContainer} />
 
-        <TouchableOpacity
-          style={[styles.verifyButton, loading && styles.disabledButton]}
+        <PrimaryButton
+          title="Xác thực"
           onPress={handleVerify}
-          disabled={loading}
-          activeOpacity={PRESS_OPACITY}
-        >
-          <Text style={styles.verifyButtonText}>
-            {loading ? "Đang xác thực..." : "Xác thực"}
-          </Text>
-        </TouchableOpacity>
+          loading={loading}
+          icon="shield-checkmark-outline"
+          style={styles.verifyButton}
+        />
 
         <View style={styles.resendContainer}>
           <Text style={styles.resendText}>Chưa nhận được mã? </Text>
@@ -192,40 +140,10 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   otpContainer: {
-    flexDirection: "row",
-    justifyContent: "center",
-    gap: SPACE.md,
     marginBottom: SPACE.section,
   },
-  otpInput: {
-    width: 56,
-    height: 56,
-    borderWidth: 1,
-    borderColor: THEME_COLORS.border,
-    borderRadius: RADIUS.control,
-    fontSize: 22,
-    fontWeight: "700",
-    color: THEME_COLORS.textPrimary,
-    backgroundColor: THEME_COLORS.surface,
-    textAlign: "center",
-  },
-  otpInputFilled: {
-    borderColor: THEME_COLORS.borderStrong,
-    backgroundColor: THEME_COLORS.surfaceMuted,
-  },
-  otpInputFocused: {
-    ...INPUT_FOCUSED_TEXT,
-    backgroundColor: THEME_COLORS.surface,
-  },
   verifyButton: {
-    ...UI.primaryButton,
     marginBottom: SPACE["2xl"],
-  },
-  disabledButton: {
-    opacity: 0.6,
-  },
-  verifyButtonText: {
-    ...UI.primaryButtonText,
   },
   resendContainer: {
     flexDirection: "row",

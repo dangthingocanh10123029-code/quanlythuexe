@@ -60,10 +60,10 @@ AsyncStorage: `rento:readNotificationIds` (thông báo demo đã đọc).
 - Tên thành viên trong `app/developers.tsx` giữ nguyên (ghi công tác giả gốc).
 
 ## Hệ thống thiết kế ("Layered & Depth")
-Mọi token nằm ở `utils/theme.ts` — dùng token, không hard-code màu/bóng:
+Token gốc nằm trong `theme/` (`colors.ts`, `spacing.ts`, `typography.ts`, `shadows.ts`); `utils/theme.ts` là lớp re-export tương thích. Dùng token, không hard-code màu/bóng:
 - Nền mọi màn `#FFFFFF` (`UI.screen`); header trắng, ngăn cách bằng `UI.divider` hoặc khoảng trắng. Không dùng nền xám/xanh toàn màn.
-- Thẻ nội dung: `...UI.card` (viền 1px `#E5E7EB`, bo 16, `SHADOWS.card` — bóng đa lớp bằng `boxShadow`, cần New Architecture đang bật). Modal/bottom sheet: bo `RADIUS.sheet`, `SHADOWS.raised`, lớp phủ `rgba(15,23,42,0.45)`.
-- Điều khiển (ô nhập, chip lọc, nút) bo **12px** (`RADIUS.control`). Ô nhập `UI.input` + `UI.inputFocused` khi focus (state `focusedField`). Chip `UI.chip`/`UI.chipActive`.
+- Thẻ nội dung: `...UI.card` (viền 1px `#E5E7EB`, bo 22, `SHADOWS.card` — bóng đa lớp bằng `boxShadow`, cần New Architecture đang bật). Modal/bottom sheet: bo 28 (`RADIUS.sheet`), `SHADOWS.raised`, lớp phủ `THEME_COLORS.overlay`.
+- Điều khiển: input/button bo 16, chip bo 14. Ô nhập `UI.input` + `UI.inputFocused`; chip `UI.chip`/`UI.chipActive`.
 - Nút: Primary `UI.primaryButton` (nâng nhẹ `SHADOWS.primaryButton`, tối đa 1–2 nút/màn); phụ `UI.secondaryButton` (phẳng, viền); nguy hiểm nền `dangerSoft` chữ `danger`. `activeOpacity={PRESS_OPACITY}`.
 - Chữ: `TYPOGRAPHY.h1/h2/h3/body/caption/overline/price`; màu chữ chỉ 3 cấp `textPrimary`/`textSecondary`/`textMuted`.
 - Khoảng trắng: lề màn `SPACE.screen` (20), giữa các khu vực `SPACE.section` (32). Màn trong tab chừa `paddingBottom` ~120 cho thanh tab nổi.
@@ -77,7 +77,6 @@ Mọi token nằm ở `utils/theme.ts` — dùng token, không hard-code màu/b�
 - Màn Cài đặt chỉ lưu `preferences`; chưa màn nào áp dụng (vd chế độ tối). Thông báo (`notifications.tsx`), GPLX demo, phương thức thanh toán đã lưu (`profile/payment.tsx`, chỉ state) vẫn là dữ liệu mẫu.
 - Field booking thực tế là `price`, `duration`, `location`, `carName`… — khác với `types/booking.ts`.
 - Query có `where` + `orderBy` trên Firestore cần composite index.
-- `app.json` trỏ tới `./assets/images/*` (icon, splash) nhưng thư mục đó không tồn tại.
 - Không có git trong thư mục này.
 
 ## Skills trong dự án

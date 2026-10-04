@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { type ViewStyle, View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, FlatList, Modal, TextInput, Image } from "react-native"
+import { type ViewStyle, View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, FlatList, Modal, Image } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 import { Ionicons } from "@expo/vector-icons"
 import { router, useLocalSearchParams } from "expo-router"
@@ -11,9 +11,9 @@ import { collection, addDoc } from "firebase/firestore"
 import { useAuth } from "../hooks/useAuth"
 import { formatCurrency } from "../utils/helpers"
 import { PICKUP_LOCATIONS, VAT_RATE, PAYMENT_METHODS } from "../utils/constants"
-import PaymentLogo from "../components/ui/PaymentLogo"
 import { StatusBar } from "expo-status-bar"
 import { THEME_COLORS, RADIUS, SPACE, SHADOWS, TYPOGRAPHY, UI, PRESS_OPACITY } from "../utils/theme"
+import { AppHeader, PaymentMethodCard, PrimaryButton, SearchBar } from "../components"
 
 
 // UI.input dùng cho View (ô chọn / khung tìm kiếm có icon)
@@ -73,7 +73,6 @@ export default function CheckoutScreen() {
   const [showErrorModal, setShowErrorModal] = useState(false)
   const [errorMessage, setErrorMessage] = useState("")
   const [errorTitle, setErrorTitle] = useState("")
-  const [focusedField, setFocusedField] = useState<string | null>(null)
 
   if (!car) {
     return (
@@ -181,13 +180,7 @@ export default function CheckoutScreen() {
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       <StatusBar style="dark" />
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.iconButton} onPress={() => router.back()} activeOpacity={PRESS_OPACITY}>
-          <Ionicons name="arrow-back" size={22} color={THEME_COLORS.textPrimary} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Xác nhận đặt xe</Text>
-        <View style={{ width: 40 }} />
-      </View>
+      <AppHeader title="Xác nhận đặt xe" onBack={() => router.back()} />
 
       <ScrollView style={styles.content} contentContainerStyle={styles.contentInner} showsVerticalScrollIndicator={false}>
         {/* Car Summary */}
@@ -292,37 +285,18 @@ export default function CheckoutScreen() {
         {/* Payment Method */}
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>Phương thức thanh toán</Text>
-          {paymentMethods.map((method, index) => (
-            <TouchableOpacity
+          <View style={styles.paymentMethods}>
+          {paymentMethods.map((method) => (
+            <PaymentMethodCard
               key={method.id}
-              style={[
-                styles.paymentMethod,
-                index === paymentMethods.length - 1 && styles.lastOption,
-                selectedPayment === method.id && styles.optionSelected
-              ]}
+              method={method.id}
+              title={method.name}
+              subtitle={method.subtitle}
+              selected={selectedPayment === method.id}
               onPress={() => setSelectedPayment(method.id)}
-              activeOpacity={PRESS_OPACITY}
-            >
-              <View style={styles.paymentInfo}>
-                <PaymentLogo method={method.id} size={36} />
-                <View style={{ flex: 1 }}>
-                  <Text style={[
-                    styles.paymentName,
-                    selectedPayment === method.id && styles.optionNameSelected
-                  ]}>
-                    {method.name}
-                  </Text>
-                  <Text style={styles.paymentSubtitle}>{method.subtitle}</Text>
-                </View>
-              </View>
-              <View style={[
-                styles.radio,
-                selectedPayment === method.id && styles.selectedRadio
-              ]}>
-                {selectedPayment === method.id && <View style={styles.radioDot} />}
-              </View>
-            </TouchableOpacity>
+            />
           ))}
+          </View>
         </View>
 
         {/* Price Breakdown */}
@@ -354,19 +328,12 @@ export default function CheckoutScreen() {
       {/* Confirm Button */}
       <SafeAreaView edges={["bottom"]} style={styles.confirmContainer}>
         <View style={styles.confirmInner}>
-          <TouchableOpacity
-            style={[
-              styles.continueButton,
-              (!selectedPayment || !selectedDuration) && styles.disabledButton
-            ]}
+          <PrimaryButton
+            title={`Tiếp tục thanh toán • ${formatCurrency(total)}`}
             onPress={handleConfirmBooking}
             disabled={!selectedPayment || !selectedDuration}
-            activeOpacity={PRESS_OPACITY}
-          >
-            <Text style={styles.continueButtonText}>
-              Tiếp tục thanh toán • {formatCurrency(total)}
-            </Text>
-          </TouchableOpacity>
+            icon="arrow-forward"
+          />
         </View>
       </SafeAreaView>
 
@@ -386,18 +353,12 @@ export default function CheckoutScreen() {
                 <Ionicons name="close" size={20} color={THEME_COLORS.textSecondary} />
               </TouchableOpacity>
             </View>
-            <View style={[styles.searchBox, focusedField === "search" && styles.inputFocused]}>
-              <Ionicons name="search" size={18} color={focusedField === "search" ? THEME_COLORS.primary : THEME_COLORS.textMuted} />
-              <TextInput
-                style={styles.searchInput}
-                placeholder="Tìm điểm nhận xe..."
-                placeholderTextColor={THEME_COLORS.textMuted}
-                value={locationSearch}
-                onChangeText={filterLocations}
-                onFocus={() => setFocusedField("search")}
-                onBlur={() => setFocusedField(null)}
-              />
-            </View>
+            <SearchBar
+              value={locationSearch}
+              onChangeText={filterLocations}
+              placeholder="Tìm điểm nhận xe..."
+              containerStyle={styles.searchBox}
+            />
             <FlatList
               data={filteredLocations}
               keyExtractor={(item) => item}
@@ -457,15 +418,6 @@ const styles = StyleSheet.create({
   container: {
     ...UI.screen,
   },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: SPACE.screen,
-    paddingVertical: SPACE.md,
-    borderBottomWidth: 1,
-    borderBottomColor: THEME_COLORS.border,
-  },
   iconButton: {
     width: 40,
     height: 40,
@@ -475,9 +427,6 @@ const styles = StyleSheet.create({
     backgroundColor: THEME_COLORS.surface,
     alignItems: "center",
     justifyContent: "center",
-  },
-  headerTitle: {
-    ...TYPOGRAPHY.h3,
   },
   content: {
     flex: 1,
@@ -605,51 +554,8 @@ const styles = StyleSheet.create({
     backgroundColor: THEME_COLORS.primary,
     borderColor: THEME_COLORS.primary,
   },
-  paymentMethod: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: SPACE.md,
-    paddingHorizontal: SPACE.lg,
-    backgroundColor: THEME_COLORS.surface,
-    borderRadius: RADIUS.control,
-    marginBottom: SPACE.sm,
-    borderWidth: 1,
-    borderColor: THEME_COLORS.border,
-  },
-  paymentInfo: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACE.md,
-    marginRight: SPACE.md,
-  },
-  paymentName: {
-    ...TYPOGRAPHY.bodyStrong,
-  },
-  paymentSubtitle: {
-    ...TYPOGRAPHY.caption,
-    fontSize: 12,
-    marginTop: 2,
-  },
-  radio: {
-    width: 20,
-    height: 20,
-    borderRadius: RADIUS.pill,
-    borderWidth: 1.5,
-    borderColor: THEME_COLORS.borderStrong,
-    backgroundColor: THEME_COLORS.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  selectedRadio: {
-    borderColor: THEME_COLORS.primary,
-  },
-  radioDot: {
-    width: 10,
-    height: 10,
-    borderRadius: RADIUS.pill,
-    backgroundColor: THEME_COLORS.primary,
+  paymentMethods: {
+    gap: SPACE.sm,
   },
   priceRow: {
     flexDirection: "row",
@@ -687,19 +593,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACE.screen,
     paddingVertical: SPACE.md,
   },
-  continueButton: {
-    ...UI.primaryButton,
-  },
-  continueButtonText: {
-    ...UI.primaryButtonText,
-  },
-  disabledButton: {
-    backgroundColor: THEME_COLORS.borderStrong,
-    boxShadow: "none",
-  },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.45)',
+    backgroundColor: THEME_COLORS.overlay,
     justifyContent: 'flex-end',
   },
   modalOverlayCenter: {
@@ -735,21 +631,7 @@ const styles = StyleSheet.create({
     ...TYPOGRAPHY.h2,
   },
   searchBox: {
-    ...INPUT_BOX,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: SPACE.md,
     marginBottom: SPACE.lg,
-  },
-  inputFocused: {
-    ...UI.inputFocused,
-  },
-  searchInput: {
-    flex: 1,
-    height: '100%',
-    marginLeft: SPACE.sm,
-    fontSize: 15,
-    color: THEME_COLORS.textPrimary,
   },
   locationItem: {
     flexDirection: 'row',

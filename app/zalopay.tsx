@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState } from 'react'
-import { type TextStyle, View, Text, StyleSheet, TouchableOpacity, TextInput, Modal, Alert, ActivityIndicator, Linking, ScrollView } from 'react-native'
+import { View, Text, StyleSheet, TouchableOpacity, Modal, Alert, Linking, ScrollView } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons'
 import { router, useLocalSearchParams } from 'expo-router'
@@ -12,6 +12,7 @@ import { PAYMENT_METHODS } from '../utils/constants'
 import PaymentLogo from '../components/ui/PaymentLogo'
 import { StatusBar } from 'expo-status-bar'
 import { THEME_COLORS, RADIUS, SPACE, SHADOWS, TYPOGRAPHY, UI, PRESS_OPACITY } from '../utils/theme'
+import { AppHeader, AppInput, PrimaryButton } from '../components'
 
 // Màu thương hiệu ZaloPay: chỉ dùng cho logo, điểm nhấn và nút thanh toán
 const ZALOPAY_COLOR = PAYMENT_METHODS.ZALOPAY.color // #0068FF
@@ -33,7 +34,6 @@ export default function ZaloPayPayment() {
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [phone, setPhone] = useState('')
   const [pin, setPin] = useState('')
-  const [focusedField, setFocusedField] = useState<string | null>(null)
   const [showSuccessModal, setShowSuccessModal] = useState(false)
 
   const [isProcessing, setIsProcessing] = useState(false)
@@ -134,13 +134,7 @@ export default function ZaloPayPayment() {
     return (
       <SafeAreaView style={styles.container} edges={["top"]}>
         <StatusBar style="dark" />
-        <View style={styles.header}>
-          <TouchableOpacity style={styles.iconButton} onPress={() => router.back()} activeOpacity={PRESS_OPACITY}>
-            <Ionicons name="arrow-back" size={22} color={THEME_COLORS.textPrimary} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Xác nhận thanh toán</Text>
-          <View style={{ width: 40 }} />
-        </View>
+        <AppHeader title="Xác nhận thanh toán" onBack={goBackSafely} />
 
         <ScrollView style={styles.flex} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
           <PaymentLogo method="zalopay" size={72} style={styles.iconContainer} />
@@ -159,18 +153,13 @@ export default function ZaloPayPayment() {
 
         <SafeAreaView edges={["bottom"]} style={styles.footer}>
           <View style={styles.footerInner}>
-            <TouchableOpacity
-              style={[styles.payButton, isProcessing && styles.payButtonDisabled]}
+            <PrimaryButton
+              title={`Thanh toán ${formatCurrency(parsedAmount)}`}
               onPress={handlePay}
-              disabled={isProcessing}
-              activeOpacity={PRESS_OPACITY}
-            >
-              {isProcessing ? (
-                <ActivityIndicator color="#FFFFFF" />
-              ) : (
-                <Text style={styles.payButtonText}>Thanh toán {formatCurrency(parsedAmount)}</Text>
-              )}
-            </TouchableOpacity>
+              loading={isProcessing}
+              icon="shield-checkmark-outline"
+              style={styles.payButton}
+            />
           </View>
         </SafeAreaView>
 
@@ -197,54 +186,43 @@ export default function ZaloPayPayment() {
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar style="dark" />
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.iconButton} onPress={() => router.back()} activeOpacity={PRESS_OPACITY}>
-          <Ionicons name="arrow-back" size={22} color={THEME_COLORS.textPrimary} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Thanh toán ZaloPay</Text>
-        <View style={{ width: 40 }} />
-      </View>
+      <AppHeader title="Thanh toán ZaloPay" subtitle="Kết nối ví để tiếp tục" onBack={goBackSafely} />
 
       <ScrollView style={styles.flex} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
         <PaymentLogo method="zalopay" size={80} style={styles.logo} />
         <Text style={styles.loginHint}>Đăng nhập bằng số điện thoại Zalo của bạn</Text>
 
         <View style={styles.loginSection}>
-          <TextInput
-            style={[styles.input, focusedField === "phone" && styles.inputFocused]}
+          <AppInput
+            icon="call-outline"
             placeholder="Số điện thoại (vd: 0901 234 567)"
-            placeholderTextColor={THEME_COLORS.textMuted}
             keyboardType="phone-pad"
             autoCapitalize="none"
             value={phone}
-            onFocus={() => setFocusedField("phone")}
-            onBlur={() => setFocusedField(null)}
             onChangeText={setPhone}
+            containerStyle={styles.input}
           />
 
-          <TextInput
-            style={[styles.input, focusedField === "pin" && styles.inputFocused]}
+          <AppInput
+            icon="lock-closed-outline"
             placeholder="Mã PIN ZaloPay (6 số)"
-            placeholderTextColor={THEME_COLORS.textMuted}
             secureTextEntry
             keyboardType="number-pad"
             maxLength={6}
             value={pin}
-            onFocus={() => setFocusedField("pin")}
-            onBlur={() => setFocusedField(null)}
             onChangeText={(text) => setPin(text.replace(/\D/g, ''))}
+            containerStyle={styles.input}
           />
 
-          <TouchableOpacity
+          <PrimaryButton
+            title="Đăng nhập"
+            icon="arrow-forward"
             style={styles.loginButton}
-            activeOpacity={PRESS_OPACITY}
             onPress={() => {
               if (!validateCredentials()) return
               setIsLoggedIn(true)
             }}
-          >
-            <Text style={styles.loginButtonText}>Đăng nhập</Text>
-          </TouchableOpacity>
+          />
 
           <TouchableOpacity onPress={handleForgotPin} activeOpacity={PRESS_OPACITY} style={styles.forgotButton}>
             <Text style={styles.forgotText}>Quên mã PIN?</Text>
@@ -272,28 +250,6 @@ const styles = StyleSheet.create({
   flex: {
     flex: 1,
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: SPACE.screen,
-    paddingVertical: SPACE.md,
-    borderBottomWidth: 1,
-    borderBottomColor: THEME_COLORS.border,
-  },
-  iconButton: {
-    width: 40,
-    height: 40,
-    borderRadius: RADIUS.control,
-    borderWidth: 1,
-    borderColor: THEME_COLORS.border,
-    backgroundColor: THEME_COLORS.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerTitle: {
-    ...TYPOGRAPHY.h3,
-  },
   content: {
     paddingHorizontal: SPACE.screen,
     paddingTop: SPACE["4xl"],
@@ -313,24 +269,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   input: {
-    ...UI.input,
     width: '100%',
     marginBottom: SPACE.md,
   },
-  inputFocused: {
-    ...(UI.inputFocused as TextStyle),
-    borderColor: ZALOPAY_COLOR,
-    boxShadow: "0px 0px 0px 3px rgba(0, 104, 255, 0.12)",
-  },
   loginButton: {
-    ...UI.primaryButton,
     width: '100%',
     marginTop: SPACE.sm,
     backgroundColor: ZALOPAY_COLOR,
     boxShadow: ZALOPAY_BUTTON_SHADOW,
-  },
-  loginButtonText: {
-    ...UI.primaryButtonText,
   },
   forgotButton: {
     paddingVertical: SPACE.md,
@@ -409,19 +355,12 @@ const styles = StyleSheet.create({
     paddingVertical: SPACE.md,
   },
   payButton: {
-    ...UI.primaryButton,
     backgroundColor: ZALOPAY_COLOR,
     boxShadow: ZALOPAY_BUTTON_SHADOW,
   },
-  payButtonDisabled: {
-    opacity: 0.7,
-  },
-  payButtonText: {
-    ...UI.primaryButtonText,
-  },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.45)',
+    backgroundColor: THEME_COLORS.overlay,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: SPACE.screen,

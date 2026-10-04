@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, Image, Platform, type TextStyle } from "react-native"
 import { StatusBar } from "expo-status-bar"
 import DateTimePicker from "@react-native-community/datetimepicker"
@@ -25,20 +25,32 @@ const parseDob = (value?: string): Date => {
   return new Date(1990, 0, 15)
 }
 
+const DEFAULT_AVATAR =
+  "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgdmlld0JveD0iMCAwIDEwMCAxMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxjaXJjbGUgY3g9IjUwIiBjeT0iNTAiIHI9IjUwIiBmaWxsPSIjNDE2OWUxIi8+Cjx0ZXh0IHg9IjUwIiB5PSI1NSIgZmlsbD0id2hpdGUiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIiBmb250LWZhbWlseT0ic3lzdGVtLXVpIiBmb250LXNpemU9IjI0IiBmb250LXdlaWdodD0iYm9sZCI+TkE8L3RleHQ+Cjwvc3ZnPgo="
+
 export default function PersonalInfoScreen() {
   const { user, refresh } = useAuth()
   const [isEditing, setIsEditing] = useState(false)
   const [showDobPicker, setShowDobPicker] = useState(false)
   const [focusedField, setFocusedField] = useState<string | null>(null)
-  const [userInfo, setUserInfo] = useState({
-    fullName: user?.fullName || auth.currentUser?.displayName || "Nguyễn Văn An",
-    email: user?.email || auth.currentUser?.email || "nguyenvanan@gmail.com",
-    phone: user?.phone || "+84 901 234 567",
-    dateOfBirth: user?.dateOfBirth || "15/01/1990",
-    address: user?.address || "123 Nguyễn Huệ, Phường Bến Nghé, Quận 1, TP. Hồ Chí Minh",
-    emergencyContact: user?.emergencyContact || "+84 908 765 432",
-    avatar: user?.avatar || "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgdmlld0JveD0iMCAwIDEwMCAxMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxjaXJjbGUgY3g9IjUwIiBjeT0iNTAiIHI9IjUwIiBmaWxsPSIjNDE2OWUxIi8+Cjx0ZXh0IHg9IjUwIiB5PSI1NSIgZmlsbD0id2hpdGUiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIiBmb250LWZhbWlseT0ic3lzdGVtLXVpIiBmb250LXNpemU9IjI0IiBmb250LXdlaWdodD0iYm9sZCI+TkE8L3RleHQ+Cjwvc3ZnPgo=",
+  // Lấy dữ liệu thật của tài khoản; trường chưa có để trống (hiện placeholder) thay vì dữ liệu mẫu
+  const fromUser = () => ({
+    fullName: user?.fullName || auth.currentUser?.displayName || "",
+    email: user?.email || auth.currentUser?.email || "",
+    phone: user?.phone || "",
+    dateOfBirth: user?.dateOfBirth || "",
+    address: user?.address || "",
+    emergencyContact: user?.emergencyContact || "",
+    avatar: user?.avatar || DEFAULT_AVATAR,
   })
+  const [userInfo, setUserInfo] = useState(fromUser)
+
+  // useAuth tải hồ sơ bất đồng bộ → đồng bộ lại form khi có dữ liệu (trừ lúc đang chỉnh sửa)
+  useEffect(() => {
+    if (!isEditing) setUserInfo(fromUser())
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user])
+
 
   const onDobChange = (event: any, selected?: Date) => {
     if (Platform.OS !== "ios") setShowDobPicker(false)
@@ -215,7 +227,7 @@ export default function PersonalInfoScreen() {
               onPress={() => setShowDobPicker((prev) => !prev)}
               activeOpacity={PRESS_OPACITY}
             >
-              <Text style={[styles.dateText, !isEditing && styles.dateTextDisabled]}>{userInfo.dateOfBirth}</Text>
+              <Text style={[styles.dateText, !isEditing && styles.dateTextDisabled]}>{userInfo.dateOfBirth || "Chọn ngày sinh"}</Text>
               {isEditing && <Ionicons name="calendar-outline" size={20} color={THEME_COLORS.primary} />}
             </TouchableOpacity>
             {isEditing && showDobPicker && (

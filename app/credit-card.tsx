@@ -1,6 +1,6 @@
 "use client"
 
-import { type TextStyle, View, Text, StyleSheet, TouchableOpacity, TextInput, Modal, Image, Animated, Alert, ActivityIndicator, ScrollView } from 'react-native'
+import { View, Text, StyleSheet, Modal, Image, Animated, Alert, ScrollView } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons'
 import { router, useLocalSearchParams } from 'expo-router'
@@ -9,8 +9,10 @@ import { doc, updateDoc } from 'firebase/firestore'
 import { db } from "../config/firebase"
 import { formatCurrency } from "../utils/helpers"
 import { PAYMENT_METHODS } from "../utils/constants"
+import { PAYMENT_ASSETS } from "../data/assets"
 import { StatusBar } from "expo-status-bar"
-import { THEME_COLORS, RADIUS, SPACE, SHADOWS, TYPOGRAPHY, UI, PRESS_OPACITY } from "../utils/theme"
+import { THEME_COLORS, RADIUS, SPACE, SHADOWS, TYPOGRAPHY, UI } from "../utils/theme"
+import { AppHeader, AppInput, PrimaryButton } from "../components"
 
 
 // Quay lại màn trước; nếu không có lịch sử (vào thẳng màn hình) thì về danh sách đơn
@@ -51,7 +53,6 @@ export default function CreditCardScreen() {
   const [expiry, setExpiry] = useState('')
   const [cvv, setCvv] = useState('')
   const [isFlipped, setIsFlipped] = useState(false)
-  const [focusedField, setFocusedField] = useState<string | null>(null)
   const flipAnimation = useRef(new Animated.Value(0)).current
 
   // Vào thẳng màn hình mà không có mã đơn đặt xe → báo lỗi và quay lại
@@ -182,13 +183,7 @@ export default function CreditCardScreen() {
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       <StatusBar style="dark" />
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.iconButton} onPress={() => router.back()} activeOpacity={PRESS_OPACITY}>
-          <Ionicons name="arrow-back" size={22} color={THEME_COLORS.textPrimary} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Thanh toán bằng thẻ</Text>
-        <View style={{ width: 40 }} />
-      </View>
+      <AppHeader title="Thanh toán bằng thẻ" subtitle="Bảo mật và xác thực an toàn" onBack={goBackSafely} />
 
       <ScrollView
         style={styles.content}
@@ -201,12 +196,12 @@ export default function CreditCardScreen() {
           <Animated.View style={[styles.cardPreview, frontAnimatedStyle]}>
             <View style={styles.cardTopRow}>
               <Image
-                source={require('../assets/card-chip.png')}
+                source={PAYMENT_ASSETS.cardChip}
                 style={styles.chip}
                 resizeMode="contain"
               />
               <Image
-                source={require('../assets/creditcard-logo.png')}
+                source={PAYMENT_ASSETS.cardNetwork}
                 style={styles.cardLogoLarge}
                 resizeMode="contain"
               />
@@ -247,31 +242,26 @@ export default function CreditCardScreen() {
         <View style={styles.cardSection}>
           <Text style={styles.sectionTitle}>Thông tin thẻ</Text>
 
-          <TextInput
-            style={[styles.input, focusedField === "number" && styles.inputFocused]}
+          <AppInput
+            icon="card-outline"
             placeholder="Số thẻ"
-            placeholderTextColor={THEME_COLORS.textMuted}
             keyboardType="numeric"
             maxLength={16}
             value={cardNumber}
-            onFocus={() => setFocusedField("number")}
-            onBlur={() => setFocusedField(null)}
             onChangeText={(text) => {
               const cleaned = text.replace(/\D/g, '')
               setCardNumber(cleaned)
             }}
+            containerStyle={styles.inputField}
           />
 
           <View style={styles.row}>
-            <TextInput
-              style={[styles.input, styles.expiryInput, focusedField === "expiry" && styles.inputFocused]}
+            <AppInput
+              icon="calendar-outline"
               placeholder="MM/YY"
-              placeholderTextColor={THEME_COLORS.textMuted}
               keyboardType="numeric"
               maxLength={5}
               value={expiry}
-              onFocus={() => setFocusedField("expiry")}
-              onBlur={() => setFocusedField(null)}
               onChangeText={(text) => {
                 const cleaned = text.replace(/\D/g, '')
                 if (cleaned.length >= 2) {
@@ -280,35 +270,31 @@ export default function CreditCardScreen() {
                   setExpiry(cleaned)
                 }
               }}
+              containerStyle={styles.expiryInput}
             />
-            <TextInput
-              style={[styles.input, styles.cvvInput, focusedField === "cvv" && styles.inputFocused]}
+            <AppInput
+              icon="lock-closed-outline"
               placeholder="CVV"
-              placeholderTextColor={THEME_COLORS.textMuted}
               keyboardType="numeric"
               maxLength={3}
               value={cvv}
               onFocus={() => {
-                setFocusedField("cvv")
                 flipCard(true)
               }}
               onBlur={() => {
-                setFocusedField(null)
                 flipCard(false)
               }}
               onChangeText={(text) => setCvv(text.replace(/\D/g, ''))}
               secureTextEntry
+              containerStyle={styles.cvvInput}
             />
           </View>
 
-          <TextInput
-            style={[styles.input, styles.lastInput, focusedField === "name" && styles.inputFocused]}
+          <AppInput
+            icon="person-outline"
             placeholder="Tên chủ thẻ (không dấu)"
-            placeholderTextColor={THEME_COLORS.textMuted}
             autoCapitalize="characters"
             value={cardName}
-            onFocus={() => setFocusedField("name")}
-            onBlur={() => setFocusedField(null)}
             onChangeText={setCardName}
           />
         </View>
@@ -321,18 +307,12 @@ export default function CreditCardScreen() {
 
       <SafeAreaView edges={["bottom"]} style={styles.footer}>
         <View style={styles.footerInner}>
-          <TouchableOpacity
-            style={[styles.payButton, isProcessing && styles.payButtonDisabled]}
+          <PrimaryButton
+            title={`Thanh toán ${formatCurrency(amount)}`}
             onPress={handlePay}
-            disabled={isProcessing}
-            activeOpacity={PRESS_OPACITY}
-          >
-            {isProcessing ? (
-              <ActivityIndicator color="#FFFFFF" />
-            ) : (
-              <Text style={styles.payButtonText}>Thanh toán {formatCurrency(amount)}</Text>
-            )}
-          </TouchableOpacity>
+            loading={isProcessing}
+            icon="shield-checkmark-outline"
+          />
         </View>
       </SafeAreaView>
 
@@ -359,28 +339,6 @@ export default function CreditCardScreen() {
 const styles = StyleSheet.create({
   container: {
     ...UI.screen,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: SPACE.screen,
-    paddingVertical: SPACE.md,
-    borderBottomWidth: 1,
-    borderBottomColor: THEME_COLORS.border,
-  },
-  iconButton: {
-    width: 40,
-    height: 40,
-    borderRadius: RADIUS.control,
-    borderWidth: 1,
-    borderColor: THEME_COLORS.border,
-    backgroundColor: THEME_COLORS.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerTitle: {
-    ...TYPOGRAPHY.h3,
   },
   content: {
     flex: 1,
@@ -465,23 +423,19 @@ const styles = StyleSheet.create({
     ...TYPOGRAPHY.h3,
     marginBottom: SPACE.lg,
   },
-  input: {
-    ...UI.input,
+  inputField: {
     marginBottom: SPACE.md,
-  },
-  inputFocused: UI.inputFocused as TextStyle,
-  lastInput: {
-    marginBottom: 0,
   },
   row: {
     flexDirection: 'row',
+    gap: SPACE.md,
+    marginBottom: SPACE.md,
   },
   expiryInput: {
-    flex: 0.7,      // less than 1, so it's shorter
-    marginRight: SPACE.md,
+    flex: 1,
   },
   cvvInput: {
-    flex: 1.3,      // more than 1, so it's wider
+    flex: 1,
   },
   footer: {
     backgroundColor: THEME_COLORS.surface,
@@ -492,18 +446,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACE.screen,
     paddingVertical: SPACE.md,
   },
-  payButton: {
-    ...UI.primaryButton,
-  },
-  payButtonDisabled: {
-    opacity: 0.7,
-  },
-  payButtonText: {
-    ...UI.primaryButtonText,
-  },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.45)',
+    backgroundColor: THEME_COLORS.overlay,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: SPACE.screen,

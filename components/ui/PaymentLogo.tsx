@@ -1,6 +1,6 @@
-import { View, Text, StyleSheet, type ViewStyle } from "react-native"
-import { Ionicons } from "@expo/vector-icons"
+import { View, Text, Image, StyleSheet, type ViewStyle } from "react-native"
 import { PAYMENT_METHODS } from "../../utils/constants"
+import { PAYMENT_ASSETS } from "../../data/assets"
 
 type PaymentMethodId = "credit-card" | "momo" | "zalopay"
 
@@ -23,7 +23,11 @@ export default function PaymentLogo({ method, size = 48, style }: PaymentLogoPro
           style,
         ]}
       >
-        <Ionicons name="card" size={size * 0.55} color="#fff" />
+        <Image
+          source={PAYMENT_ASSETS.cardNetwork}
+          style={{ width: size * 0.72, height: size * 0.72 }}
+          resizeMode="contain"
+        />
       </View>
     )
   }

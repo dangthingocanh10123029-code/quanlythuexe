@@ -21,10 +21,9 @@ import { auth, db } from "../config/firebase"
 import { StatusBar } from "expo-status-bar"
 import { Ionicons } from "@expo/vector-icons"
 import { THEME_COLORS, RADIUS, SPACE, SHADOWS, TYPOGRAPHY, UI, PRESS_OPACITY } from "../utils/theme"
-import type { TextStyle, ViewStyle } from "react-native"
+import type { TextStyle } from "react-native"
+import { AppInput, PrimaryButton } from "../components"
 
-// UI.input là TextStyle; khung chứa icon + ô nhập là View nên ép kiểu sang ViewStyle
-const INPUT_BOX = UI.input as unknown as ViewStyle
 const INPUT_FOCUSED_TEXT = UI.inputFocused as unknown as TextStyle
 
 const getAuthErrorMessage = (code?: string) => {
@@ -375,59 +374,40 @@ export default function LoginScreen() {
           </View>
 
           <View style={styles.form}>
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Email</Text>
-              <View style={[styles.inputWrapper, focusedField === "email" && UI.inputFocused]}>
-                <Ionicons
-                  name="mail-outline"
-                  size={20}
-                  color={focusedField === "email" ? THEME_COLORS.primary : THEME_COLORS.textMuted}
-                />
-                <TextInput
-                  style={styles.input}
-                  placeholder="Nhập email của bạn"
-                  value={email}
-                  onChangeText={setEmail}
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  {...inputProps("email")}
-                />
-              </View>
-            </View>
+            <AppInput
+              label="Email"
+              icon="mail-outline"
+              placeholder="Nhập email của bạn"
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+              containerStyle={styles.inputContainer}
+            />
 
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Mật khẩu</Text>
-              <View style={[styles.inputWrapper, focusedField === "password" && UI.inputFocused]}>
-                <Ionicons
-                  name="lock-closed-outline"
-                  size={20}
-                  color={focusedField === "password" ? THEME_COLORS.primary : THEME_COLORS.textMuted}
-                />
-                <TextInput
-                  style={styles.input}
-                  placeholder="Nhập mật khẩu"
-                  value={password}
-                  onChangeText={setPassword}
-                  secureTextEntry
-                  autoCapitalize="none"
-                  {...inputProps("password")}
-                />
-              </View>
-            </View>
+            <AppInput
+              label="Mật khẩu"
+              icon="lock-closed-outline"
+              placeholder="Nhập mật khẩu"
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry
+              autoCapitalize="none"
+              containerStyle={styles.inputContainer}
+            />
 
             <TouchableOpacity style={styles.forgotPassword} onPress={openResetModal} activeOpacity={PRESS_OPACITY}>
               <Text style={styles.forgotPasswordText}>Quên mật khẩu?</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity
-              style={[styles.loginButton, loading && styles.disabledButton]}
+            <PrimaryButton
+              title="Đăng nhập"
               onPress={handleLogin}
-              disabled={loading}
-              activeOpacity={PRESS_OPACITY}
-            >
-              <Text style={styles.loginButtonText}>{loading ? "Đang đăng nhập..." : "Đăng nhập"}</Text>
-            </TouchableOpacity>
+              loading={loading}
+              icon="arrow-forward"
+              style={styles.loginButton}
+            />
 
             <View style={styles.signupContainer}>
               <Text style={styles.signupText}>Chưa có tài khoản? </Text>
@@ -496,23 +476,6 @@ const styles = StyleSheet.create({
   inputContainer: {
     marginBottom: SPACE.lg,
   },
-  label: {
-    ...TYPOGRAPHY.bodyStrong,
-    fontSize: 14,
-    marginBottom: SPACE.sm,
-  },
-  inputWrapper: {
-    ...INPUT_BOX,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: SPACE.md,
-  },
-  input: {
-    flex: 1,
-    height: "100%",
-    fontSize: 15,
-    color: THEME_COLORS.textPrimary,
-  },
   forgotPassword: {
     alignSelf: "flex-end",
     marginBottom: SPACE["2xl"],
@@ -524,14 +487,10 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   loginButton: {
-    ...UI.primaryButton,
     marginBottom: SPACE["2xl"],
   },
   disabledButton: {
     opacity: 0.6,
-  },
-  loginButtonText: {
-    ...UI.primaryButtonText,
   },
   signupContainer: {
     flexDirection: "row",
@@ -566,7 +525,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "rgba(15, 23, 42, 0.45)",
+    backgroundColor: THEME_COLORS.overlay,
     padding: SPACE["2xl"],
   },
   modalContent: {

@@ -1,10 +1,13 @@
 "use client"
 
 import { useState, useEffect, useMemo } from "react"
-import { collection, query, where, orderBy, onSnapshot } from "firebase/firestore"
+import { collection, query, where, onSnapshot } from "firebase/firestore"
 import { db } from "../config/firebase"
 import { useAuth } from "./useAuth"
 import type { Booking } from "../types/booking"
+
+const createdAtMs = (value: any): number =>
+  value?.toDate ? value.toDate().getTime() : value ? new Date(value).getTime() || 0 : 0
 
 export function useBookings() {
   const { user } = useAuth()
@@ -22,18 +25,17 @@ export function useBookings() {
     const bookingsQuery = query(
       collection(db, "bookings"),
       where("userId", "==", user.id),
-      orderBy("createdAt", "desc"),
     )
 
     const unsubscribe = onSnapshot(
       bookingsQuery,
       (snapshot) => {
-        setBookings(
-          snapshot.docs.map((doc) => ({
-            id: doc.id,
-            ...doc.data(),
-          })) as Booking[],
-        )
+        const data = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        })) as Booking[]
+        data.sort((a, b) => createdAtMs((b as any).createdAt) - createdAtMs((a as any).createdAt))
+        setBookings(data)
         setLoading(false)
         setError(null)
       },

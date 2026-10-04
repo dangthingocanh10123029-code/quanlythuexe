@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Dimensions, FlatList, Modal, ImageSourcePropType } from "react-native"
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Dimensions, FlatList } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 import { Ionicons } from "@expo/vector-icons"
 import { router } from "expo-router"
@@ -12,9 +12,10 @@ import { Platform } from 'react-native'
 import { onAuthStateChanged } from 'firebase/auth'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { cars } from "../../data/cars"
-import { formatCurrency } from "../../utils/helpers"
+import { BRAND_ASSETS, PROMO_ASSETS } from "../../data/assets"
 import { StatusBar } from "expo-status-bar"
-import { THEME_COLORS, RADIUS, SPACE, SHADOWS, TYPOGRAPHY, UI, PRESS_OPACITY } from "../../utils/theme"
+import { THEME_COLORS, RADIUS, SPACE, SHADOWS, TYPOGRAPHY, UI, PRESS_OPACITY, layout } from "../../utils/theme"
+import { CarCardCompact, CarCardFeatured, PromoModal, SearchBar, SectionHeader } from "../../components"
 
 
 const { width } = Dimensions.get("window")
@@ -25,14 +26,14 @@ const coupons = [
     title: "FIRST20",
     description: "Giảm 20% cho chuyến thuê đầu tiên",
     color: "#1054CF",
-    image: require('../../assets/coup1.png')
+    image: PROMO_ASSETS.firstRide
   },
   {
     id: 2,
     title: "WEEKEND50",
     description: "Giảm 50% khi thuê xe cuối tuần",
     color: "#c2a300",
-    image: require('../../assets/coup2.png')
+    image: PROMO_ASSETS.weekend
   },
 ]
 
@@ -175,15 +176,21 @@ export default function HomeScreen() {
     }
   }, [])
 
+  // Cập nhật lời chào khi Firebase khôi phục xong phiên đăng nhập
   useEffect(() => {
-    if (auth.currentUser?.displayName) {
-      setUserName(auth.currentUser.displayName.split(" ")[0])
-    } else if (auth.currentUser?.email) {
-      // Extract name from email (everything before @)
-      const emailName = auth.currentUser.email.split("@")[0]
-      // Capitalize first letter
-      setUserName(emailName.charAt(0).toUpperCase() + emailName.slice(1))
-    }
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      if (currentUser?.displayName) {
+        // Tên người Việt: gọi theo tên (từ cuối), vd "Nguyễn Văn An" → "An"
+        const parts = currentUser.displayName.trim().split(/\s+/)
+        setUserName(parts[parts.length - 1])
+      } else if (currentUser?.email) {
+        const emailName = currentUser.email.split("@")[0]
+        setUserName(emailName.charAt(0).toUpperCase() + emailName.slice(1))
+      } else {
+        setUserName("bạn")
+      }
+    })
+    return unsubscribe
   }, [])
 
   // Add this useEffect for the countdown
@@ -208,56 +215,6 @@ export default function HomeScreen() {
     return `${hours.toString().padStart(2, '0')} : ${minutes.toString().padStart(2, '0')} : ${remainingSeconds.toString().padStart(2, '0')}`
   }
 
-  const renderStars = (rating: number, size: number) => (
-    <View style={styles.ratingContainer}>
-      {[...Array(5)].map((_, index) => (
-        <Ionicons
-          key={index}
-          name="star"
-          size={size}
-          color={index < Math.floor(rating) ? THEME_COLORS.accent : THEME_COLORS.border}
-        />
-      ))}
-      <Text style={styles.ratingText}>{rating.toFixed(1)}</Text>
-    </View>
-  )
-
-  // Update the renderCarCard function
-  const renderCarCard = ({ item }: { item: Car }) => (
-    <TouchableOpacity
-      style={styles.carCard}
-      onPress={() => router.push({
-        pathname: "/car-details/[id]",
-        params: { id: item.id }
-      })}
-      activeOpacity={PRESS_OPACITY}
-    >
-      <View style={styles.carImageWrap}>
-        <Image
-          source={item.image}
-          style={styles.carImage}
-          resizeMode="cover"
-        />
-      </View>
-      <View style={styles.carInfo}>
-        <Text style={styles.carName}>{item.name}</Text>
-        <Text style={styles.carBrand}>{item.brand}</Text>
-        {renderStars(item.rating, 16)}
-        <View style={styles.detailsRow}>
-          <View style={styles.detailItem}>
-            <Ionicons name="people-outline" size={14} color={THEME_COLORS.textSecondary} />
-            <Text style={styles.detailText}>{item.seats} chỗ</Text>
-          </View>
-          <View style={styles.detailItem}>
-            <Ionicons name="speedometer-outline" size={14} color={THEME_COLORS.textSecondary} />
-            <Text style={styles.detailText}>{item.type}</Text>
-          </View>
-        </View>
-        <Text style={styles.carPrice}>{formatCurrency(item.pricePerDay)}/ngày</Text>
-      </View>
-    </TouchableOpacity>
-  )
-
   const showDateTimePicker = (mode: 'date' | 'time', field: 'pickUp' | 'dropOff') => {
     setPickerMode(mode)
     setActiveField(field)
@@ -275,69 +232,19 @@ export default function HomeScreen() {
   }
 
   const renderRecentCarCard = ({ item }: { item: Car }) => (
-    <TouchableOpacity
+    <CarCardCompact
+      car={item}
+      onPress={() => router.push({ pathname: "/car-details/[id]", params: { id: item.id } })}
       style={styles.recentCarCard}
-      onPress={() => router.push({
-        pathname: "/car-details/[id]",
-        params: { id: item.id }
-      })}
-      activeOpacity={PRESS_OPACITY}
-    >
-      <View style={styles.recentCarImageWrap}>
-        <Image
-          source={item.image as ImageSourcePropType}
-          style={styles.recentCarImage}
-          resizeMode="cover"
-        />
-      </View>
-      <View style={styles.recentCarInfo}>
-        <Text style={styles.recentCarName} numberOfLines={1}>{item.name}</Text>
-        {renderStars(item.rating, 13)}
-        <Text style={styles.recentCarPrice}>{formatCurrency(item.pricePerDay)}/ngày</Text>
-      </View>
-    </TouchableOpacity>
+    />
   )
 
   const renderFeaturedCarCard = ({ item }: { item: Car }) => (
     <View style={styles.featuredSlide}>
-      <TouchableOpacity
-        style={styles.featuredCarCard}
-        onPress={() => router.push({
-          pathname: "/car-details/[id]",
-          params: { id: item.id }
-        })}
-        activeOpacity={PRESS_OPACITY}
-      >
-        <View style={styles.featuredImageWrap}>
-          <Image
-            source={item.image}
-            style={styles.featuredCarImage}
-            resizeMode="cover"
-          />
-        </View>
-        <View style={styles.featuredCarInfo}>
-          <View style={styles.featuredTitleRow}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.featuredCarName} numberOfLines={1}>{item.name}</Text>
-              <Text style={styles.featuredCarBrand}>{item.brand}</Text>
-            </View>
-            {renderStars(item.rating, 13)}
-          </View>
-          <View style={styles.featuredFooter}>
-            <View style={styles.featuredDetailsRow}>
-              <View style={styles.detailItem}>
-                <Ionicons name="people-outline" size={14} color={THEME_COLORS.textSecondary} />
-                <Text style={styles.detailText}>{item.seats} chỗ</Text>
-              </View>
-              <View style={styles.detailItem}>
-                <Ionicons name="speedometer-outline" size={14} color={THEME_COLORS.textSecondary} />
-                <Text style={styles.detailText}>{item.type}</Text>
-              </View>
-            </View>
-            <Text style={styles.featuredCarPrice}>{formatCurrency(item.pricePerDay)}/ngày</Text>
-          </View>
-        </View>
-      </TouchableOpacity>
+      <CarCardFeatured
+        car={item}
+        onPress={() => router.push({ pathname: "/car-details/[id]", params: { id: item.id } })}
+      />
     </View>
   )
 
@@ -382,23 +289,12 @@ export default function HomeScreen() {
         </View>
 
         {/* Search Bar */}
-        <View style={styles.searchContainer}>
-          <TouchableOpacity
-            style={styles.searchBar}
-            onPress={() => openCarsTab({ focus: "1" })}
-            activeOpacity={PRESS_OPACITY}
-          >
-            <Ionicons name="search" size={20} color={THEME_COLORS.textMuted} />
-            <Text style={styles.searchPlaceholder} numberOfLines={1}>Tìm xe, hãng xe, mẫu xe...</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.searchButton}
-            onPress={() => openCarsTab({ openFilter: "1" })}
-            activeOpacity={PRESS_OPACITY}
-          >
-            <Ionicons name="options-outline" size={22} color={THEME_COLORS.primary} />
-          </TouchableOpacity>
-        </View>
+        <SearchBar
+          placeholder="Tìm xe, hãng xe, mẫu xe..."
+          onPress={() => openCarsTab({ focus: "1" })}
+          onFilterPress={() => openCarsTab({ openFilter: "1" })}
+          containerStyle={styles.searchContainer}
+        />
 
         {/* Coupon Section */}
         <View style={styles.couponSection}>
@@ -451,7 +347,7 @@ export default function HomeScreen() {
               activeOpacity={PRESS_OPACITY}
             >
               <Image
-                source={require("../../assets/brandlogos/toyota.png")}
+                source={BRAND_ASSETS.Toyota}
                 style={styles.brandLogo}
                 resizeMode="contain"
               />
@@ -463,7 +359,7 @@ export default function HomeScreen() {
               activeOpacity={PRESS_OPACITY}
             >
               <Image
-                source={require("../../assets/brandlogos/bmw.png")}
+                source={BRAND_ASSETS.BMW}
                 style={styles.brandLogo}
                 resizeMode="contain"
               />
@@ -475,7 +371,7 @@ export default function HomeScreen() {
               activeOpacity={PRESS_OPACITY}
             >
               <Image
-                source={require("../../assets/brandlogos/mercedes.png")}
+                source={BRAND_ASSETS.Mercedes}
                 style={styles.brandLogo}
                 resizeMode="contain"
               />
@@ -496,12 +392,12 @@ export default function HomeScreen() {
 
         {/* Featured Cars */}
         <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitleInline}>Xe nổi bật</Text>
-            <TouchableOpacity onPress={() => openCarsTab()} activeOpacity={PRESS_OPACITY}>
-              <Text style={styles.viewAllText}>Xem tất cả</Text>
-            </TouchableOpacity>
-          </View>
+          <SectionHeader
+            title="Xe nổi bật"
+            actionLabel="Xem tất cả"
+            onAction={() => openCarsTab()}
+            style={styles.sectionHeader}
+          />
 
           <FlatList
             data={featuredCars}
@@ -525,12 +421,12 @@ export default function HomeScreen() {
 
         {/* Recently Rented */}
         <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitleInline}>Thuê gần đây</Text>
-            <TouchableOpacity onPress={() => router.push("/(tabs)/bookings")} activeOpacity={PRESS_OPACITY}>
-              <Text style={styles.viewAllText}>Xem tất cả</Text>
-            </TouchableOpacity>
-          </View>
+          <SectionHeader
+            title="Thuê gần đây"
+            actionLabel="Xem tất cả"
+            onAction={() => router.push("/(tabs)/bookings")}
+            style={styles.sectionHeader}
+          />
 
           <FlatList
             data={recentlyRented}
@@ -543,55 +439,19 @@ export default function HomeScreen() {
         </View>
       </ScrollView>
 
-      <Modal
-        animationType="fade"
-        transparent={true}
+      <PromoModal
         visible={showPromoModal}
-        onRequestClose={() => setShowPromoModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.promoModal}>
-            <TouchableOpacity
-              style={styles.closeButton}
-              onPress={() => setShowPromoModal(false)}
-              activeOpacity={PRESS_OPACITY}
-            >
-              <Ionicons name="close" size={20} color={THEME_COLORS.textSecondary} />
-            </TouchableOpacity>
-
-            <View style={styles.timerContainer}>
-              <Ionicons name="time-outline" size={18} color={THEME_COLORS.primary} />
-              <Text style={styles.timerText}>{formatTime(timeLeft)}</Text>
-            </View>
-
-            <View style={styles.promoImageWrap}>
-              <Image
-                source={require('../../assets/adv cars.gif')}
-                style={styles.promoImage}
-                resizeMode="contain"
-              />
-            </View>
-
-            <Text style={styles.promoTitle}>Quà chào mừng!</Text>
-            <Text style={styles.promoDescription}>
-              Giảm ngay 25% cho chuyến thuê xe đầu tiên!
-              Nhập mã: <Text style={styles.promoCode}>WELCOME25</Text>
-            </Text>
-
-            <TouchableOpacity
-              style={styles.promoButton}
-              onPress={() => {
-                setShowPromoModal(false)
-                openCarsTab()
-              }}
-              activeOpacity={PRESS_OPACITY}
-            >
-              <Text style={styles.promoButtonText}>Xem xe ngay</Text>
-              <Ionicons name="arrow-forward" size={20} color="#FFFFFF" />
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
+        onClose={() => setShowPromoModal(false)}
+        onAction={() => {
+          setShowPromoModal(false)
+          openCarsTab()
+        }}
+        image={PROMO_ASSETS.onboardingCars}
+        title="Quà chào mừng!"
+        description="Giảm ngay 25% cho chuyến thuê xe đầu tiên. Nhập mã:"
+        promoCode="WELCOME25"
+        countdown={formatTime(timeLeft)}
+      />
     </SafeAreaView>
   )
 }
@@ -599,7 +459,7 @@ export default function HomeScreen() {
 const BRAND_GAP = SPACE.md
 const BRAND_CARD_SIZE = (width - SPACE.screen * 2 - BRAND_GAP * 3) / 4
 // Chiều cao thanh tab nổi (72) + khoảng cách đáy (20) + khoảng thở
-const TAB_BAR_CLEARANCE = 120
+const TAB_BAR_CLEARANCE = layout.tabBarClearance
 
 const styles = StyleSheet.create({
   container: {
@@ -654,35 +514,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACE.screen,
     marginTop: SPACE.lg,
   },
-  // Ô tìm kiếm dạng nút (View) mang hình dáng UI.input
-  searchBar: {
-    height: UI.input.height,
-    borderRadius: RADIUS.control,
-    borderWidth: 1,
-    borderColor: THEME_COLORS.border,
-    backgroundColor: THEME_COLORS.surface,
-    paddingHorizontal: SPACE.lg,
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  searchPlaceholder: {
-    flex: 1,
-    marginLeft: SPACE.md,
-    fontSize: 15,
-    color: THEME_COLORS.textMuted,
-  },
-  searchButton: {
-    width: 48,
-    height: 48,
-    borderRadius: RADIUS.control,
-    borderWidth: 1,
-    borderColor: THEME_COLORS.border,
-    backgroundColor: THEME_COLORS.surface,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
   // Coupons
   couponSection: {
     paddingHorizontal: SPACE.screen,
@@ -739,9 +570,6 @@ const styles = StyleSheet.create({
     ...TYPOGRAPHY.h2,
     marginBottom: SPACE.lg,
   },
-  sectionTitleInline: {
-    ...TYPOGRAPHY.h2,
-  },
   brandsGrid: {
     flexDirection: 'row',
     gap: BRAND_GAP,
@@ -785,77 +613,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACE.screen,
     marginBottom: SPACE.md,
   },
-  viewAllText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: THEME_COLORS.primary,
-  },
-
-  // Shared car meta
-  ratingContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 2,
-  },
-  ratingText: {
-    marginLeft: SPACE.xs,
-    fontSize: 13,
-    fontWeight: "600",
-    color: THEME_COLORS.textSecondary,
-  },
-  detailsRow: {
-    flexDirection: "row",
-    gap: SPACE.sm,
-    marginTop: SPACE.md,
-    marginBottom: SPACE.md,
-  },
-  detailItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: THEME_COLORS.surfaceMuted,
-    borderWidth: 1,
-    borderColor: THEME_COLORS.border,
-    paddingHorizontal: 10,
-    paddingVertical: SPACE.xs,
-    borderRadius: RADIUS.pill,
-    gap: SPACE.xs,
-  },
-  detailText: {
-    fontSize: 13,
-    fontWeight: "500",
-    color: THEME_COLORS.textSecondary,
-  },
-
-  // Generic car card (renderCarCard)
-  carCard: {
-    ...UI.card,
-    marginBottom: SPACE.lg,
-  },
-  carImageWrap: {
-    backgroundColor: THEME_COLORS.surfaceMuted,
-    borderTopLeftRadius: RADIUS.card - 1,
-    borderTopRightRadius: RADIUS.card - 1,
-    overflow: "hidden",
-  },
-  carImage: {
-    width: "100%",
-    height: 180,
-  },
-  carInfo: {
-    padding: SPACE.lg,
-  },
-  carName: {
-    ...TYPOGRAPHY.h3,
-    marginBottom: 2,
-  },
-  carBrand: {
-    ...TYPOGRAPHY.caption,
-    marginBottom: SPACE.sm,
-  },
-  carPrice: {
-    ...TYPOGRAPHY.price,
-  },
-
   // Featured cars
   featuredCarsContainer: {
     paddingTop: SPACE.xs,
@@ -865,50 +622,6 @@ const styles = StyleSheet.create({
     width: width,
     paddingHorizontal: SPACE.screen,
   },
-  featuredCarCard: {
-    ...UI.card,
-  },
-  featuredImageWrap: {
-    backgroundColor: THEME_COLORS.surfaceMuted,
-    borderTopLeftRadius: RADIUS.card - 1,
-    borderTopRightRadius: RADIUS.card - 1,
-    overflow: "hidden",
-  },
-  featuredCarImage: {
-    width: "100%",
-    height: 180,
-  },
-  featuredCarInfo: {
-    padding: SPACE.lg,
-  },
-  featuredTitleRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: SPACE.md,
-  },
-  featuredCarName: {
-    ...TYPOGRAPHY.h2,
-  },
-  featuredCarBrand: {
-    ...TYPOGRAPHY.caption,
-    marginTop: 2,
-  },
-  featuredFooter: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginTop: SPACE.lg,
-    gap: SPACE.sm,
-  },
-  featuredDetailsRow: {
-    flexDirection: "row",
-    gap: SPACE.sm,
-    flexShrink: 1,
-  },
-  featuredCarPrice: {
-    ...TYPOGRAPHY.price,
-  },
-
   // Recent cars
   recentListContent: {
     paddingHorizontal: SPACE.screen,
@@ -917,110 +630,6 @@ const styles = StyleSheet.create({
     gap: SPACE.md,
   },
   recentCarCard: {
-    ...UI.card,
     width: width * 0.6,
-  },
-  recentCarImageWrap: {
-    backgroundColor: THEME_COLORS.surfaceMuted,
-    borderTopLeftRadius: RADIUS.card - 1,
-    borderTopRightRadius: RADIUS.card - 1,
-    overflow: "hidden",
-  },
-  recentCarImage: {
-    width: "100%",
-    height: 130,
-  },
-  recentCarInfo: {
-    padding: SPACE.lg,
-    gap: SPACE.sm,
-  },
-  recentCarName: {
-    ...TYPOGRAPHY.h3,
-  },
-  recentCarPrice: {
-    ...TYPOGRAPHY.price,
-    fontSize: 15,
-  },
-
-  // Promo modal
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.45)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: SPACE.screen,
-  },
-  promoModal: {
-    width: '100%',
-    maxWidth: 420,
-    backgroundColor: THEME_COLORS.surface,
-    borderRadius: RADIUS.sheet,
-    borderWidth: 1,
-    borderColor: THEME_COLORS.border,
-    padding: SPACE["2xl"],
-    alignItems: 'center',
-    ...SHADOWS.raised,
-  },
-  closeButton: {
-    position: 'absolute',
-    right: SPACE.lg,
-    top: SPACE.lg,
-    zIndex: 1,
-    width: 36,
-    height: 36,
-    borderRadius: RADIUS.pill,
-    backgroundColor: THEME_COLORS.surfaceMuted,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  timerContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: THEME_COLORS.primarySoft,
-    paddingHorizontal: SPACE.md,
-    paddingVertical: 6,
-    borderRadius: RADIUS.pill,
-    marginBottom: SPACE.lg,
-    gap: 6,
-  },
-  timerText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: THEME_COLORS.primary,
-    fontVariant: ['tabular-nums'],
-  },
-  promoImageWrap: {
-    width: '100%',
-    backgroundColor: THEME_COLORS.accent,
-    borderRadius: RADIUS.card,
-    marginBottom: SPACE.xl,
-    overflow: 'hidden',
-  },
-  promoImage: {
-    width: '100%',
-    height: 180,
-  },
-  promoTitle: {
-    ...TYPOGRAPHY.h1,
-    marginBottom: SPACE.sm,
-    textAlign: 'center',
-  },
-  promoDescription: {
-    ...TYPOGRAPHY.body,
-    textAlign: 'center',
-    marginBottom: SPACE["2xl"],
-  },
-  promoCode: {
-    color: THEME_COLORS.primary,
-    fontWeight: '700',
-  },
-  promoButton: {
-    ...UI.primaryButton,
-    alignSelf: 'stretch',
-    flexDirection: 'row',
-    gap: SPACE.sm,
-  },
-  promoButtonText: {
-    ...UI.primaryButtonText,
   },
 })

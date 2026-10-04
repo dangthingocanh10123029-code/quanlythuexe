@@ -1,10 +1,13 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { collection, query, where, orderBy, onSnapshot, doc, updateDoc, writeBatch } from "firebase/firestore"
+import { collection, query, where, onSnapshot, doc, updateDoc, writeBatch } from "firebase/firestore"
 import { db } from "../config/firebase"
 import type { Notification } from "../types"
 import { useAuth } from "./useAuth"
+
+const createdAtMs = (value: any): number =>
+  value?.toDate ? value.toDate().getTime() : value ? new Date(value).getTime() || 0 : 0
 
 export function useNotifications() {
   const { user } = useAuth()
@@ -22,7 +25,6 @@ export function useNotifications() {
     const notificationsQuery = query(
       collection(db, "notifications"),
       where("userId", "==", user.id),
-      orderBy("createdAt", "desc"),
     )
 
     const unsubscribe = onSnapshot(
@@ -32,6 +34,7 @@ export function useNotifications() {
           id: doc.id,
           ...doc.data(),
         })) as Notification[]
+        notificationsData.sort((a, b) => createdAtMs(b.createdAt) - createdAtMs(a.createdAt))
 
         setNotifications(notificationsData)
         setLoading(false)

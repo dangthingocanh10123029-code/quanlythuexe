@@ -1,6 +1,6 @@
 import { Tabs } from "expo-router"
 import { Ionicons } from "@expo/vector-icons"
-import { THEME_COLORS, RADIUS, SHADOWS, SPACE } from "../../utils/theme"
+import { THEME_COLORS, RADIUS, SHADOWS, SPACE, layout } from "../../utils/theme"
 
 // Thanh tab nổi: nền trắng, viền mảnh, bo RADIUS.sheet, căn đều hai bên.
 // Chiều cao 72 + cách đáy 20 → nội dung các màn tab cần paddingBottom >= ~110.
@@ -17,25 +17,27 @@ export default function TabLayout() {
         },
         tabBarStyle: {
           position: "absolute",
-          bottom: SPACE.xl,
+          bottom: SPACE.lg,
           left: SPACE.screen,
           right: SPACE.screen,
           backgroundColor: THEME_COLORS.surface,
           borderRadius: RADIUS.sheet,
-          height: 72,
+          height: layout.tabBarHeight,
           borderWidth: 1,
           borderTopWidth: 1,
           borderColor: THEME_COLORS.border,
           borderTopColor: THEME_COLORS.border,
           paddingHorizontal: SPACE.sm,
-          paddingTop: SPACE.md,
-          paddingBottom: SPACE.md,
+          paddingTop: SPACE.sm,
+          paddingBottom: SPACE.sm,
           ...SHADOWS.tabBar,
         },
         tabBarActiveTintColor: THEME_COLORS.primary,
         tabBarInactiveTintColor: THEME_COLORS.textMuted,
+        tabBarActiveBackgroundColor: THEME_COLORS.primarySubtle,
         tabBarItemStyle: {
           paddingTop: 0,
+          borderRadius: RADIUS.control,
         },
       }}
     >

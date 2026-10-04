@@ -8,6 +8,8 @@ import { StatusBar } from "expo-status-bar"
 import { Ionicons } from '@expo/vector-icons'
 import Swiper from 'react-native-swiper'
 import { THEME_COLORS, RADIUS, SPACE, TYPOGRAPHY, UI, PRESS_OPACITY } from "../utils/theme"
+import { PROMO_ASSETS } from "../data/assets"
+import { PrimaryButton } from "../components"
 
 interface FeatureItemProps {
   icon: keyof typeof Ionicons.glyphMap
@@ -45,7 +47,7 @@ export default function WelcomeScreen() {
       >
         <View style={styles.slide}>
           <View style={styles.illustration}>
-            <Image source={require('../assets/adv cars.gif')} style={styles.illustrationImage} resizeMode="contain" />
+            <Image source={PROMO_ASSETS.onboardingCars} style={styles.illustrationImage} resizeMode="contain" />
           </View>
           <Text style={styles.overline}>RENTO</Text>
           <Text style={styles.title}>Chọn xe ưng ý, đi đâu cũng dễ</Text>
@@ -75,18 +77,17 @@ export default function WelcomeScreen() {
 
         <View style={styles.slide}>
           <View style={styles.illustration}>
-            <Image source={require('../assets/modal_360.gif')} style={styles.illustrationImage} resizeMode="contain" />
+            <Image source={PROMO_ASSETS.welcome360} style={styles.illustrationImage} resizeMode="contain" />
           </View>
           <Text style={styles.overline}>THUÊ XE NHÉ?</Text>
           <Text style={styles.title}>Sẵn sàng lên đường</Text>
           <Text style={styles.description}>Mỗi chuyến đi, một trải nghiệm đáng nhớ</Text>
-          <TouchableOpacity
-            style={styles.button}
+          <PrimaryButton
+            title="Bắt đầu ngay"
+            icon="arrow-forward"
             onPress={() => router.replace('/login')}
-            activeOpacity={PRESS_OPACITY}
-          >
-            <Text style={styles.buttonText}>Bắt đầu ngay</Text>
-          </TouchableOpacity>
+            style={styles.button}
+          />
         </View>
       </Swiper>
 
@@ -173,12 +174,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACE.sm,
   },
   button: {
-    ...UI.primaryButton,
     alignSelf: 'stretch',
     marginTop: SPACE.section,
-  },
-  buttonText: {
-    ...UI.primaryButtonText,
   },
   progressContainer: {
     flexDirection: 'row',

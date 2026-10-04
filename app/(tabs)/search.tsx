@@ -9,7 +9,6 @@ import {
   TouchableOpacity,
   TextInput,
   FlatList,
-  Image,
   Dimensions,
   Modal,
   Alert,
@@ -22,22 +21,23 @@ import { cars } from "../../data/cars";
 import { db } from "../../config/firebase"
 import { collection, addDoc, deleteDoc, getDocs, query, where, doc } from "firebase/firestore"
 import { useAuth } from "../../hooks/useAuth"
-import { formatCurrency } from "../../utils/helpers"
 import { CITIES } from "../../utils/constants"
+import { BRAND_ASSETS } from "../../data/assets"
 import { StatusBar } from "expo-status-bar"
-import { THEME_COLORS, RADIUS, SPACE, SHADOWS, TYPOGRAPHY, UI, PRESS_OPACITY } from "../../utils/theme"
+import { THEME_COLORS, RADIUS, SPACE, SHADOWS, TYPOGRAPHY, UI, PRESS_OPACITY, layout } from "../../utils/theme"
+import { BrandChip, CarCardCompact, FilterBottomSheet, SearchBar, SectionHeader } from "../../components"
 
 const { width } = Dimensions.get("window")
 
 const brands = [
-  { id: 1, name: "BMW", logo: require("../../assets/brandlogos/bmw.png") },
-  { id: 2, name: "Mercedes", logo: require("../../assets/brandlogos/mercedes.png") },
-  { id: 3, name: "Audi", logo: require("../../assets/brandlogos/audi.png") },
-  { id: 4, name: "Toyota", logo: require("../../assets/brandlogos/toyota.png") },
-  { id: 5, name: "Honda", logo: require("../../assets/brandlogos/honda.png") },
-  { id: 6, name: "Nissan", logo: require("../../assets/brandlogos/nissan.png") },
-  { id: 7, name: "Ford", logo: require("../../assets/brandlogos/ford.png") },
-  { id: 8, name: "Hyundai", logo: require("../../assets/brandlogos/hyundai.png") },
+  { id: 1, name: "BMW", logo: BRAND_ASSETS.BMW },
+  { id: 2, name: "Mercedes", logo: BRAND_ASSETS.Mercedes },
+  { id: 3, name: "Audi", logo: BRAND_ASSETS.Audi },
+  { id: 4, name: "Toyota", logo: BRAND_ASSETS.Toyota },
+  { id: 5, name: "Honda", logo: BRAND_ASSETS.Honda },
+  { id: 6, name: "Nissan", logo: BRAND_ASSETS.Nissan },
+  { id: 7, name: "Ford", logo: BRAND_ASSETS.Ford },
+  { id: 8, name: "Hyundai", logo: BRAND_ASSETS.Hyundai },
 ]
 
 // Loại xe lấy trực tiếp từ dữ liệu xe (giữ thứ tự xuất hiện)
@@ -94,7 +94,6 @@ export default function SearchScreen() {
   const [likedCars, setLikedCars] = useState<string[]>([])
   const [showLikeModal, setShowLikeModal] = useState(false)
   const [likedCarName, setLikedCarName] = useState("")
-  const [focusedField, setFocusedField] = useState<"search" | null>(null)
 
   const fetchLikedCars = async () => {
     if (!user?.id) return
@@ -243,14 +242,12 @@ export default function SearchScreen() {
   const renderBrandItem = ({ item }: { item: any }) => {
     const isSelected = selectedBrand === item.name
     return (
-      <TouchableOpacity
-        style={[styles.brandChip, isSelected && styles.brandChipActive]}
+      <BrandChip
+        name={item.name}
+        logo={item.logo}
+        selected={isSelected}
         onPress={() => handleBrandSelect(item.name)}
-        activeOpacity={PRESS_OPACITY}
-      >
-        <Image source={item.logo} style={styles.brandLogoImg} resizeMode="contain" />
-        <Text style={[styles.brandName, isSelected && styles.brandNameActive]}>{item.name}</Text>
-      </TouchableOpacity>
+      />
     )
   }
 
@@ -260,66 +257,14 @@ export default function SearchScreen() {
   });
 
   const renderCarItem = ({ item }: { item: any }) => (
-    <TouchableOpacity
+    <CarCardCompact
+      car={item}
+      wide={!!selectedBrand}
+      liked={likedCars.includes(item.id)}
+      onFavoritePress={() => handleLike(item)}
+      onPress={() => router.push({ pathname: "/car-details/[id]", params: { id: item.id } })}
       style={getCardStyle()}
-      onPress={() => router.push({
-        pathname: "/car-details/[id]",
-        params: { id: item.id }
-      })}
-      activeOpacity={PRESS_OPACITY}
-    >
-      <View style={styles.carImageWrap}>
-        <Image
-          source={item.image}
-          style={[styles.carImage, selectedBrand ? styles.carImageLarge : null]}
-          resizeMode="cover"
-        />
-        <View style={styles.cardHeader}>
-          <View style={styles.locationTag}>
-            <Ionicons name="location" size={12} color={THEME_COLORS.primary} />
-            <Text style={styles.locationText} numberOfLines={1}>{item.location}</Text>
-          </View>
-          <TouchableOpacity
-            style={styles.favoriteButton}
-            onPress={() => handleLike(item)}
-            activeOpacity={PRESS_OPACITY}
-          >
-            <Ionicons
-              name={likedCars.includes(item.id) ? "heart" : "heart-outline"}
-              size={18}
-              color={likedCars.includes(item.id) ? THEME_COLORS.danger : THEME_COLORS.textSecondary}
-            />
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      <View style={styles.cardContent}>
-        <Text style={styles.carName} numberOfLines={1}>{item.name}</Text>
-
-        <View style={styles.detailsRow}>
-          <View style={styles.ratingContainer}>
-            <Ionicons name="star" size={13} color={THEME_COLORS.accent} />
-            <Text style={styles.metaText}>{typeof item.rating === "number" ? item.rating.toFixed(1) : "–"}</Text>
-          </View>
-          <View style={styles.seatsContainer}>
-            <Ionicons name="people-outline" size={13} color={THEME_COLORS.textMuted} />
-            <Text style={styles.metaText}>{item.seats} chỗ</Text>
-          </View>
-        </View>
-
-        <Text style={styles.carPrice} numberOfLines={1}>{formatCurrency(item.pricePerDay)}/ngày</Text>
-
-        <View style={styles.bottomRow}>
-          <View style={styles.conditionTag}>
-            <Text style={styles.conditionText}>TỰ LÁI</Text>
-          </View>
-
-          <View style={styles.arrowButton}>
-            <Ionicons name="arrow-forward" size={16} color={THEME_COLORS.primary} />
-          </View>
-        </View>
-      </View>
-    </TouchableOpacity>
+    />
   )
 
   return (
@@ -340,32 +285,13 @@ export default function SearchScreen() {
         </View>
 
         {/* Ô tìm kiếm */}
-        <View style={styles.searchContainer}>
-          <View style={[styles.searchBar, focusedField === "search" && styles.searchBarFocused]}>
-            <Ionicons
-              name="search"
-              size={20}
-              color={focusedField === "search" ? THEME_COLORS.primary : THEME_COLORS.textMuted}
-            />
-            <TextInput
-              ref={searchInputRef}
-              style={styles.searchInput}
-              placeholder="Tìm xe, hãng xe, mẫu xe..."
-              placeholderTextColor={THEME_COLORS.textMuted}
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              onFocus={() => setFocusedField("search")}
-              onBlur={() => setFocusedField(null)}
-              returnKeyType="search"
-              autoCorrect={false}
-            />
-            {searchQuery.length > 0 && (
-              <TouchableOpacity onPress={() => setSearchQuery("")} activeOpacity={PRESS_OPACITY}>
-                <Ionicons name="close-circle" size={20} color={THEME_COLORS.textMuted} />
-              </TouchableOpacity>
-            )}
-          </View>
-        </View>
+        <SearchBar
+          ref={searchInputRef}
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          placeholder="Tìm xe, hãng xe, mẫu xe..."
+          containerStyle={styles.searchContainer}
+        />
 
         {/* Top Brands */}
         <Text style={styles.brandsLabel}>Hãng xe phổ biến</Text>
@@ -393,11 +319,11 @@ export default function SearchScreen() {
 
         {/* All Cars / Filtered Cars */}
         <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle} numberOfLines={1}>
-              {selectedBrand ? `Xe ${selectedBrand}` : "Tất cả xe"} ({filteredCars.length})
-            </Text>
-            <TouchableOpacity
+          <SectionHeader
+            title={`${selectedBrand ? `Xe ${selectedBrand}` : "Tất cả xe"} (${filteredCars.length})`}
+            style={styles.sectionHeader}
+            action={(
+              <TouchableOpacity
               style={[styles.filterButton, activeFilterCount > 0 && styles.filterButtonActive]}
               onPress={openFilterModal}
               activeOpacity={PRESS_OPACITY}
@@ -410,8 +336,9 @@ export default function SearchScreen() {
               <Text style={[styles.filterText, activeFilterCount > 0 && styles.filterTextActive]}>
                 Bộ lọc{activeFilterCount > 0 ? ` (${activeFilterCount})` : ""}
               </Text>
-            </TouchableOpacity>
-          </View>
+              </TouchableOpacity>
+            )}
+          />
 
           {filteredCars.length === 0 && (
             <View style={styles.emptyState}>
@@ -440,28 +367,13 @@ export default function SearchScreen() {
       </ScrollView>
 
       {/* Filter Modal */}
-      <Modal
-        animationType="slide"
-        transparent={true}
+      <FilterBottomSheet
         visible={showFilterModal}
-        onRequestClose={() => setShowFilterModal(false)}
+        onClose={() => setShowFilterModal(false)}
+        onReset={() => setDraftFilters(EMPTY_FILTERS)}
+        onApply={applyFilters}
+        activeCount={draftFilterCount}
       >
-        <View style={styles.filterOverlay}>
-          <TouchableOpacity style={styles.filterBackdrop} activeOpacity={1} onPress={() => setShowFilterModal(false)} />
-          <View style={styles.filterSheet}>
-            <View style={styles.sheetHandle} />
-            <View style={styles.filterHeader}>
-              <Text style={styles.filterTitle}>Bộ lọc</Text>
-              <TouchableOpacity
-                style={styles.sheetCloseButton}
-                onPress={() => setShowFilterModal(false)}
-                activeOpacity={PRESS_OPACITY}
-              >
-                <Ionicons name="close" size={20} color={THEME_COLORS.textSecondary} />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView showsVerticalScrollIndicator={false}>
               <Text style={styles.filterLabel}>Loại xe</Text>
               <View style={styles.chipRow}>
                 {CAR_TYPE_OPTIONS.map((type) => (
@@ -535,25 +447,7 @@ export default function SearchScreen() {
                   </TouchableOpacity>
                 ))}
               </View>
-            </ScrollView>
-
-            <View style={styles.filterFooter}>
-              <TouchableOpacity
-                style={styles.resetButton}
-                onPress={() => setDraftFilters(EMPTY_FILTERS)}
-                activeOpacity={PRESS_OPACITY}
-              >
-                <Text style={styles.resetButtonText}>Đặt lại</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.applyButton} onPress={applyFilters} activeOpacity={PRESS_OPACITY}>
-                <Text style={styles.applyButtonText}>
-                  Áp dụng{draftFilterCount > 0 ? ` (${draftFilterCount})` : ""}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
+      </FilterBottomSheet>
 
       {/* Like Car Modal */}
       <Modal
@@ -576,7 +470,7 @@ export default function SearchScreen() {
 }
 
 // Chiều cao thanh tab nổi (72) + khoảng cách đáy (20) + khoảng thở
-const TAB_BAR_CLEARANCE = 120
+const TAB_BAR_CLEARANCE = layout.tabBarClearance
 
 const styles = StyleSheet.create({
   container: {
@@ -614,27 +508,6 @@ const styles = StyleSheet.create({
   searchContainer: {
     paddingHorizontal: SPACE.screen,
   },
-  // Khung ô tìm kiếm (View bọc TextInput) theo UI.input
-  searchBar: {
-    flexDirection: "row",
-    alignItems: "center",
-    height: UI.input.height,
-    borderRadius: RADIUS.control,
-    borderWidth: 1,
-    borderColor: THEME_COLORS.border,
-    backgroundColor: THEME_COLORS.surface,
-    paddingHorizontal: SPACE.lg,
-  },
-  searchBarFocused: {
-    ...UI.inputFocused,
-  },
-  searchInput: {
-    flex: 1,
-    height: "100%",
-    marginLeft: SPACE.md,
-    fontSize: 15,
-    color: THEME_COLORS.textPrimary,
-  },
   brandsLabel: {
     ...TYPOGRAPHY.overline,
     paddingHorizontal: SPACE.screen,
@@ -644,27 +517,6 @@ const styles = StyleSheet.create({
   brandsRow: {
     paddingHorizontal: SPACE.screen,
     gap: SPACE.sm,
-  },
-  brandChip: {
-    ...UI.chip,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: SPACE.sm,
-    paddingHorizontal: SPACE.md,
-    paddingVertical: SPACE.sm,
-  },
-  brandChipActive: {
-    ...UI.chipActive,
-  },
-  brandLogoImg: {
-    width: 22,
-    height: 22,
-  },
-  brandName: {
-    ...UI.chipText,
-  },
-  brandNameActive: {
-    ...UI.chipTextActive,
   },
   divider: {
     ...UI.divider,
@@ -684,10 +536,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: SPACE.lg,
     gap: SPACE.md,
-  },
-  sectionTitle: {
-    ...TYPOGRAPHY.h2,
-    flexShrink: 1,
   },
   filterButton: {
     ...UI.chip,
@@ -739,50 +587,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
 
-  // Filter sheet
-  filterOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(15, 23, 42, 0.45)",
-    justifyContent: "flex-end",
-  },
-  filterBackdrop: {
-    flex: 1,
-  },
-  filterSheet: {
-    backgroundColor: THEME_COLORS.surface,
-    borderTopLeftRadius: RADIUS.sheet,
-    borderTopRightRadius: RADIUS.sheet,
-    paddingHorizontal: SPACE.screen,
-    paddingTop: SPACE.sm,
-    paddingBottom: SPACE["3xl"],
-    maxHeight: "85%",
-    ...SHADOWS.raised,
-  },
-  sheetHandle: {
-    alignSelf: "center",
-    width: 40,
-    height: 4,
-    borderRadius: RADIUS.pill,
-    backgroundColor: THEME_COLORS.borderStrong,
-    marginBottom: SPACE.md,
-  },
-  filterHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: SPACE.sm,
-  },
-  filterTitle: {
-    ...TYPOGRAPHY.h2,
-  },
-  sheetCloseButton: {
-    width: 36,
-    height: 36,
-    borderRadius: RADIUS.pill,
-    backgroundColor: THEME_COLORS.surfaceMuted,
-    alignItems: "center",
-    justifyContent: "center",
-  },
   filterLabel: {
     ...TYPOGRAPHY.overline,
     marginTop: SPACE["2xl"],
@@ -805,139 +609,10 @@ const styles = StyleSheet.create({
   chipTextSelected: {
     ...UI.chipTextActive,
   },
-  filterFooter: {
-    flexDirection: "row",
-    gap: SPACE.md,
-    marginTop: SPACE["2xl"],
-  },
-  resetButton: {
-    ...UI.secondaryButton,
-    flex: 1,
-    paddingHorizontal: SPACE.lg,
-  },
-  resetButtonText: {
-    ...UI.secondaryButtonText,
-  },
-  applyButton: {
-    ...UI.primaryButton,
-    flex: 2,
-  },
-  applyButtonText: {
-    ...UI.primaryButtonText,
-  },
-
   // Car card
   carCard: {
-    ...UI.card,
     flex: 1,
     marginBottom: SPACE.md,
-  },
-  carImageWrap: {
-    backgroundColor: THEME_COLORS.surfaceMuted,
-    borderTopLeftRadius: RADIUS.card - 1,
-    borderTopRightRadius: RADIUS.card - 1,
-    overflow: 'hidden',
-  },
-  cardHeader: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: SPACE.sm,
-    gap: SPACE.xs,
-  },
-  locationTag: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexShrink: 1,
-    backgroundColor: THEME_COLORS.surface,
-    paddingHorizontal: SPACE.sm,
-    paddingVertical: 3,
-    borderRadius: RADIUS.pill,
-    gap: 3,
-  },
-  locationText: {
-    color: THEME_COLORS.textSecondary,
-    fontSize: 11,
-    fontWeight: '600',
-    flexShrink: 1,
-  },
-  favoriteButton: {
-    width: 32,
-    height: 32,
-    borderRadius: RADIUS.pill,
-    backgroundColor: THEME_COLORS.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  carImage: {
-    width: '100%',
-    height: 110,
-  },
-  carImageLarge: {
-    height: 180,
-  },
-  cardContent: {
-    padding: SPACE.md,
-    flex: 1,
-  },
-  carName: {
-    ...TYPOGRAPHY.bodyStrong,
-  },
-  detailsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: SPACE.xs,
-    gap: SPACE.md,
-  },
-  ratingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-  },
-  seatsContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-  },
-  metaText: {
-    ...TYPOGRAPHY.caption,
-    fontSize: 12,
-  },
-  carPrice: {
-    ...TYPOGRAPHY.price,
-    fontSize: 15,
-    marginTop: SPACE.sm,
-  },
-  bottomRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 'auto',
-    paddingTop: SPACE.md,
-  },
-  conditionTag: {
-    backgroundColor: THEME_COLORS.primarySoft,
-    paddingHorizontal: SPACE.sm,
-    paddingVertical: 3,
-    borderRadius: RADIUS.pill,
-  },
-  conditionText: {
-    color: THEME_COLORS.primary,
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 0.4,
-  },
-  arrowButton: {
-    width: 30,
-    height: 30,
-    borderRadius: RADIUS.pill,
-    backgroundColor: THEME_COLORS.primarySoft,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   carRow: {
     gap: SPACE.md,
@@ -946,7 +621,7 @@ const styles = StyleSheet.create({
   // Like modal
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.45)',
+    backgroundColor: THEME_COLORS.overlay,
     justifyContent: 'center',
     alignItems: 'center',
     padding: SPACE.screen,

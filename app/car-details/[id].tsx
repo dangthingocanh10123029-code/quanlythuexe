@@ -7,12 +7,14 @@ import { Ionicons } from "@expo/vector-icons"
 import { router, useLocalSearchParams } from "expo-router"
 import { cars } from "../../data/cars"
 import { db } from "../../config/firebase"
-import { collection, addDoc, query, where, orderBy, onSnapshot, serverTimestamp } from "firebase/firestore"
+import { collection, addDoc, query, where, onSnapshot, serverTimestamp } from "firebase/firestore"
 import { useAuth } from "../../hooks/useAuth"
 import { formatCurrency, formatDate } from "../../utils/helpers"
 import { HOTLINE } from "../../utils/constants"
+import { getBrandAsset } from "../../data/assets"
 import { StatusBar } from "expo-status-bar"
 import { THEME_COLORS, RADIUS, SPACE, TYPOGRAPHY, UI, PRESS_OPACITY } from "../../utils/theme"
+import { AppHeader, PrimaryButton, StatCard } from "../../components"
 
 type User = {
   id: string;
@@ -30,27 +32,6 @@ type Review = {
 }
 
 const { width } = Dimensions.get("window")
-
-const brandLogos = {
-  bmw: require('../../assets/brandlogos/bmw.png'),
-  mercedes: require('../../assets/brandlogos/mercedes.png'),
-  audi: require('../../assets/brandlogos/audi.png'),
-  toyota: require('../../assets/brandlogos/toyota.png'),
-  honda: require('../../assets/brandlogos/honda.png'),
-  nissan: require('../../assets/brandlogos/nissan.png'),
-  ford: require('../../assets/brandlogos/ford.png'),
-  hyundai: require('../../assets/brandlogos/hyundai.png'),
-};
-
-// Update the getBrandLogo function
-const getBrandLogo = (brand: string) => {
-  try {
-    return brandLogos[brand.toLowerCase() as keyof typeof brandLogos];
-  } catch (error) {
-    console.error(`Could not load logo for brand: ${brand}`, error);
-    return null;
-  }
-};
 
 // Địa chỉ chi nhánh RENTO theo thành phố của xe
 const BRANCH_ADDRESSES: Record<string, string> = {
@@ -87,17 +68,16 @@ export default function CarDetailsScreen() {
     
     setReviewLoading(true)
     const reviewsRef = collection(db, "reviews")
-    const q = query(
-      reviewsRef,
-      where("carId", "==", id),
-      orderBy("createdAt", "desc")
-    )
+    // where + orderBy cần composite index → lọc trên server, sắp xếp phía client
+    const q = query(reviewsRef, where("carId", "==", id))
 
     const unsub = onSnapshot(q, (snapshot) => {
       const reviewsData: Review[] = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data(),
       } as Review))
+      const ms = (v: any) => (v?.toDate ? v.toDate().getTime() : v ? new Date(v).getTime() || 0 : 0)
+      reviewsData.sort((x: any, y: any) => ms(y.createdAt) - ms(x.createdAt))
       setReviews(reviewsData)
       setReviewLoading(false)
     }, (error) => {
@@ -160,14 +140,8 @@ export default function CarDetailsScreen() {
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       <StatusBar style="dark" />
+      <AppHeader title="Chi tiết xe" onBack={() => router.back()} />
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-        {/* Header with Back Button */}
-        <View style={styles.header}>
-          <TouchableOpacity style={styles.iconButton} onPress={() => router.back()} activeOpacity={PRESS_OPACITY}>
-            <Ionicons name="arrow-back" size={22} color={THEME_COLORS.textPrimary} />
-          </TouchableOpacity>
-        </View>
-
         {/* Car Name and Brand Logo Section */}
         <View style={styles.heroSection}>
           <View style={styles.heroHeader}>
@@ -176,9 +150,9 @@ export default function CarDetailsScreen() {
               <Text style={styles.carName}>{car.name}</Text>
             </View>
             <View style={styles.brandLogoContainer}>
-              {getBrandLogo(car.brand) ? (
+              {getBrandAsset(car.brand) ? (
                 <Image
-                  source={getBrandLogo(car.brand)}
+                  source={getBrandAsset(car.brand)!}
                   style={styles.brandLogo}
                   resizeMode="contain"
                 />
@@ -211,13 +185,13 @@ export default function CarDetailsScreen() {
           <Text style={styles.sectionTitle}>Thông số</Text>
           <View style={styles.specsGrid}>
             {specs.map((spec) => (
-              <View key={spec.label} style={styles.specItem}>
-                <View style={styles.specIcon}>
-                  <Ionicons name={spec.icon} size={18} color={THEME_COLORS.primary} />
-                </View>
-                <Text style={styles.specValue} numberOfLines={1}>{spec.value}</Text>
-                <Text style={styles.specLabel}>{spec.label}</Text>
-              </View>
+              <StatCard
+                key={spec.label}
+                icon={spec.icon}
+                value={spec.value}
+                label={spec.label}
+                style={styles.specItem}
+              />
             ))}
           </View>
         </View>
@@ -346,17 +320,15 @@ export default function CarDetailsScreen() {
               <Text style={styles.priceLabel}>/ngày</Text>
             </View>
           </View>
-          <TouchableOpacity
-            style={styles.bookNowButton}
-            activeOpacity={PRESS_OPACITY}
+          <PrimaryButton
+            title="Thuê ngay"
+            icon="arrow-forward"
             onPress={() => router.push({
               pathname: "/checkout",
               params: { carId: id }
             })}
-          >
-            <Text style={styles.bookNowButtonText}>Thuê ngay</Text>
-            <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
-          </TouchableOpacity>
+            style={styles.bookNowButton}
+          />
         </View>
       </SafeAreaView>
     </SafeAreaView>
@@ -370,23 +342,9 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingBottom: SPACE.section,
   },
-  header: {
-    paddingHorizontal: SPACE.screen,
-    paddingTop: SPACE.sm,
-    paddingBottom: SPACE.md,
-  },
-  iconButton: {
-    width: 40,
-    height: 40,
-    borderRadius: RADIUS.control,
-    borderWidth: 1,
-    borderColor: THEME_COLORS.border,
-    backgroundColor: THEME_COLORS.surface,
-    alignItems: "center",
-    justifyContent: "center",
-  },
   heroSection: {
     paddingHorizontal: SPACE.screen,
+    paddingTop: SPACE.xl,
   },
   heroHeader: {
     flexDirection: 'row',
@@ -418,7 +376,6 @@ const styles = StyleSheet.create({
   brandLogo: {
     width: 32,
     height: 32,
-    tintColor: THEME_COLORS.textPrimary,
   },
   imageWrapper: {
     backgroundColor: THEME_COLORS.surfaceMuted,
@@ -467,33 +424,7 @@ const styles = StyleSheet.create({
   },
   specItem: {
     width: '31.5%',
-    paddingVertical: SPACE.lg,
-    paddingHorizontal: SPACE.sm,
-    borderRadius: RADIUS.control,
-    borderWidth: 1,
-    borderColor: THEME_COLORS.border,
-    backgroundColor: THEME_COLORS.surface,
-    alignItems: 'center',
-  },
-  specIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: RADIUS.pill,
-    backgroundColor: THEME_COLORS.primarySoft,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: SPACE.sm,
-  },
-  specValue: {
-    ...TYPOGRAPHY.bodyStrong,
-    fontSize: 14,
-    textAlign: 'center',
-  },
-  specLabel: {
-    ...TYPOGRAPHY.caption,
-    fontSize: 12,
-    marginTop: 2,
-    textAlign: 'center',
+    minHeight: 134,
   },
   rentalInfo: {
     ...UI.card,
@@ -567,12 +498,7 @@ const styles = StyleSheet.create({
     marginLeft: SPACE.xs,
   },
   bookNowButton: {
-    ...UI.primaryButton,
-    flexDirection: 'row',
-  },
-  bookNowButtonText: {
-    ...UI.primaryButtonText,
-    marginRight: SPACE.sm,
+    minWidth: 158,
   },
 
   // Review section styles
