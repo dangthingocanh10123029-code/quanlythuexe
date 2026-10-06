@@ -1,6 +1,6 @@
 "use client"
 
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Linking, Alert } from "react-native"
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Linking, Alert } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 import { Ionicons } from "@expo/vector-icons"
 import { router } from "expo-router"
@@ -27,35 +27,19 @@ const handleContactSupport = async () => {
   )
 }
 
-// Use require to import local images from assets/developers
+// Thành viên nhóm phát triển (avatar hiển thị chữ cái đầu của tên)
 const developers = [
   {
     id: 1,
-    name: "Catherine Arnado",
-    role: "Trưởng nhóm · Lập trình viên Full Stack",
-    email: "catherine.arnado@hcdc.edu.ph",
-    avatar: require("../assets/developers/kat.png"),
+    name: "Ngọc Ánh",
+    role: "Thành viên nhóm phát triển",
+    initials: "NA",
   },
   {
     id: 2,
-    name: "Xander Jyle Palma",
-    role: "Phụ trách Backend",
-    email: "xanderjyle.palma@hcdc.edu.ph",
-    avatar: require("../assets/developers/xander.png"),
-  },
-  {
-    id: 3,
-    name: "Kiesha Jimenez",
-    role: "Thiết kế Wireframe",
-    email: "kiesha.jimenez@hcdc.edu.ph",
-    avatar: require("../assets/developers/kiesha.png"),
-  },
-  {
-    id: 4,
-    name: "Luis Mario Palicte",
-    role: "Thiết kế giao diện (Figma)",
-    email: "luis.mario.palicte@hcdc.edu.ph",
-    avatar: require("../assets/developers/luis.png"),
+    name: "Đoan Trang",
+    role: "Thành viên nhóm phát triển",
+    initials: "ĐT",
   },
 ]
 
@@ -83,14 +67,12 @@ export default function DevelopersScreen() {
         <View style={styles.teamGrid}>
           {developers.map((developer) => (
             <View key={developer.id} style={styles.developerCard}>
-              <Image source={developer.avatar} style={styles.avatar} />
+              <View style={styles.avatar}>
+                <Text style={styles.avatarText}>{developer.initials}</Text>
+              </View>
               <View style={styles.developerInfo}>
                 <Text style={styles.developerName}>{developer.name}</Text>
                 <Text style={styles.developerRole}>{developer.role}</Text>
-                <TouchableOpacity style={styles.emailContainer} activeOpacity={PRESS_OPACITY}>
-                  <Ionicons name="mail-outline" size={14} color={THEME_COLORS.primary} />
-                  <Text style={styles.developerEmail} numberOfLines={1}>{developer.email}</Text>
-                </TouchableOpacity>
               </View>
             </View>
           ))}
@@ -195,7 +177,14 @@ const styles = StyleSheet.create({
     height: 64,
     borderRadius: RADIUS.pill,
     marginRight: SPACE.lg,
-    backgroundColor: THEME_COLORS.surfaceMuted,
+    backgroundColor: THEME_COLORS.primarySoft,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  avatarText: {
+    color: THEME_COLORS.primary,
+    fontSize: 22,
+    fontWeight: "700",
   },
   developerInfo: {
     flex: 1,
@@ -207,18 +196,6 @@ const styles = StyleSheet.create({
   developerRole: {
     ...TYPOGRAPHY.caption,
     color: THEME_COLORS.textSecondary,
-    marginBottom: SPACE.sm,
-  },
-  emailContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: SPACE.xs,
-  },
-  developerEmail: {
-    flex: 1,
-    color: THEME_COLORS.primary,
-    fontSize: 13,
-    fontWeight: "500",
   },
   aboutSection: {
     ...UI.card,
