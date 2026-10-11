@@ -38,6 +38,10 @@ export interface User {
   dateOfBirth?: string;
   address?: string;
   emergencyContact?: string;
+  idNumber?: string; // CCCD 12 số
+  role?: "staff";
+  disabled?: boolean;
+  status?: "active" | "inactive";
 }
 
 export interface UserProfile extends User {

@@ -14,9 +14,7 @@ import {
 } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 import { router } from "expo-router"
-import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth"
-import { doc, setDoc, getDoc } from "firebase/firestore"
-import { auth, db } from "../config/firebase"
+import { registerAccount, validateRegister } from "../utils/accountActions"
 import { StatusBar } from "expo-status-bar"
 import { Ionicons } from "@expo/vector-icons"
 import { THEME_COLORS, RADIUS, SPACE, SHADOWS, TYPOGRAPHY, UI, PRESS_OPACITY } from "../utils/theme"
@@ -28,6 +26,9 @@ export default function RegisterScreen() {
     email: "",
     password: "",
     confirmPassword: "",
+    phone: "",
+    address: "",
+    idNumber: "",
   })
   const [loading, setLoading] = useState(false)
   const [modalVisible, setModalVisible] = useState(false)
@@ -45,58 +46,29 @@ export default function RegisterScreen() {
   }
 
   const handleRegister = async () => {
-    const { fullName, email, password, confirmPassword } = formData
+    const { confirmPassword, ...input } = formData
 
-    if (!fullName || !email || !password || !confirmPassword) {
+    if (Object.values(formData).some((v) => !v.trim())) {
       showModal("Thiếu thông tin", "Vui lòng điền đầy đủ các trường")
       return
     }
 
-    if (password !== confirmPassword) {
+    if (input.password !== confirmPassword) {
       showModal("Mật khẩu chưa khớp", "Mật khẩu xác nhận không trùng với mật khẩu đã nhập")
       return
     }
 
-    if (password.length < 6) {
-      showModal("Mật khẩu quá ngắn", "Mật khẩu cần có ít nhất 6 ký tự")
+    // SĐT, CCCD, độ dài mật khẩu… (registerAccount kiểm tra lại)
+    const fieldErrors = Object.values(validateRegister(input))
+    if (fieldErrors.length > 0) {
+      showModal("Thông tin chưa hợp lệ", fieldErrors.join("\n"))
       return
     }
 
     setLoading(true)
     try {
-      // Create Firebase Auth user
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password)
-      const user = userCredential.user
-
-      // Update user profile
-      await updateProfile(user, {
-        displayName: fullName,
-      })
-
-      // Create user document in Firestore
-      const userData = {
-        id: user.uid,
-        email,
-        fullName,
-        phone: null,
-        avatar: null,
-        isAdmin: false,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        dateOfBirth: "",
-        address: "",
-        emergencyContact: "",
-      }
-
-      // Write to Firestore
-      await setDoc(doc(db, "users", user.uid), userData)
-      console.log("User document written to Firestore for UID:", user.uid)
-
-      // Verify the document was created
-      const userDoc = await getDoc(doc(db, "users", user.uid))
-      if (!userDoc.exists()) {
-        throw new Error("Failed to verify user document in Firestore")
-      }
+      // Tạo tài khoản + hồ sơ + giữ chỗ SĐT (trùng SĐT thì tài khoản bị xoá, ném code "phone-taken")
+      await registerAccount(input)
 
       // Go to OTP screen
       router.push("/otp")
@@ -107,7 +79,9 @@ export default function RegisterScreen() {
         stack: error.stack,
       })
       let errorMessage = "Đã có lỗi xảy ra, vui lòng thử lại."
-      if (error.code === "auth/email-already-in-use") {
+      if (error.code === "phone-taken") {
+        errorMessage = error.message
+      } else if (error.code === "auth/email-already-in-use") {
         errorMessage = "Email này đã được đăng ký. Bạn hãy đăng nhập hoặc dùng email khác."
       } else if (error.code === "auth/invalid-email") {
         errorMessage = "Email không hợp lệ."
@@ -128,13 +102,17 @@ export default function RegisterScreen() {
 
 
   const fields: {
-    key: "fullName" | "email" | "password" | "confirmPassword"
+    key: "fullName" | "email" | "phone" | "idNumber" | "address" | "password" | "confirmPassword"
     label: string
     placeholder: string
     icon: keyof typeof Ionicons.glyphMap
   }[] = [
     { key: "fullName", label: "Họ và tên", placeholder: "Vd: Nguyễn Văn An", icon: "person-outline" },
     { key: "email", label: "Email", placeholder: "Nhập email của bạn", icon: "mail-outline" },
+    // ponytail: 3 ô mới dùng giao diện sẵn có, U6.1 tinh chỉnh (bàn phím số, gợi ý định dạng)
+    { key: "phone", label: "Số điện thoại", placeholder: "Vd: 0912 345 678", icon: "call-outline" },
+    { key: "idNumber", label: "Số CCCD", placeholder: "12 chữ số", icon: "card-outline" },
+    { key: "address", label: "Địa chỉ", placeholder: "Số nhà, đường, phường/xã, tỉnh/thành", icon: "home-outline" },
     { key: "password", label: "Mật khẩu", placeholder: "Tối thiểu 6 ký tự", icon: "lock-closed-outline" },
     { key: "confirmPassword", label: "Xác nhận mật khẩu", placeholder: "Nhập lại mật khẩu", icon: "shield-checkmark-outline" },
   ]

@@ -52,6 +52,15 @@ export const validatePhone = (phone: string): boolean => {
   return /^(0|\+84)(3|5|7|8|9)\d{8}$/.test(digits)
 }
 
+// Chuẩn hoá SĐT Việt Nam về dạng 0xxxxxxxxx (bỏ khoảng trắng, dấu chấm/gạch, +84) — dùng làm id `phones/{phone}`
+export const normalizePhone = (phone: string): string => {
+  const digits = phone.replace(/[\s.\-]/g, "")
+  return digits.startsWith("+84") ? `0${digits.slice(3)}` : digits
+}
+
+// Số CCCD gồm 12 chữ số
+export const validateIdNumber = (value: string): boolean => /^\d{12}$/.test(value.replace(/\s/g, ""))
+
 export const truncateText = (text: string, maxLength: number): string => {
   if (text.length <= maxLength) return text
   return text.substr(0, maxLength) + "..."

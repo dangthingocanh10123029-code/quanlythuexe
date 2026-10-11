@@ -8,9 +8,9 @@ import { SafeAreaView } from "react-native-safe-area-context"
 import { Ionicons } from "@expo/vector-icons"
 import { router } from "expo-router"
 import * as ImagePicker from "expo-image-picker"
-import { doc, updateDoc } from "firebase/firestore"
 import { updateProfile } from "firebase/auth" // Add this import
-import { db, auth } from "../../config/firebase"
+import { auth } from "../../config/firebase"
+import { updatePersonalInfo } from "../../utils/accountActions"
 import { useAuth } from "../../hooks/useAuth"
 import { formatDate } from "../../utils/helpers"
 import { PRESS_OPACITY, RADIUS, SPACE, THEME_COLORS, TYPOGRAPHY, UI } from "../../utils/theme"
@@ -42,6 +42,7 @@ export default function PersonalInfoScreen() {
     address: user?.address || "",
     emergencyContact: user?.emergencyContact || "",
     avatar: user?.avatar || DEFAULT_AVATAR,
+    idNumber: user?.idNumber || "", // ponytail: chưa có ô nhập, U6.3 thêm trường CCCD
   })
   const [userInfo, setUserInfo] = useState(fromUser)
 
@@ -94,18 +95,9 @@ export default function PersonalInfoScreen() {
         throw new Error('No user ID found');
       }
 
-      const userRef = doc(db, "users", auth.currentUser.uid);
-
-      // First update Firestore
-      await updateDoc(userRef, {
-        fullName: userInfo.fullName,
-        phone: userInfo.phone,
-        dateOfBirth: userInfo.dateOfBirth,
-        address: userInfo.address,
-        emergencyContact: userInfo.emergencyContact,
-        avatar: userInfo.avatar,
-        updatedAt: new Date().toISOString()
-      });
+      // Firestore trước (đổi SĐT thì chuyển chỗ giữ phones/{phone}, trùng thì báo lỗi)
+      const { email, ...info } = userInfo
+      await updatePersonalInfo(auth.currentUser.uid, info);
 
       // Then update Firebase Auth profile
       await updateProfile(auth.currentUser, {
@@ -119,9 +111,9 @@ export default function PersonalInfoScreen() {
       Alert.alert("Thành công", "Đã cập nhật thông tin cá nhân!");
       setIsEditing(false);
       router.back();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Save error:', error);
-      Alert.alert('Lỗi', 'Không thể lưu thay đổi. Vui lòng thử lại.');
+      Alert.alert('Không thể lưu thay đổi', error?.message || 'Vui lòng thử lại.');
     }
   }
 

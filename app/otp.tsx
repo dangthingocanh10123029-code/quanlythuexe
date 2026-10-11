@@ -31,9 +31,9 @@ export default function OTPScreen() {
         throw new Error("No authenticated user found")
       }
 
-      // Allow any 4-digit OTP to proceed (no actual verification)
+      // OTP giả lập (D8): mã 4 số bất kỳ; người dùng đã đăng nhập sau khi đăng ký → vào thẳng app
       setLoading(false)
-      router.replace("/login")
+      router.replace("/(tabs)")
     } catch (error: any) {
       console.error("OTP verification error:", error.message)
       Alert.alert("Xác thực thất bại", "Phiên đăng ký đã hết hạn hoặc không hợp lệ. Vui lòng đăng ký lại.")

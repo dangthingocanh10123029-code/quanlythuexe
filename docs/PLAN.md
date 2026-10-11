@@ -291,17 +291,22 @@ Thứ tự bắt buộc: G0 → G1 → … → G6 → G8. G7 tuỳ chọn, làm 
 
 ### G6 — Tài khoản
 **Claude**
-- [ ] **L6.1** Đăng ký: thêm SĐT (`validatePhone`), địa chỉ, CCCD (12 chữ số). Sau khi tạo tài khoản, giữ chỗ `phones/{phone}` trong transaction; trùng thì `deleteUser` và báo lỗi.
-- [ ] **L6.2** OTP xong → `router.replace("/(tabs)")` (người dùng đã đăng nhập).
-- [ ] **L6.3** Đổi mật khẩu: `reauthenticateWithCredential` + `updatePassword`, báo lỗi tiếng Việt.
-- [ ] **L6.4** Thông tin cá nhân: thêm CCCD; đổi SĐT thì cập nhật `phones`.
+- [x] **L6.1** Đăng ký: thêm SĐT (`validatePhone`), địa chỉ, CCCD (12 chữ số). Sau khi tạo tài khoản, giữ chỗ `phones/{phone}` trong transaction; trùng thì `deleteUser` và báo lỗi.
+- [x] **L6.2** OTP xong → `router.replace("/(tabs)")` (người dùng đã đăng nhập).
+- [x] **L6.3** Đổi mật khẩu: `reauthenticateWithCredential` + `updatePassword`, báo lỗi tiếng Việt.
+- [x] **L6.4** Thông tin cá nhân: thêm CCCD; đổi SĐT thì cập nhật `phones`.
 
 **Codex**
 - [ ] **U6.1** Form đăng ký thêm 3 trường.
 - [ ] **U6.2** Màn `app/profile/change-password.tsx` + mục "Đổi mật khẩu" trong tab Tài khoản.
 - [ ] **U6.3** Thông tin cá nhân: trường CCCD.
 
-**Ghi chú bàn giao G6:** _(…)_
+**Ghi chú bàn giao G6** (Claude, L6):
+- `utils/accountActions.ts`: `validateRegister(input)` → lỗi theo ô (`fullName`, `email`, `password`, `phone`, `address`, `idNumber`); `registerAccount({ fullName, email, password, phone, address, idNumber })` (tạo Auth + `users/{uid}` + giữ chỗ `phones/{phone}` trong transaction; SĐT trùng → xoá tài khoản vừa tạo, ném `code: "phone-taken"`); `updatePersonalInfo(uid, info)` (đổi SĐT thì chuyển `phones`, trùng → `phone-taken`); `changePassword(current, next)` (xác thực lại rồi `updatePassword`, lỗi tiếng Việt).
+- `utils/helpers.ts`: `normalizePhone` (về dạng `0xxxxxxxxx`), `validateIdNumber` (12 số). SĐT lưu dạng chuẩn hoá.
+- Đăng ký: `formData` thêm `phone`, `idNumber`, `address`; 3 ô đang dùng giao diện chung trong mảng `fields` (comment `ponytail:`) → U6.1 chỉnh bàn phím số (`phone-pad`, `number-pad`), gợi ý định dạng. OTP xong → `router.replace("/(tabs)")`.
+- Thông tin cá nhân: `userInfo.idNumber` đã lưu nhưng chưa có ô nhập (comment `ponytail:`) → U6.3. Lỗi lưu hiện `error.message`.
+- Đổi mật khẩu (U6.2): tạo `app/profile/change-password.tsx` gọi `changePassword(current, next)`; tự kiểm tra "nhập lại mật khẩu mới" khớp ở UI.
 
 ### G7 — Quản trị mở rộng (tuỳ chọn)
 - [ ] **L7.1 / U7.1** Phiếu hỗ trợ: admin xem, trả lời (`reply`, `status: "resolved"`) + thông báo; người dùng xem phiếu của mình trong Trợ giúp.
