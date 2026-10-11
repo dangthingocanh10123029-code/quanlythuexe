@@ -1,8 +1,7 @@
 "use client"
 
-import { View, Text, StyleSheet, Modal, Image, Animated, Alert, ScrollView } from 'react-native'
+import { View, Text, StyleSheet, Image, Animated, Alert, ScrollView } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import { Ionicons } from '@expo/vector-icons'
 import { router, useLocalSearchParams } from 'expo-router'
 import { useEffect, useRef, useState } from 'react'
 import { failPayment, payBooking } from '../utils/bookingActions'
@@ -12,6 +11,7 @@ import { PAYMENT_ASSETS } from "../data/assets"
 import { StatusBar } from "expo-status-bar"
 import { THEME_COLORS, RADIUS, SPACE, SHADOWS, TYPOGRAPHY, UI } from "../utils/theme"
 import { AppHeader, AppInput, PrimaryButton } from "../components"
+import PaymentErrorBanner from "../components/PaymentErrorBanner"
 
 
 // Quay lại màn trước; nếu không có lịch sử (vào thẳng màn hình) thì về danh sách đơn
@@ -43,7 +43,6 @@ export default function CreditCardScreen() {
   // Get params at component level
   const { amount: amountParam, bookingId } = useLocalSearchParams<{ amount: string, bookingId: string }>()
   const amount = parseFloat(amountParam || "0")
-  const [showSuccessModal, setShowSuccessModal] = useState(false)
   const [isProcessing, setIsProcessing] = useState(false)
   // Lỗi giao dịch gần nhất (null = chưa lỗi); đơn vẫn "Chờ thanh toán" nên có thể thử lại
   const [paymentError, setPaymentError] = useState<string | null>(null)
@@ -295,6 +294,8 @@ export default function CreditCardScreen() {
             value={cardName}
             onChangeText={setCardName}
           />
+
+          <Text style={styles.testCardHint}>Thẻ thử 4000 0000 0000 0002 sẽ bị từ chối (giả lập giao dịch thất bại).</Text>
         </View>
 
         <View style={styles.amountContainer}>
@@ -305,31 +306,16 @@ export default function CreditCardScreen() {
 
       <SafeAreaView edges={["bottom"]} style={styles.footer}>
         <View style={styles.footerInner}>
+          {paymentError ? <PaymentErrorBanner message={paymentError} /> : null}
           <PrimaryButton
-            title={`Thanh toán ${formatCurrency(amount)}`}
+            title={paymentError ? "Thử lại thanh toán" : `Thanh toán ${formatCurrency(amount)}`}
             onPress={handlePay}
             loading={isProcessing}
-            icon="shield-checkmark-outline"
+            icon={paymentError ? "refresh" : "shield-checkmark-outline"}
           />
         </View>
       </SafeAreaView>
 
-      <Modal
-        animationType="fade"
-        transparent={true}
-        visible={showSuccessModal}
-        onRequestClose={() => setShowSuccessModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.successModalContent}>
-            <View style={styles.iconCircle}>
-              <Ionicons name="checkmark" size={36} color={THEME_COLORS.success} />
-            </View>
-            <Text style={styles.successTitle}>Thành công!</Text>
-            <Text style={styles.successText}>Thanh toán hoàn tất.</Text>
-          </View>
-        </View>
-      </Modal>
     </SafeAreaView>
   )
 }
@@ -435,6 +421,10 @@ const styles = StyleSheet.create({
   cvvInput: {
     flex: 1,
   },
+  testCardHint: {
+    ...TYPOGRAPHY.caption,
+    marginTop: SPACE.md,
+  },
   footer: {
     backgroundColor: THEME_COLORS.surface,
     borderTopWidth: 1,
@@ -443,39 +433,6 @@ const styles = StyleSheet.create({
   footerInner: {
     paddingHorizontal: SPACE.screen,
     paddingVertical: SPACE.md,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: THEME_COLORS.overlay,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: SPACE.screen,
-  },
-  successModalContent: {
-    backgroundColor: THEME_COLORS.surface,
-    borderRadius: RADIUS.sheet,
-    padding: SPACE["3xl"],
-    alignItems: 'center',
-    width: '100%',
-    maxWidth: 340,
-    ...SHADOWS.raised,
-  },
-  iconCircle: {
-    width: 72,
-    height: 72,
-    borderRadius: RADIUS.pill,
-    backgroundColor: THEME_COLORS.successSoft,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: SPACE.xl,
-  },
-  successTitle: {
-    ...TYPOGRAPHY.h2,
-    marginBottom: SPACE.sm,
-  },
-  successText: {
-    ...TYPOGRAPHY.body,
-    textAlign: 'center',
   },
   cardBack: {
     position: 'absolute',

@@ -13,6 +13,7 @@ import PaymentLogo from '../components/ui/PaymentLogo'
 import { StatusBar } from 'expo-status-bar'
 import { THEME_COLORS, RADIUS, SPACE, SHADOWS, TYPOGRAPHY, UI, PRESS_OPACITY } from '../utils/theme'
 import { AppHeader, PrimaryButton } from '../components'
+import PaymentErrorBanner from '../components/PaymentErrorBanner'
 
 const { width } = Dimensions.get('window')
 
@@ -30,13 +31,13 @@ const goBackSafely = () => {
 export default function MomoPayment() {
   const { amount: amountParam, bookingId } = useLocalSearchParams<{ amount: string, bookingId: string }>()
   const [showQRModal, setShowQRModal] = useState(true)
-  const [showSuccessModal, setShowSuccessModal] = useState(false)
   const amount = parseFloat(amountParam || "0")
   // Số dư ví giả lập: luôn đủ để thanh toán đơn khi demo
   const balance = Math.max(15000000, Math.ceil((amount + 5000000) / 100000) * 100000)
   const walletPhone = "0901 234 567"
 
   const [isProcessing, setIsProcessing] = useState(false)
+  const [isCancelling, setIsCancelling] = useState(false)
   // Lỗi giao dịch gần nhất (null = chưa lỗi); đơn vẫn "Chờ thanh toán" nên có thể thử lại
   const [paymentError, setPaymentError] = useState<string | null>(null)
   // Khoá đồng bộ để chặn bấm thanh toán 2 lần trước khi state kịp cập nhật
@@ -101,6 +102,21 @@ export default function MomoPayment() {
   }
 
 
+  const confirmCancelTransaction = () => {
+    Alert.alert("Huỷ giao dịch", "Bạn có chắc muốn huỷ giao dịch này? Đơn vẫn chờ thanh toán, bạn có thể thanh toán lại sau.", [
+      { text: "Không", style: "cancel" },
+      {
+        text: "Huỷ giao dịch",
+        style: "destructive",
+        onPress: async () => {
+          setIsCancelling(true)
+          await handleCancelTransaction()
+          setIsCancelling(false)
+        },
+      },
+    ])
+  }
+
   // Chia sẻ thông tin thanh toán (nút chia sẻ trên header)
   const handleShare = async () => {
     try {
@@ -147,24 +163,6 @@ export default function MomoPayment() {
 
             <Text style={styles.merchantText}>RENTO - Thuê xe tự lái</Text>
             <Text style={styles.amountText}>{formatCurrency(amount)}</Text>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Success Modal */}
-      <Modal
-        animationType="fade"
-        transparent={true}
-        visible={showSuccessModal}
-        onRequestClose={() => setShowSuccessModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.successModalContent}>
-            <View style={styles.iconCircle}>
-              <Ionicons name="checkmark" size={36} color={THEME_COLORS.success} />
-            </View>
-            <Text style={styles.successTitle}>Thành công!</Text>
-            <Text style={styles.successText}>Thanh toán hoàn tất.</Text>
           </View>
         </View>
       </Modal>
@@ -225,13 +223,25 @@ export default function MomoPayment() {
 
       <SafeAreaView edges={["bottom"]} style={styles.footer}>
         <View style={styles.footerInner}>
+          {paymentError ? <PaymentErrorBanner message={paymentError} /> : null}
           <PrimaryButton
-            title={`Thanh toán ${formatCurrency(amount)}`}
+            title={paymentError ? "Thử lại thanh toán" : `Thanh toán ${formatCurrency(amount)}`}
             onPress={handlePay}
             loading={isProcessing}
-            icon="shield-checkmark-outline"
+            disabled={isCancelling}
+            icon={paymentError ? "refresh" : "shield-checkmark-outline"}
             style={styles.payButton}
           />
+          {!paymentError && (
+            <TouchableOpacity
+              style={styles.cancelTransaction}
+              onPress={confirmCancelTransaction}
+              disabled={isProcessing || isCancelling}
+              activeOpacity={PRESS_OPACITY}
+            >
+              <Text style={styles.cancelTransactionText}>{isCancelling ? "Đang huỷ giao dịch..." : "Huỷ giao dịch"}</Text>
+            </TouchableOpacity>
+          )}
         </View>
       </SafeAreaView>
     </SafeAreaView>
@@ -360,6 +370,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACE.screen,
     paddingVertical: SPACE.md,
   },
+  cancelTransaction: {
+    alignItems: 'center',
+    paddingVertical: SPACE.md,
+    marginTop: SPACE.xs,
+  },
+  cancelTransactionText: {
+    ...TYPOGRAPHY.bodyStrong,
+    fontSize: 14,
+    color: THEME_COLORS.textSecondary,
+  },
   payButton: {
     backgroundColor: MOMO_COLOR,
     boxShadow: MOMO_BUTTON_SHADOW,
@@ -419,31 +439,5 @@ const styles = StyleSheet.create({
   amountText: {
     ...TYPOGRAPHY.h2,
     color: MOMO_COLOR,
-  },
-  successModalContent: {
-    backgroundColor: THEME_COLORS.surface,
-    borderRadius: RADIUS.sheet,
-    padding: SPACE["3xl"],
-    alignItems: 'center',
-    width: '100%',
-    maxWidth: 340,
-    ...SHADOWS.raised,
-  },
-  iconCircle: {
-    width: 72,
-    height: 72,
-    borderRadius: RADIUS.pill,
-    backgroundColor: THEME_COLORS.successSoft,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: SPACE.xl,
-  },
-  successTitle: {
-    ...TYPOGRAPHY.h2,
-    marginBottom: SPACE.sm,
-  },
-  successText: {
-    ...TYPOGRAPHY.body,
-    textAlign: 'center',
   },
 })

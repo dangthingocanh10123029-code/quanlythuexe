@@ -12,7 +12,7 @@ import { getBookingRange } from "../../utils/booking"
 import { useCars, getCarImage } from "../../hooks/useCars"
 import type { Car } from "../../types/car"
 import { formatCurrency, formatDate } from "../../utils/helpers"
-import { getBookingStatusLabel } from "../../utils/constants"
+import BookingStatusBadge from "../../components/BookingStatusBadge"
 import { PRESS_OPACITY, RADIUS, SPACE, THEME_COLORS, TYPOGRAPHY, UI } from "../../utils/theme"
 
 interface RentalHistoryItem {
@@ -61,24 +61,6 @@ export default function HistoryScreen() {
     return items.sort((a, b) => (b.startDate?.getTime() ?? 0) - (a.startDate?.getTime() ?? 0))
   }, [bookings])
 
-  // Badge trạng thái: nền soft + chữ đậm cùng tông
-  const getStatusTone = (status: string) => {
-    switch (status.toLowerCase()) {
-      case "completed":
-        return { bg: THEME_COLORS.successSoft, fg: THEME_COLORS.success }
-      case "active":
-      case "upcoming":
-        return { bg: THEME_COLORS.primarySoft, fg: THEME_COLORS.primary }
-      case "pending":
-        return { bg: THEME_COLORS.warningSoft, fg: THEME_COLORS.warning }
-      case "cancelled":
-      case "canceled":
-        return { bg: THEME_COLORS.dangerSoft, fg: THEME_COLORS.danger }
-      default:
-        return { bg: THEME_COLORS.surfaceMuted, fg: THEME_COLORS.textSecondary }
-    }
-  }
-
   const isStatus = (rental: RentalHistoryItem, status: string) => rental.status.toLowerCase() === status
 
   const filteredHistory = rentalHistory.filter((rental) => {
@@ -93,12 +75,11 @@ export default function HistoryScreen() {
   const totalDays = completedRentals.reduce((sum, rental) => sum + rental.days, 0)
 
   const renderHistoryItem = ({ item }: { item: RentalHistoryItem }) => {
-    const tone = getStatusTone(item.status)
     const image = resolveCarImage(cars, item.carId, item.carImage)
     return (
       <TouchableOpacity
         style={styles.historyCard}
-        onPress={() => router.push("/(tabs)/bookings")}
+        onPress={() => router.push({ pathname: "/booking/[id]", params: { id: item.id } })}
         activeOpacity={PRESS_OPACITY}
       >
         {image ? (
@@ -113,9 +94,7 @@ export default function HistoryScreen() {
         <View style={styles.historyInfo}>
           <View style={styles.historyHeader}>
             <Text style={styles.carName} numberOfLines={1}>{item.carName}</Text>
-            <View style={[styles.statusBadge, { backgroundColor: tone.bg }]}>
-              <Text style={[styles.statusText, { color: tone.fg }]}>{getBookingStatusLabel(item.status)}</Text>
-            </View>
+            <BookingStatusBadge status={item.status} />
           </View>
 
           <View style={styles.dateContainer}>
@@ -335,15 +314,6 @@ const styles = StyleSheet.create({
   carName: {
     ...TYPOGRAPHY.bodyStrong,
     flex: 1,
-  },
-  statusBadge: {
-    paddingHorizontal: SPACE.sm,
-    paddingVertical: 3,
-    borderRadius: RADIUS.pill,
-  },
-  statusText: {
-    fontSize: 11,
-    fontWeight: "700",
   },
   dateContainer: {
     flexDirection: "row",

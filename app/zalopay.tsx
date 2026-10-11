@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState } from 'react'
-import { View, Text, StyleSheet, TouchableOpacity, Modal, Alert, Linking, ScrollView } from 'react-native'
+import { View, Text, StyleSheet, TouchableOpacity, Alert, Linking, ScrollView } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons'
 import { router, useLocalSearchParams } from 'expo-router'
@@ -10,8 +10,9 @@ import { formatCurrency, validatePhone } from '../utils/helpers'
 import { PAYMENT_METHODS } from '../utils/constants'
 import PaymentLogo from '../components/ui/PaymentLogo'
 import { StatusBar } from 'expo-status-bar'
-import { THEME_COLORS, RADIUS, SPACE, SHADOWS, TYPOGRAPHY, UI, PRESS_OPACITY } from '../utils/theme'
+import { THEME_COLORS, RADIUS, SPACE, TYPOGRAPHY, UI, PRESS_OPACITY } from '../utils/theme'
 import { AppHeader, AppInput, PrimaryButton } from '../components'
+import PaymentErrorBanner from '../components/PaymentErrorBanner'
 
 // Màu thương hiệu ZaloPay: chỉ dùng cho logo, điểm nhấn và nút thanh toán
 const ZALOPAY_COLOR = PAYMENT_METHODS.ZALOPAY.color // #0068FF
@@ -33,9 +34,9 @@ export default function ZaloPayPayment() {
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [phone, setPhone] = useState('')
   const [pin, setPin] = useState('')
-  const [showSuccessModal, setShowSuccessModal] = useState(false)
 
   const [isProcessing, setIsProcessing] = useState(false)
+  const [isCancelling, setIsCancelling] = useState(false)
   // Lỗi giao dịch gần nhất (null = chưa lỗi); đơn vẫn "Chờ thanh toán" nên có thể thử lại
   const [paymentError, setPaymentError] = useState<string | null>(null)
   // Khoá đồng bộ để chặn bấm thanh toán 2 lần trước khi state kịp cập nhật
@@ -108,6 +109,21 @@ export default function ZaloPayPayment() {
   }
 
 
+  const confirmCancelTransaction = () => {
+    Alert.alert("Huỷ giao dịch", "Bạn có chắc muốn huỷ giao dịch này? Đơn vẫn chờ thanh toán, bạn có thể thanh toán lại sau.", [
+      { text: "Không", style: "cancel" },
+      {
+        text: "Huỷ giao dịch",
+        style: "destructive",
+        onPress: async () => {
+          setIsCancelling(true)
+          await handleCancelTransaction()
+          setIsCancelling(false)
+        },
+      },
+    ])
+  }
+
   const openZaloPay = async () => {
     try {
       await Linking.openURL(ZALOPAY_URL)
@@ -151,32 +167,28 @@ export default function ZaloPayPayment() {
 
         <SafeAreaView edges={["bottom"]} style={styles.footer}>
           <View style={styles.footerInner}>
+            {paymentError ? <PaymentErrorBanner message={paymentError} /> : null}
             <PrimaryButton
-              title={`Thanh toán ${formatCurrency(parsedAmount)}`}
+              title={paymentError ? "Thử lại thanh toán" : `Thanh toán ${formatCurrency(parsedAmount)}`}
               onPress={handlePay}
               loading={isProcessing}
-              icon="shield-checkmark-outline"
+              disabled={isCancelling}
+              icon={paymentError ? "refresh" : "shield-checkmark-outline"}
               style={styles.payButton}
             />
+            {!paymentError && (
+              <TouchableOpacity
+                style={styles.cancelTransaction}
+                onPress={confirmCancelTransaction}
+                disabled={isProcessing || isCancelling}
+                activeOpacity={PRESS_OPACITY}
+              >
+                <Text style={styles.cancelTransactionText}>{isCancelling ? "Đang huỷ giao dịch..." : "Huỷ giao dịch"}</Text>
+              </TouchableOpacity>
+            )}
           </View>
         </SafeAreaView>
 
-        <Modal
-          animationType="fade"
-          transparent={true}
-          visible={showSuccessModal}
-          onRequestClose={() => setShowSuccessModal(false)}
-        >
-          <View style={styles.modalOverlay}>
-            <View style={styles.successModalContent}>
-              <View style={styles.iconCircle}>
-                <Ionicons name="checkmark" size={36} color={THEME_COLORS.success} />
-              </View>
-              <Text style={styles.successTitle}>Thành công!</Text>
-              <Text style={styles.successText}>Thanh toán hoàn tất.</Text>
-            </View>
-          </View>
-        </Modal>
       </SafeAreaView>
     )
   }
@@ -352,41 +364,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACE.screen,
     paddingVertical: SPACE.md,
   },
+  cancelTransaction: {
+    alignItems: 'center',
+    paddingVertical: SPACE.md,
+    marginTop: SPACE.xs,
+  },
+  cancelTransactionText: {
+    ...TYPOGRAPHY.bodyStrong,
+    fontSize: 14,
+    color: THEME_COLORS.textSecondary,
+  },
   payButton: {
     backgroundColor: ZALOPAY_COLOR,
     boxShadow: ZALOPAY_BUTTON_SHADOW,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: THEME_COLORS.overlay,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: SPACE.screen,
-  },
-  successModalContent: {
-    backgroundColor: THEME_COLORS.surface,
-    borderRadius: RADIUS.sheet,
-    padding: SPACE["3xl"],
-    alignItems: 'center',
-    width: '100%',
-    maxWidth: 340,
-    ...SHADOWS.raised,
-  },
-  iconCircle: {
-    width: 72,
-    height: 72,
-    borderRadius: RADIUS.pill,
-    backgroundColor: THEME_COLORS.successSoft,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: SPACE.xl,
-  },
-  successTitle: {
-    ...TYPOGRAPHY.h2,
-    marginBottom: SPACE.sm,
-  },
-  successText: {
-    ...TYPOGRAPHY.body,
-    textAlign: 'center',
   },
 })

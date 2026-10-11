@@ -72,6 +72,9 @@ interface Booking {
   deposit?: number;
   handover?: { odometer?: number; fuelLevel?: string; conditionNote?: string; at?: any } | null;
   returnInspection?: { odometer?: number; fuelLevel?: string; damageNote?: string; lateFee?: number; extraFees?: number; depositRefund?: number; at?: any } | null;
+  rejectReason?: string;
+  rejectedAt?: any;
+  cancelledBy?: "user" | "admin";
 }
 
 const adminTabs = [
@@ -280,6 +283,10 @@ export default function AdminScreen() {
   const [bookingFilter, setBookingFilter] = useState("all")
   const [bookingSearch, setBookingSearch] = useState("")
   const [selectedBookingId, setSelectedBookingId] = useState<string | null>(null)
+  // Từ chối đơn Pending (modal nhập lý do)
+  const [rejectBookingId, setRejectBookingId] = useState<string | null>(null)
+  const [bookingRejectReason, setBookingRejectReason] = useState("")
+  const [bookingRejecting, setBookingRejecting] = useState(false)
 
   const [userSearch, setUserSearch] = useState("")
   const [userFilter, setUserFilter] = useState("all")
@@ -785,6 +792,20 @@ export default function AdminScreen() {
       Alert.alert("Không thể từ chối", error?.message || "Vui lòng thử lại.")
       return false
     }
+  }
+
+  const openRejectBooking = (booking: Booking) => {
+    setSelectedBookingId(null) // tránh chồng 2 Modal (iOS không mở được)
+    setBookingRejectReason("")
+    setRejectBookingId(booking.id)
+  }
+
+  const submitRejectBooking = async () => {
+    if (!rejectBookingId || bookingRejecting) return
+    setBookingRejecting(true)
+    const ok = await handleRejectBooking(rejectBookingId, bookingRejectReason)
+    setBookingRejecting(false)
+    if (ok) setRejectBookingId(null)
   }
 
   // Upcoming → Active (biên bản giao xe), Active → Completed (biên bản nhận lại xe)
@@ -1431,6 +1452,28 @@ export default function AdminScreen() {
               </Text>
             </View>
 
+            {/* Đơn chờ xác nhận: quyết định ngay trên thẻ (từ chối thay cho huỷ để khách nhận được lý do) */}
+            {canDecide(booking) && (
+              <View style={styles.decisionRow}>
+                <TouchableOpacity
+                  style={[styles.smallButton, styles.smallDangerButton, styles.flex1]}
+                  onPress={() => openRejectBooking(booking)}
+                  activeOpacity={PRESS_OPACITY}
+                >
+                  <Ionicons name="close-circle-outline" size={16} color={THEME_COLORS.danger} />
+                  <Text style={styles.smallDangerText}>Từ chối</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.smallButton, styles.smallPrimaryButton, styles.flex1]}
+                  onPress={() => handleConfirmBooking(booking)}
+                  activeOpacity={PRESS_OPACITY}
+                >
+                  <Ionicons name="checkmark-circle-outline" size={16} color={THEME_COLORS.textInverse} />
+                  <Text style={styles.smallPrimaryText}>Xác nhận</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
             <View style={styles.cardActions}>
               <TouchableOpacity
                 style={[styles.smallButton, styles.smallSecondaryButton]}
@@ -1440,17 +1483,6 @@ export default function AdminScreen() {
                 <Ionicons name="eye-outline" size={16} color={THEME_COLORS.textPrimary} />
                 <Text style={styles.smallSecondaryText}>Xem chi tiết</Text>
               </TouchableOpacity>
-              {/* ponytail: nút tạm của L3.2, U3.4 thêm "Từ chối" (handleRejectBooking) và làm lại giao diện */}
-              {canDecide(booking) && (
-                <TouchableOpacity
-                  style={[styles.smallButton, styles.smallPrimaryButton]}
-                  onPress={() => handleConfirmBooking(booking)}
-                  activeOpacity={PRESS_OPACITY}
-                >
-                  <Ionicons name="checkmark-circle-outline" size={16} color="#FFFFFF" />
-                  <Text style={styles.smallPrimaryText}>Xác nhận</Text>
-                </TouchableOpacity>
-              )}
               {(status === "upcoming" || status === "active") && (
                 <TouchableOpacity
                   style={[styles.smallButton, styles.smallPrimaryButton]}
@@ -1461,7 +1493,7 @@ export default function AdminScreen() {
                   <Text style={styles.smallPrimaryText}>{status === "upcoming" ? "Giao xe" : "Nhận lại xe"}</Text>
                 </TouchableOpacity>
               )}
-              {canCancel(booking) && (
+              {canCancel(booking) && !canDecide(booking) && (
                 <TouchableOpacity
                   style={[styles.smallButton, styles.smallDangerButton]}
                   onPress={() => handleCancelBooking(booking)}
@@ -1799,6 +1831,9 @@ export default function AdminScreen() {
                 {renderDetailRow("Ngày đặt", formatAnyDate(booking.createdAt, "datetime"))}
                 {renderDetailRow("Trạng thái", getBookingStatusLabel(booking.status))}
                 {booking.cancelledAt ? renderDetailRow("Ngày huỷ", formatDate(booking.cancelledAt, "datetime")) : null}
+                {booking.cancelledBy ? renderDetailRow("Người huỷ", booking.cancelledBy === "admin" ? "Quản trị viên" : "Khách hàng") : null}
+                {booking.rejectedAt ? renderDetailRow("Ngày từ chối", formatAnyDate(booking.rejectedAt, "datetime")) : null}
+                {booking.rejectReason ? renderDetailRow("Lý do từ chối", booking.rejectReason) : null}
               </View>
 
               <Text style={styles.detailSection}>Khách hàng</Text>
@@ -1843,6 +1878,24 @@ export default function AdminScreen() {
               </View>
 
               <View style={styles.modalActions}>
+                {canDecide(booking) && (
+                  <>
+                    <TouchableOpacity
+                      style={[styles.modalActionButton, styles.modalPrimaryButton]}
+                      onPress={() => handleConfirmBooking(booking)}
+                      activeOpacity={PRESS_OPACITY}
+                    >
+                      <Text style={styles.modalPrimaryText}>Xác nhận đơn</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.modalActionButton, styles.modalDangerButton]}
+                      onPress={() => openRejectBooking(booking)}
+                      activeOpacity={PRESS_OPACITY}
+                    >
+                      <Text style={styles.modalDangerText}>Từ chối đơn</Text>
+                    </TouchableOpacity>
+                  </>
+                )}
                 {(status === "upcoming" || status === "active") && (
                   <TouchableOpacity
                     style={[styles.modalActionButton, styles.modalPrimaryButton]}
@@ -1852,7 +1905,7 @@ export default function AdminScreen() {
                     <Text style={styles.modalPrimaryText}>{status === "upcoming" ? "Giao xe" : "Nhận lại xe"}</Text>
                   </TouchableOpacity>
                 )}
-                {canCancel(booking) && (
+                {canCancel(booking) && !canDecide(booking) && (
                   <TouchableOpacity
                     style={[styles.modalActionButton, styles.modalDangerButton]}
                     onPress={() => handleCancelBooking(booking)}
@@ -1993,6 +2046,58 @@ export default function AdminScreen() {
     )
   }
 
+  const renderRejectBookingModal = () => {
+    const booking = rejectBookingId ? bookings.find((b) => b.id === rejectBookingId) : null
+    if (!booking) return null
+    const canSubmit = bookingRejectReason.trim().length > 0 && !bookingRejecting
+    return (
+      <Modal visible transparent animationType="slide" onRequestClose={() => setRejectBookingId(null)}>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, styles.rejectModalContent]}>
+            {renderModalHeader("Từ chối đơn đặt xe", () => setRejectBookingId(null))}
+            <Text style={styles.rejectLicenseDescription}>
+              Đơn {booking.carName} của {getCustomerName(booking)}. Lý do sẽ được gửi kèm thông báo cho khách.
+            </Text>
+            <Text style={styles.inputLabel}>Lý do từ chối</Text>
+            <TextInput
+              style={[styles.input, styles.textArea, focusedField === "bookingRejectReason" && (styles.inputFocused as TextStyle)]}
+              value={bookingRejectReason}
+              onChangeText={setBookingRejectReason}
+              placeholder="VD: Xe đang bảo dưỡng trong thời gian này, vui lòng chọn xe khác..."
+              placeholderTextColor={THEME_COLORS.textMuted}
+              multiline
+              textAlignVertical="top"
+              autoFocus
+              {...focusProps("bookingRejectReason")}
+            />
+            <View style={styles.rejectModalActions}>
+              <TouchableOpacity
+                style={[styles.modalActionButton, styles.rejectCancelButton]}
+                onPress={() => setRejectBookingId(null)}
+                disabled={bookingRejecting}
+                activeOpacity={PRESS_OPACITY}
+              >
+                <Text style={styles.rejectCancelText}>Quay lại</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalActionButton, styles.modalDangerButton, styles.flex1, !canSubmit && styles.disabledButton]}
+                onPress={submitRejectBooking}
+                disabled={!canSubmit}
+                activeOpacity={PRESS_OPACITY}
+              >
+                {bookingRejecting ? (
+                  <ActivityIndicator size="small" color={THEME_COLORS.danger} />
+                ) : (
+                  <Text style={styles.modalDangerText}>Từ chối đơn</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    )
+  }
+
   // ponytail: biên bản tạm của L4, U4.1/U4.2 làm lại thành bottom sheet đúng thiết kế
   const renderInspectionModal = () => {
     if (!inspection || !inspectionBooking) return null
@@ -2111,6 +2216,7 @@ export default function AdminScreen() {
       {renderInspectionModal()}
       {renderUserDetailModal()}
       {renderRejectLicenseModal()}
+      {renderRejectBookingModal()}
     </SafeAreaView>
   )
 }
@@ -2467,6 +2573,11 @@ const styles = StyleSheet.create({
   },
 
   // Nút hành động nhỏ trong thẻ
+  decisionRow: {
+    flexDirection: "row",
+    gap: SPACE.sm,
+    marginTop: SPACE.lg,
+  },
   cardActions: {
     flexDirection: "row",
     flexWrap: "wrap",

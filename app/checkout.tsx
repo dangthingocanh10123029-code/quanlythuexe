@@ -137,7 +137,7 @@ export default function CheckoutScreen() {
 
     setSubmitting(true)
     try {
-      await createBooking({
+      const bookingId = await createBooking({
         uid: user.id,
         car,
         pickupDate: pickupAt,
@@ -147,8 +147,7 @@ export default function CheckoutScreen() {
         addOns: chosenAddOns,
         promoCode,
       })
-      // ponytail: G3 đổi sang router.replace tới /booking/[id] (màn chi tiết đơn)
-      router.replace("/(tabs)/bookings")
+      router.replace({ pathname: "/booking/[id]", params: { id: bookingId } })
     } catch (error: any) {
       console.error("Error creating booking:", error)
       if (error?.code === "license-required") goToLicense(error.message)
