@@ -14,7 +14,7 @@ import { HIDDEN_CAR_STATUSES } from "../../utils/constants"
 import { BRAND_ASSETS, PROMO_ASSETS } from "../../data/assets"
 import { StatusBar } from "expo-status-bar"
 import { THEME_COLORS, RADIUS, SPACE, SHADOWS, TYPOGRAPHY, UI, PRESS_OPACITY, layout } from "../../utils/theme"
-import { CarCardCompact, CarCardFeatured, PromoModal, SearchBar, SectionHeader } from "../../components"
+import { CarCardCompact, CarCardFeatured, CarCardSkeleton, PromoModal, SearchBar, SectionHeader } from "../../components"
 
 
 const { width } = Dimensions.get("window")
@@ -52,7 +52,7 @@ export default function HomeScreen() {
   const [showPromoModal, setShowPromoModal] = useState(false)
   const [timeLeft, setTimeLeft] = useState(180) // 180 seconds = 3 minutes
   const [hasNotifications, setHasNotifications] = useState(false)
-  const { cars } = useCars()
+  const { cars, loading: carsLoading } = useCars()
   const { likedIds, toggleLike } = useLikedCarIds()
 
   // Xe nổi bật: điểm đánh giá cao nhất trong các xe đang cho thuê
@@ -126,6 +126,8 @@ export default function HomeScreen() {
     <View style={styles.featuredSlide}>
       <CarCardFeatured
         car={{ ...item, image: getCarImage(item) }}
+        liked={likedIds.includes(item.id)}
+        onFavoritePress={() => toggleLike(item.id).catch((e) => Alert.alert("Không thể lưu xe yêu thích", e.message))}
         onPress={() => router.push({ pathname: "/car-details/[id]", params: { id: item.id } })}
       />
     </View>
@@ -273,53 +275,84 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        {/* Featured Cars */}
-        <View style={styles.section}>
-          <SectionHeader
-            title="Xe nổi bật"
-            actionLabel="Xem tất cả"
-            onAction={() => openCarsTab()}
-            style={styles.sectionHeader}
-          />
+        {carsLoading ? (
+          <>
+            <View style={styles.section}>
+              <SectionHeader title="Xe nổi bật" style={styles.sectionHeader} />
+              <View style={styles.featuredSlide}>
+                <CarCardSkeleton featured />
+              </View>
+            </View>
+            <View style={styles.section}>
+              <SectionHeader title="Thuê gần đây" style={styles.sectionHeader} />
+              <View style={styles.skeletonRow}>
+                {[0, 1].map((item) => (
+                  <CarCardSkeleton key={item} style={styles.recentCarCard} />
+                ))}
+              </View>
+            </View>
+          </>
+        ) : visibleCars.length === 0 ? (
+          <View style={styles.section}>
+            <SectionHeader title="Danh sách xe" style={styles.sectionHeader} />
+            <View style={styles.emptyState}>
+              <View style={styles.emptyIcon}>
+                <Ionicons name="car-outline" size={32} color={THEME_COLORS.textMuted} />
+              </View>
+              <Text style={styles.emptyTitle}>Chưa có xe sẵn sàng</Text>
+              <Text style={styles.emptySubtitle}>Danh sách xe đang được cập nhật. Bạn vui lòng quay lại sau.</Text>
+            </View>
+          </View>
+        ) : (
+          <>
+            {/* Featured Cars */}
+            <View style={styles.section}>
+              <SectionHeader
+                title="Xe nổi bật"
+                actionLabel="Xem tất cả"
+                onAction={() => openCarsTab()}
+                style={styles.sectionHeader}
+              />
 
-          <FlatList
-            data={featuredCars}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            renderItem={renderFeaturedCarCard}
-            keyExtractor={(item) => item.id}
-            snapToInterval={width} // Full width snap
-            decelerationRate={0.9}
-            contentContainerStyle={styles.featuredCarsContainer}
-            snapToAlignment="center"
-            getItemLayout={(data, index) => ({
-              length: width,
-              offset: width * index,
-              index,
-            })}
-            initialScrollIndex={0}
-            pagingEnabled
-          />
-        </View>
+              <FlatList
+                data={featuredCars}
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                renderItem={renderFeaturedCarCard}
+                keyExtractor={(item) => item.id}
+                snapToInterval={width}
+                decelerationRate={0.9}
+                contentContainerStyle={styles.featuredCarsContainer}
+                snapToAlignment="center"
+                getItemLayout={(_, index) => ({
+                  length: width,
+                  offset: width * index,
+                  index,
+                })}
+                pagingEnabled
+              />
+            </View>
 
-        {/* Recently Rented */}
-        <View style={styles.section}>
-          <SectionHeader
-            title="Thuê gần đây"
-            actionLabel="Xem tất cả"
-            onAction={() => router.push("/(tabs)/bookings")}
-            style={styles.sectionHeader}
-          />
+            {/* Recently Rented */}
+            <View style={styles.section}>
+              <SectionHeader
+                title="Thuê gần đây"
+                actionLabel="Xem tất cả"
+                onAction={() => router.push("/(tabs)/bookings")}
+                style={styles.sectionHeader}
+              />
 
-          <FlatList
-            data={recentlyRented}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            renderItem={renderRecentCarCard}
-            keyExtractor={(item) => item.id}
-            contentContainerStyle={styles.recentListContent}
-          />
-        </View>
+              <FlatList
+                data={recentlyRented}
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                renderItem={renderRecentCarCard}
+                keyExtractor={(item) => item.id}
+                contentContainerStyle={styles.recentListContent}
+              />
+            </View>
+          </>
+        )}
       </ScrollView>
 
       <PromoModal
@@ -514,5 +547,36 @@ const styles = StyleSheet.create({
   },
   recentCarCard: {
     width: width * 0.6,
+  },
+  skeletonRow: {
+    flexDirection: "row",
+    gap: SPACE.md,
+    paddingHorizontal: SPACE.screen,
+    paddingBottom: SPACE.lg,
+    overflow: "hidden",
+  },
+  emptyState: {
+    ...UI.card,
+    alignItems: "center",
+    marginHorizontal: SPACE.screen,
+    paddingHorizontal: SPACE.xl,
+    paddingVertical: SPACE.section,
+  },
+  emptyIcon: {
+    width: 64,
+    height: 64,
+    borderRadius: RADIUS.pill,
+    backgroundColor: THEME_COLORS.surfaceMuted,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: SPACE.lg,
+  },
+  emptyTitle: {
+    ...TYPOGRAPHY.h3,
+  },
+  emptySubtitle: {
+    ...TYPOGRAPHY.caption,
+    marginTop: SPACE.xs,
+    textAlign: "center",
   },
 })

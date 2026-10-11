@@ -7,20 +7,42 @@ import type { CarCardData } from "./CarCardCompact"
 type CarCardFeaturedProps = {
   car: CarCardData
   onPress: () => void
+  onFavoritePress?: () => void
+  liked?: boolean
   style?: ViewStyle
 }
 
-export default function CarCardFeatured({ car, onPress, style }: CarCardFeaturedProps) {
+export default function CarCardFeatured({ car, onPress, onFavoritePress, liked = false, style }: CarCardFeaturedProps) {
   return (
     <TouchableOpacity style={[styles.card, style]} onPress={onPress} activeOpacity={PRESS_OPACITY}>
       <View style={styles.imageWrap}>
         <Image source={car.image} style={styles.image} resizeMode="cover" />
-        {car.location ? (
-          <View style={styles.locationTag}>
-            <Ionicons name="location" size={13} color={THEME_COLORS.primary} />
-            <Text style={styles.locationText}>{car.location}</Text>
-          </View>
-        ) : null}
+        <View style={styles.imageHeader}>
+          {car.location ? (
+            <View style={styles.locationTag}>
+              <Ionicons name="location" size={13} color={THEME_COLORS.primary} />
+              <Text style={styles.locationText} numberOfLines={1}>{car.location}</Text>
+            </View>
+          ) : <View />}
+          {onFavoritePress ? (
+            <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityLabel={liked ? "Bỏ khỏi xe yêu thích" : "Thêm vào xe yêu thích"}
+              style={styles.favoriteButton}
+              onPress={(event) => {
+                event.stopPropagation()
+                onFavoritePress()
+              }}
+              activeOpacity={PRESS_OPACITY}
+            >
+              <Ionicons
+                name={liked ? "heart" : "heart-outline"}
+                size={20}
+                color={liked ? THEME_COLORS.danger : THEME_COLORS.textSecondary}
+              />
+            </TouchableOpacity>
+          ) : null}
+        </View>
       </View>
       <View style={styles.content}>
         <View style={styles.titleRow}>
@@ -76,22 +98,38 @@ const styles = StyleSheet.create({
     width: "100%",
     height: "100%",
   },
-  locationTag: {
+  imageHeader: {
     position: "absolute",
     top: SPACE.md,
     left: SPACE.md,
+    right: SPACE.md,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: SPACE.sm,
+  },
+  locationTag: {
+    minHeight: 34,
+    maxWidth: "78%",
     flexDirection: "row",
     alignItems: "center",
     gap: SPACE.xs,
     paddingHorizontal: SPACE.md,
-    paddingVertical: 7,
     borderRadius: RADIUS.pill,
-    backgroundColor: "rgba(255, 255, 255, 0.94)",
+    backgroundColor: THEME_COLORS.surface,
   },
   locationText: {
     fontSize: 12,
     fontWeight: "700",
     color: THEME_COLORS.textSecondary,
+  },
+  favoriteButton: {
+    width: 38,
+    height: 38,
+    borderRadius: RADIUS.pill,
+    backgroundColor: THEME_COLORS.surface,
+    alignItems: "center",
+    justifyContent: "center",
   },
   content: {
     padding: SPACE.lg,
@@ -169,4 +207,3 @@ const styles = StyleSheet.create({
     backgroundColor: THEME_COLORS.primary,
   },
 })
-

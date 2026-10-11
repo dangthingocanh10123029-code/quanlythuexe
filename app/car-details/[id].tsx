@@ -53,7 +53,6 @@ export default function CarDetailsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>()
   const { car, loading: carLoading } = useCar(id)
   const { likedIds, toggleLike } = useLikedCarIds()
-  const [currentImageIndex, setCurrentImageIndex] = useState(0)
 
   // Review state
   const { user } = useAuth()
@@ -136,15 +135,16 @@ export default function CarDetailsScreen() {
 
   // Xe bảo dưỡng / tạm ngừng thì không đặt được
   const bookingLocked = HIDDEN_CAR_STATUSES.includes(car.status)
+  const lockedStatusLabel = CAR_STATUS_LABELS[car.status] || "Tạm ngừng"
   const liked = likedIds.includes(car.id)
 
   const specs: { icon: keyof typeof Ionicons.glyphMap; value: string; label: string }[] = [
     { icon: "people-outline", value: `${car.seats} chỗ`, label: "Số chỗ" },
+    { icon: "git-compare-outline", value: car.transmission || "Chưa cập nhật", label: "Hộp số" },
     { icon: "water-outline", value: String(car.fuel), label: "Nhiên liệu" },
     { icon: "car-sport-outline", value: String(car.type), label: "Loại xe" },
     { icon: "calendar-outline", value: String(car.year), label: "Năm SX" },
     { icon: "location-outline", value: String(car.location), label: "Khu vực" },
-    { icon: "star-outline", value: String(car.rating), label: "Đánh giá" },
   ]
 
   return (
@@ -157,6 +157,8 @@ export default function CarDetailsScreen() {
           <TouchableOpacity
             accessibilityRole="button"
             accessibilityLabel={liked ? "Bỏ khỏi xe yêu thích" : "Thêm vào xe yêu thích"}
+            accessibilityState={{ selected: liked }}
+            style={[styles.favoriteHeaderButton, liked && styles.favoriteHeaderButtonActive]}
             onPress={() => toggleLike(car.id).catch((e) => Alert.alert("Không thể lưu xe yêu thích", e.message))}
             activeOpacity={PRESS_OPACITY}
           >
@@ -187,20 +189,25 @@ export default function CarDetailsScreen() {
 
           <View style={styles.imageWrapper}>
             <Image source={getCarImage(car)} style={styles.carImage} />
-
-            {/* Image Indicators */}
-            <View style={styles.imageIndicators}>
-              {[...Array(4)].map((_, index) => (
-                <View
-                  key={index}
-                  style={[
-                    styles.indicator,
-                    currentImageIndex === index ? styles.activeIndicator : styles.inactiveIndicator
-                  ]}
-                />
-              ))}
-            </View>
           </View>
+
+          {bookingLocked ? (
+            <View style={styles.lockedBanner}>
+              <View style={styles.lockedIcon}>
+                <Ionicons
+                  name={car.status === "Maintenance" ? "construct-outline" : "pause-circle-outline"}
+                  size={22}
+                  color={THEME_COLORS.warning}
+                />
+              </View>
+              <View style={styles.lockedCopy}>
+                <Text style={styles.lockedTitle}>{lockedStatusLabel}</Text>
+                <Text style={styles.lockedText}>
+                  Xe hiện chưa nhận đặt mới. Bạn vui lòng chọn một xe khác.
+                </Text>
+              </View>
+            </View>
+          ) : null}
         </View>
 
         {/* Specs Grid */}
@@ -216,6 +223,54 @@ export default function CarDetailsScreen() {
                 style={styles.specItem}
               />
             ))}
+          </View>
+        </View>
+
+        <View style={styles.block}>
+          <Text style={styles.sectionTitle}>Thông tin thuê xe</Text>
+          <View style={styles.detailsCard}>
+            <View style={styles.detailRow}>
+              <View style={styles.detailIcon}>
+                <Ionicons name="card-outline" size={20} color={THEME_COLORS.primary} />
+              </View>
+              <View style={styles.detailCopy}>
+                <Text style={styles.detailLabel}>Biển số</Text>
+                <Text style={styles.detailValue}>{car.licensePlate || "Chưa cập nhật"}</Text>
+              </View>
+            </View>
+            <View style={styles.detailDivider} />
+            <View style={styles.detailRow}>
+              <View style={styles.detailIcon}>
+                <Ionicons name="shield-checkmark-outline" size={20} color={THEME_COLORS.primary} />
+              </View>
+              <View style={styles.detailCopy}>
+                <Text style={styles.detailLabel}>Tiền cọc (trả khi nhận xe)</Text>
+                <Text style={styles.depositValue}>{formatCurrency(car.deposit || 0)}</Text>
+              </View>
+            </View>
+            <View style={styles.detailDivider} />
+            <View>
+              <Text style={styles.detailLabel}>Mô tả</Text>
+              <Text style={styles.description}>
+                {car.description || "Chưa có mô tả chi tiết cho xe này."}
+              </Text>
+            </View>
+            <View style={styles.detailDivider} />
+            <View>
+              <Text style={styles.detailLabel}>Tiện nghi</Text>
+              {car.amenities?.length ? (
+                <View style={styles.amenitiesRow}>
+                  {car.amenities.map((amenity) => (
+                    <View key={amenity} style={styles.amenityChip}>
+                      <Ionicons name="checkmark-circle" size={16} color={THEME_COLORS.success} />
+                      <Text style={styles.amenityText}>{amenity}</Text>
+                    </View>
+                  ))}
+                </View>
+              ) : (
+                <Text style={styles.description}>Chưa có thông tin tiện nghi.</Text>
+              )}
+            </View>
           </View>
         </View>
 
@@ -344,7 +399,7 @@ export default function CarDetailsScreen() {
             </View>
           </View>
           <PrimaryButton
-            title={bookingLocked ? CAR_STATUS_LABELS[car.status] : "Thuê ngay"}
+            title={bookingLocked ? lockedStatusLabel : "Thuê ngay"}
             icon={bookingLocked ? undefined : "arrow-forward"}
             disabled={bookingLocked}
             onPress={() => router.push({
@@ -387,6 +442,20 @@ const styles = StyleSheet.create({
   carName: {
     ...TYPOGRAPHY.h1,
   },
+  favoriteHeaderButton: {
+    width: 44,
+    height: 44,
+    borderRadius: RADIUS.control,
+    borderWidth: 1,
+    borderColor: THEME_COLORS.border,
+    backgroundColor: THEME_COLORS.surface,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  favoriteHeaderButtonActive: {
+    borderColor: THEME_COLORS.danger,
+    backgroundColor: THEME_COLORS.dangerSoft,
+  },
   brandLogoContainer: {
     width: 56,
     height: 56,
@@ -414,23 +483,36 @@ const styles = StyleSheet.create({
     height: 220,
     resizeMode: 'contain',
   },
-  imageIndicators: {
-    flexDirection: 'row',
-    justifyContent: 'center',
+  lockedBanner: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: SPACE.md,
     marginTop: SPACE.lg,
+    padding: SPACE.lg,
+    borderRadius: RADIUS.control,
+    backgroundColor: THEME_COLORS.warningSoft,
+    borderWidth: 1,
+    borderColor: THEME_COLORS.warning,
   },
-  indicator: {
-    width: 6,
-    height: 6,
+  lockedIcon: {
+    width: 40,
+    height: 40,
     borderRadius: RADIUS.pill,
-    marginHorizontal: 3,
+    backgroundColor: THEME_COLORS.surface,
+    alignItems: "center",
+    justifyContent: "center",
   },
-  activeIndicator: {
-    backgroundColor: THEME_COLORS.primary,
-    width: 18,
+  lockedCopy: {
+    flex: 1,
   },
-  inactiveIndicator: {
-    backgroundColor: THEME_COLORS.borderStrong,
+  lockedTitle: {
+    ...TYPOGRAPHY.bodyStrong,
+    color: THEME_COLORS.warning,
+  },
+  lockedText: {
+    ...TYPOGRAPHY.caption,
+    color: THEME_COLORS.textSecondary,
+    marginTop: 2,
   },
   block: {
     paddingHorizontal: SPACE.screen,
@@ -449,6 +531,66 @@ const styles = StyleSheet.create({
   specItem: {
     width: '31.5%',
     minHeight: 134,
+  },
+  detailsCard: {
+    ...UI.card,
+    padding: SPACE.lg,
+  },
+  detailRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SPACE.md,
+  },
+  detailIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: RADIUS.pill,
+    backgroundColor: THEME_COLORS.primarySoft,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  detailCopy: {
+    flex: 1,
+  },
+  detailLabel: {
+    ...TYPOGRAPHY.caption,
+    color: THEME_COLORS.textSecondary,
+    fontWeight: "600",
+  },
+  detailValue: {
+    ...TYPOGRAPHY.bodyStrong,
+    marginTop: 2,
+  },
+  depositValue: {
+    ...TYPOGRAPHY.price,
+    marginTop: 2,
+  },
+  detailDivider: {
+    height: 1,
+    backgroundColor: THEME_COLORS.border,
+    marginVertical: SPACE.lg,
+  },
+  description: {
+    ...TYPOGRAPHY.body,
+    marginTop: SPACE.sm,
+  },
+  amenitiesRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: SPACE.sm,
+    marginTop: SPACE.md,
+  },
+  amenityChip: {
+    ...UI.chip,
+    minHeight: 36,
+    flexDirection: "row",
+    gap: SPACE.xs,
+    paddingHorizontal: SPACE.md,
+    paddingVertical: SPACE.sm,
+  },
+  amenityText: {
+    ...UI.chipText,
+    fontSize: 13,
   },
   rentalInfo: {
     ...UI.card,

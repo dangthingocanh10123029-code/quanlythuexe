@@ -12,7 +12,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { LineChart, BarChart } from "react-native-chart-kit"
 import { Dimensions } from "react-native"
 import { formatCurrency, formatDate } from "../utils/helpers"
-import { getBookingStatusLabel, PAYMENT_STATUS_LABELS, CAR_STATUS_LABELS } from "../utils/constants"
+import { AMENITIES, CAR_STATUS_LABELS, getBookingStatusLabel, PAYMENT_STATUS_LABELS, TRANSMISSIONS } from "../utils/constants"
 import { useCars, getCarImage } from "../hooks/useCars"
 import { useAuth } from "../hooks/useAuth"
 import { seedCars, deleteCar } from "../utils/carActions"
@@ -241,6 +241,7 @@ export default function AdminScreen() {
   const { user: authUser, loading: authLoading } = useAuth()
   const isAdmin = authUser?.isAdmin === true
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isSeeding, setIsSeeding] = useState(false)
 
   const [bookings, setBookings] = useState<Booking[]>([])
   const [users, setUsers] = useState<User[]>([])
@@ -677,12 +678,16 @@ export default function AdminScreen() {
   }
 
   const handleSeedCars = async () => {
+    if (isSeeding) return
+    setIsSeeding(true)
     try {
       const added = await seedCars()
       Alert.alert("Nạp dữ liệu xe mẫu", added > 0 ? `Đã thêm ${added} xe mẫu.` : "Tất cả xe mẫu đã có sẵn.")
     } catch (error) {
       console.error("Error seeding cars:", error)
       Alert.alert("Lỗi", "Không thể nạp dữ liệu xe mẫu. Vui lòng thử lại.")
+    } finally {
+      setIsSeeding(false)
     }
   }
 
@@ -854,6 +859,7 @@ export default function AdminScreen() {
           {renderInfoRow("Loại xe", car.type)}
           {renderInfoRow("Số chỗ", String(car.seats))}
           {renderInfoRow("Nhiên liệu", car.fuel)}
+          {renderInfoRow("Biển số", car.licensePlate || "Chưa cập nhật")}
           {renderInfoRow("Lượt đặt", String(car.bookings ?? 0))}
         </View>
 
@@ -891,12 +897,27 @@ export default function AdminScreen() {
           <Text style={styles.addButtonText}>Thêm xe</Text>
         </TouchableOpacity>
       </View>
-      {/* ponytail: nút tạm, Codex làm lại giao diện ở U1.1 */}
-      <View style={styles.tabHeader}>
-        <TouchableOpacity onPress={handleSeedCars} activeOpacity={PRESS_OPACITY}>
-          <Text style={styles.smallSecondaryText}>Nạp dữ liệu xe mẫu</Text>
-        </TouchableOpacity>
-      </View>
+      <TouchableOpacity
+        accessibilityRole="button"
+        accessibilityLabel="Nạp dữ liệu xe mẫu"
+        style={[styles.seedButton, isSeeding && styles.disabledButton]}
+        onPress={handleSeedCars}
+        disabled={isSeeding}
+        activeOpacity={PRESS_OPACITY}
+      >
+        <View style={styles.seedIcon}>
+          <Ionicons name="cloud-download-outline" size={22} color={THEME_COLORS.primary} />
+        </View>
+        <View style={styles.flex1}>
+          <Text style={styles.seedTitle}>{isSeeding ? "Đang nạp dữ liệu..." : "Nạp dữ liệu xe mẫu"}</Text>
+          <Text style={styles.seedCaption}>Thêm các xe mẫu chưa có vào danh sách quản lý.</Text>
+        </View>
+        {isSeeding ? (
+          <ActivityIndicator size="small" color={THEME_COLORS.primary} />
+        ) : (
+          <Ionicons name="arrow-forward" size={20} color={THEME_COLORS.primary} />
+        )}
+      </TouchableOpacity>
 
       {showAddCarForm && (
         <View style={styles.addCarForm}>
@@ -996,6 +1017,121 @@ export default function AdminScreen() {
                 {...focusProps("year")}
               />
               {renderFieldError("year")}
+            </View>
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>Biển số</Text>
+            <TextInput
+              style={inputStyle("licensePlate")}
+              placeholder="VD: 51A-123.45"
+              placeholderTextColor={THEME_COLORS.textMuted}
+              value={newCar.licensePlate}
+              onChangeText={(text) => updateField("licensePlate", text.toUpperCase())}
+              autoCapitalize="characters"
+              {...focusProps("licensePlate")}
+            />
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>Hộp số</Text>
+            <View style={styles.choiceRow}>
+              {TRANSMISSIONS.map((transmission) => {
+                const selected = newCar.transmission === transmission
+                return (
+                  <TouchableOpacity
+                    key={transmission}
+                    style={[styles.choiceChip, selected && styles.choiceChipActive]}
+                    onPress={() => updateField("transmission", transmission)}
+                    activeOpacity={PRESS_OPACITY}
+                  >
+                    <Ionicons
+                      name={selected ? "checkmark-circle" : "radio-button-off-outline"}
+                      size={17}
+                      color={selected ? THEME_COLORS.primary : THEME_COLORS.textMuted}
+                    />
+                    <Text style={[styles.choiceChipText, selected && styles.choiceChipTextActive]}>{transmission}</Text>
+                  </TouchableOpacity>
+                )
+              })}
+            </View>
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>Tiền cọc (VND)</Text>
+            <TextInput
+              style={inputStyle("deposit", !!formErrors.deposit)}
+              placeholder="VD: 5000000"
+              placeholderTextColor={THEME_COLORS.textMuted}
+              value={newCar.deposit}
+              onChangeText={(text) => updateField("deposit", text)}
+              keyboardType="numeric"
+              {...focusProps("deposit")}
+            />
+            {renderFieldError("deposit")}
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>Mô tả</Text>
+            <TextInput
+              style={[inputStyle("description"), styles.textArea]}
+              placeholder="Mô tả nổi bật, trải nghiệm lái và mục đích sử dụng phù hợp..."
+              placeholderTextColor={THEME_COLORS.textMuted}
+              value={newCar.description}
+              onChangeText={(text) => updateField("description", text)}
+              multiline
+              textAlignVertical="top"
+              {...focusProps("description")}
+            />
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>Tiện nghi</Text>
+            <Text style={styles.fieldHint}>Bạn có thể chọn nhiều tiện nghi.</Text>
+            <View style={styles.choiceRow}>
+              {AMENITIES.map((amenity) => {
+                const selected = newCar.amenities.includes(amenity)
+                return (
+                  <TouchableOpacity
+                    key={amenity}
+                    style={[styles.choiceChip, selected && styles.choiceChipActive]}
+                    onPress={() => updateField(
+                      "amenities",
+                      selected
+                        ? newCar.amenities.filter((item) => item !== amenity)
+                        : [...newCar.amenities, amenity]
+                    )}
+                    activeOpacity={PRESS_OPACITY}
+                  >
+                    <Ionicons
+                      name={selected ? "checkmark-circle" : "add-circle-outline"}
+                      size={17}
+                      color={selected ? THEME_COLORS.primary : THEME_COLORS.textMuted}
+                    />
+                    <Text style={[styles.choiceChipText, selected && styles.choiceChipTextActive]}>{amenity}</Text>
+                  </TouchableOpacity>
+                )
+              })}
+            </View>
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>Trạng thái</Text>
+            <View style={styles.choiceRow}>
+              {(Object.entries(CAR_STATUS_LABELS) as [CarStatus, string][]).map(([status, label]) => {
+                const selected = newCar.status === status
+                return (
+                  <TouchableOpacity
+                    key={status}
+                    style={[styles.choiceChip, selected && styles.choiceChipActive]}
+                    onPress={() => updateField("status", status)}
+                    activeOpacity={PRESS_OPACITY}
+                  >
+                    <View style={[styles.statusDot, { backgroundColor: TONES[getCarTone(status)].fg }]} />
+                    <Text style={[styles.choiceChipText, selected && styles.choiceChipTextActive]}>{label}</Text>
+                  </TouchableOpacity>
+                )
+              })}
             </View>
           </View>
 
@@ -1736,6 +1872,34 @@ const styles = StyleSheet.create({
     ...UI.primaryButtonText,
     fontSize: 14,
   },
+  seedButton: {
+    ...UI.secondaryButton,
+    height: "auto",
+    minHeight: 72,
+    flexDirection: "row",
+    justifyContent: "flex-start",
+    gap: SPACE.md,
+    paddingHorizontal: SPACE.lg,
+    paddingVertical: SPACE.md,
+    marginTop: -SPACE.md,
+    marginBottom: SPACE.xl,
+  },
+  seedIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: RADIUS.pill,
+    backgroundColor: THEME_COLORS.primarySoft,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  seedTitle: {
+    ...TYPOGRAPHY.bodyStrong,
+    color: THEME_COLORS.primary,
+  },
+  seedCaption: {
+    ...TYPOGRAPHY.caption,
+    marginTop: 2,
+  },
 
   // ===== Form thêm/sửa xe =====
   addCarForm: {
@@ -1774,6 +1938,40 @@ const styles = StyleSheet.create({
     ...TYPOGRAPHY.caption,
     color: THEME_COLORS.danger,
     marginTop: SPACE.xs,
+  },
+  fieldHint: {
+    ...TYPOGRAPHY.caption,
+    marginTop: -SPACE.xs,
+    marginBottom: SPACE.md,
+  },
+  textArea: {
+    height: 112,
+    paddingTop: SPACE.md,
+    paddingBottom: SPACE.md,
+  },
+  choiceRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: SPACE.sm,
+  },
+  choiceChip: {
+    ...UI.chip,
+    flexDirection: "row",
+    gap: SPACE.xs,
+  },
+  choiceChipActive: {
+    ...UI.chipActive,
+  },
+  choiceChipText: {
+    ...UI.chipText,
+  },
+  choiceChipTextActive: {
+    ...UI.chipTextActive,
+  },
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: RADIUS.pill,
   },
   formButtons: {
     flexDirection: "row",

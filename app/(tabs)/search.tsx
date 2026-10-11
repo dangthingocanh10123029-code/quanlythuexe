@@ -23,7 +23,7 @@ import { CITIES, FUELS, HIDDEN_CAR_STATUSES } from "../../utils/constants"
 import { BRAND_ASSETS } from "../../data/assets"
 import { StatusBar } from "expo-status-bar"
 import { THEME_COLORS, RADIUS, SPACE, SHADOWS, TYPOGRAPHY, UI, PRESS_OPACITY, layout } from "../../utils/theme"
-import { BrandChip, CarCardCompact, FilterBottomSheet, SearchBar, SectionHeader } from "../../components"
+import { BrandChip, CarCardCompact, CarCardSkeleton, FilterBottomSheet, SearchBar, SectionHeader } from "../../components"
 
 const { width } = Dimensions.get("window")
 
@@ -85,7 +85,7 @@ export default function SearchScreen() {
   const [showFilterModal, setShowFilterModal] = useState(false)
   const searchInputRef = useRef<TextInput>(null)
   const params = useLocalSearchParams<SearchParams>()
-  const { cars: allCars } = useCars()
+  const { cars: allCars, loading: carsLoading } = useCars()
   const { likedIds: likedCars, toggleLike } = useLikedCarIds()
   // Xe bảo dưỡng / tạm ngừng không hiện khi tìm
   const cars = useMemo(() => allCars.filter((car) => !HIDDEN_CAR_STATUSES.includes(car.status)), [allCars])
@@ -162,6 +162,7 @@ export default function SearchScreen() {
 
   const activeFilterCount = countActiveFilters(filters)
   const draftFilterCount = countActiveFilters(draftFilters)
+  const hasSearchCriteria = Boolean(searchQuery.trim() || selectedBrand || activeFilterCount > 0)
 
   const openFilterModal = () => {
     setDraftFilters(filters)
@@ -294,29 +295,43 @@ export default function SearchScreen() {
             )}
           />
 
-          {filteredCars.length === 0 && (
+          {carsLoading ? (
+            <View style={styles.skeletonGrid}>
+              {[0, 1, 2, 3].map((item) => (
+                <CarCardSkeleton key={item} style={styles.skeletonCard} />
+              ))}
+            </View>
+          ) : filteredCars.length === 0 ? (
             <View style={styles.emptyState}>
               <View style={styles.emptyIcon}>
                 <Ionicons name="car-outline" size={32} color={THEME_COLORS.textMuted} />
               </View>
-              <Text style={styles.emptyTitle}>Không tìm thấy xe phù hợp</Text>
-              <Text style={styles.emptySubtitle}>Hãy thử đổi từ khoá hoặc bỏ bớt bộ lọc.</Text>
-              <TouchableOpacity style={styles.emptyButton} onPress={clearAll} activeOpacity={PRESS_OPACITY}>
-                <Text style={styles.emptyButtonText}>Xoá tìm kiếm và bộ lọc</Text>
-              </TouchableOpacity>
+              <Text style={styles.emptyTitle}>
+                {hasSearchCriteria ? "Không tìm thấy xe phù hợp" : "Chưa có xe sẵn sàng"}
+              </Text>
+              <Text style={styles.emptySubtitle}>
+                {hasSearchCriteria
+                  ? "Hãy thử đổi từ khoá hoặc bỏ bớt bộ lọc."
+                  : "Danh sách xe đang được cập nhật. Bạn vui lòng quay lại sau."}
+              </Text>
+              {hasSearchCriteria ? (
+                <TouchableOpacity style={styles.emptyButton} onPress={clearAll} activeOpacity={PRESS_OPACITY}>
+                  <Text style={styles.emptyButtonText}>Xoá tìm kiếm và bộ lọc</Text>
+                </TouchableOpacity>
+              ) : null}
             </View>
+          ) : (
+            <FlatList
+              key={selectedBrand ? 'single' : 'double'}
+              data={filteredCars}
+              renderItem={renderCarItem}
+              keyExtractor={(item) => item.id.toString()}
+              numColumns={selectedBrand ? 1 : 2}
+              scrollEnabled={false}
+              showsVerticalScrollIndicator={false}
+              columnWrapperStyle={selectedBrand ? null : styles.carRow}
+            />
           )}
-
-          <FlatList
-            key={selectedBrand ? 'single' : 'double'}
-            data={filteredCars}
-            renderItem={renderCarItem}
-            keyExtractor={(item) => item.id.toString()}
-            numColumns={selectedBrand ? 1 : 2}
-            scrollEnabled={false}
-            showsVerticalScrollIndicator={false}
-            columnWrapperStyle={selectedBrand ? null : styles.carRow}
-          />
         </View>
       </ScrollView>
 
@@ -539,6 +554,15 @@ const styles = StyleSheet.create({
   emptyButtonText: {
     ...UI.secondaryButtonText,
     fontSize: 14,
+  },
+  skeletonGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: SPACE.md,
+  },
+  skeletonCard: {
+    width: (width - SPACE.screen * 2 - SPACE.md) / 2,
+    marginBottom: SPACE.md,
   },
 
   filterLabel: {
