@@ -19,7 +19,8 @@ import { router, useLocalSearchParams } from "expo-router"
 import DummyMap from '../../components/DummyMap';
 import { useCars, getCarImage, useBusyCarIds } from "../../hooks/useCars"
 import { useLikedCarIds } from "../../hooks/useLikedCarIds"
-import { CITIES, FUELS, HIDDEN_CAR_STATUSES } from "../../utils/constants"
+import { CITIES, FUELS, HIDDEN_CAR_STATUSES, TRANSMISSIONS } from "../../utils/constants"
+import { formatDate } from "../../utils/helpers"
 import { BRAND_ASSETS } from "../../data/assets"
 import { StatusBar } from "expo-status-bar"
 import { THEME_COLORS, RADIUS, SPACE, SHADOWS, TYPOGRAPHY, UI, PRESS_OPACITY, layout } from "../../utils/theme"
@@ -183,7 +184,7 @@ export default function SearchScreen() {
 
   const activeFilterCount = countActiveFilters(filters)
   const draftFilterCount = countActiveFilters(draftFilters)
-  const hasSearchCriteria = Boolean(searchQuery.trim() || selectedBrand || activeFilterCount > 0)
+  const hasSearchCriteria = Boolean(searchQuery.trim() || selectedBrand || activeFilterCount > 0 || dateRange)
 
   const openFilterModal = () => {
     setDraftFilters(filters)
@@ -289,6 +290,29 @@ export default function SearchScreen() {
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={styles.scrollContent}
       >
+        {dateRange ? (
+          <View style={styles.dateFilterSummary}>
+            <View style={styles.dateFilterIcon}>
+              <Ionicons name="calendar-outline" size={18} color={THEME_COLORS.primary} />
+            </View>
+            <View style={styles.dateFilterContent}>
+              <Text style={styles.dateFilterLabel}>Khoảng ngày đang lọc</Text>
+              <Text style={styles.dateFilterValue}>
+                {formatDate(dateRange.start, "datetime")} – {formatDate(dateRange.end, "datetime")}
+              </Text>
+            </View>
+            <TouchableOpacity
+              style={styles.clearDateButton}
+              onPress={() => setDateRange(null)}
+              activeOpacity={PRESS_OPACITY}
+              accessibilityRole="button"
+              accessibilityLabel="Xoá khoảng ngày"
+            >
+              <Ionicons name="close" size={19} color={THEME_COLORS.textSecondary} />
+            </TouchableOpacity>
+          </View>
+        ) : null}
+
         {/* Map View */}
         <View style={styles.mapSection}>
           <DummyMap />
@@ -389,6 +413,22 @@ export default function SearchScreen() {
                     activeOpacity={PRESS_OPACITY}
                   >
                     <Text style={[styles.chipText, draftFilters.fuel === fuel && styles.chipTextSelected]}>{fuel}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <Text style={styles.filterLabel}>Hộp số</Text>
+              <View style={styles.chipRow}>
+                {TRANSMISSIONS.map((transmission) => (
+                  <TouchableOpacity
+                    key={transmission}
+                    style={[styles.chip, draftFilters.transmission === transmission && styles.chipSelected]}
+                    onPress={() => toggleDraft("transmission", transmission)}
+                    activeOpacity={PRESS_OPACITY}
+                  >
+                    <Text style={[styles.chipText, draftFilters.transmission === transmission && styles.chipTextSelected]}>
+                      {transmission}
+                    </Text>
                   </TouchableOpacity>
                 ))}
               </View>
@@ -519,6 +559,41 @@ const styles = StyleSheet.create({
   },
   mapSection: {
     marginBottom: SPACE.section,
+  },
+  dateFilterSummary: {
+    ...UI.card,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SPACE.md,
+    padding: SPACE.md,
+    marginBottom: SPACE.lg,
+  },
+  dateFilterIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: RADIUS.pill,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: THEME_COLORS.primarySoft,
+  },
+  dateFilterContent: {
+    flex: 1,
+  },
+  dateFilterLabel: {
+    ...TYPOGRAPHY.caption,
+  },
+  dateFilterValue: {
+    ...TYPOGRAPHY.bodyStrong,
+    fontSize: 14,
+    marginTop: 1,
+  },
+  clearDateButton: {
+    width: 36,
+    height: 36,
+    borderRadius: RADIUS.pill,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: THEME_COLORS.surfaceMuted,
   },
   section: {},
   sectionHeader: {

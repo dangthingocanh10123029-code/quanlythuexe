@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { type ViewStyle, View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, FlatList, Modal, Image } from "react-native"
+import { type ViewStyle, View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, FlatList, Modal, Image, TextInput } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 import { Ionicons } from "@expo/vector-icons"
 import { router, useLocalSearchParams } from "expo-router"
@@ -16,6 +16,7 @@ import { PICKUP_LOCATIONS, VAT_RATE } from "../utils/constants"
 import { StatusBar } from "expo-status-bar"
 import { THEME_COLORS, RADIUS, SPACE, SHADOWS, TYPOGRAPHY, UI, PRESS_OPACITY } from "../utils/theme"
 import { AppHeader, PrimaryButton, SearchBar } from "../components"
+import DateTimeRangePicker from "../components/DateTimeRangePicker"
 
 
 // UI.input dùng cho View (ô chọn / khung tìm kiếm có icon)
@@ -30,14 +31,6 @@ const addOns = [
 
 // Danh sách điểm nhận xe
 const LOCATIONS = PICKUP_LOCATIONS
-
-// Add rental durations constant
-const DURATIONS = [
-  { id: 1, days: 1, label: '1 ngày' },
-  { id: 2, days: 2, label: '2 ngày' },
-  { id: 3, days: 3, label: '3 ngày' },
-  { id: 4, days: 4, label: '4 ngày' },
-]
 
 // Mặc định nhận xe 09:00 ngày mai
 const defaultPickup = () => {
@@ -69,11 +62,13 @@ export default function CheckoutScreen() {
   const [pickupLocation, setPickupLocation] = useState(LOCATIONS[0])
   const [returnLocation, setReturnLocation] = useState(LOCATIONS[0])
   const [promoCode, setPromoCode] = useState("")
+  const [promoDraft, setPromoDraft] = useState("")
   const [firstBooking, setFirstBooking] = useState(false)
   const [submitting, setSubmitting] = useState(false)
 
   // Add these states
   const [showLocationModal, setShowLocationModal] = useState(false)
+  const [locationTarget, setLocationTarget] = useState<"pickup" | "return">("pickup")
   const [locationSearch, setLocationSearch] = useState("")
   const [filteredLocations, setFilteredLocations] = useState<string[]>(LOCATIONS)
 
@@ -110,11 +105,6 @@ export default function CheckoutScreen() {
     pickupDate: pickupAt,
   })
   const { subtotal, tax, total } = price
-
-  // ponytail: chip 1–4 ngày tạm thời, U2.1 thay bằng bộ chọn ngày-giờ nhận/trả (setPickupAt, setReturnAt)
-  const selectedDuration = DURATIONS.find((d) => d.days === days) ?? { id: 0, days, label: `${days} ngày` }
-  const setSelectedDuration = (duration: { days: number }) =>
-    setReturnAt(new Date(pickupAt.getTime() + duration.days * 86_400_000))
 
   const toggleAddOn = (id: number) => {
     setSelectedAddOns((prev) =>
@@ -206,59 +196,89 @@ export default function CheckoutScreen() {
           </View>
         </View>
 
-        {/* Duration */}
+        {/* Rental dates */}
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>Thời gian thuê</Text>
-          <View style={styles.durationContainer}>
-            {DURATIONS.map((duration) => (
-              <TouchableOpacity
-                key={duration.id}
-                style={[
-                  styles.durationBox,
-                  selectedDuration.id === duration.id && styles.selectedDurationBox
-                ]}
-                onPress={() => setSelectedDuration(duration)}
-                activeOpacity={PRESS_OPACITY}
-              >
-                <Text style={[
-                  styles.durationDays,
-                  selectedDuration.id === duration.id && styles.selectedDurationText
-                ]}>
-                  {duration.days}
-                </Text>
-                <Text style={[
-                  styles.durationLabel,
-                  selectedDuration.id === duration.id && styles.selectedDurationText
-                ]}>
-                  ngày
-                </Text>
-                <Text
-                  style={[
-                    styles.durationPrice,
-                    selectedDuration.id === duration.id && styles.selectedDurationText
-                  ]}
-                  numberOfLines={1}
-                  adjustsFontSizeToFit
-                >
-                  {formatCurrency(car.pricePerDay * duration.days)}
-                </Text>
-              </TouchableOpacity>
-            ))}
+          <DateTimeRangePicker
+            pickupAt={pickupAt}
+            returnAt={returnAt}
+            onPickupChange={setPickupAt}
+            onReturnChange={setReturnAt}
+          />
+          <View style={styles.durationSummary}>
+            <Ionicons name="time-outline" size={18} color={THEME_COLORS.primary} />
+            <Text style={styles.durationSummaryText}>Tổng thời gian thuê: {days} ngày</Text>
           </View>
+          {dateConflict ? (
+            <View style={styles.conflictMessage}>
+              <Ionicons name="alert-circle" size={19} color={THEME_COLORS.danger} />
+              <Text style={styles.conflictText}>Xe đã có lịch thuê trong khoảng thời gian này. Bạn vui lòng chọn thời gian khác.</Text>
+            </View>
+          ) : null}
         </View>
 
         {/* Location */}
         <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Điểm nhận xe</Text>
+          <Text style={styles.sectionTitle}>Điểm nhận và trả xe</Text>
+          <Text style={styles.fieldLabel}>Điểm nhận xe</Text>
           <TouchableOpacity
             style={styles.locationInput}
-            onPress={() => setShowLocationModal(true)}
+            onPress={() => {
+              setLocationTarget("pickup")
+              setShowLocationModal(true)
+            }}
             activeOpacity={PRESS_OPACITY}
           >
             <Ionicons name="location-outline" size={20} color={THEME_COLORS.primary} />
             <Text style={styles.locationText} numberOfLines={1}>{pickupLocation}</Text>
             <Ionicons name="chevron-down" size={18} color={THEME_COLORS.textMuted} />
           </TouchableOpacity>
+          <Text style={[styles.fieldLabel, styles.returnLocationLabel]}>Điểm trả xe</Text>
+          <TouchableOpacity
+            style={styles.locationInput}
+            onPress={() => {
+              setLocationTarget("return")
+              setShowLocationModal(true)
+            }}
+            activeOpacity={PRESS_OPACITY}
+          >
+            <Ionicons name="flag-outline" size={20} color={THEME_COLORS.primary} />
+            <Text style={styles.locationText} numberOfLines={1}>{returnLocation}</Text>
+            <Ionicons name="chevron-down" size={18} color={THEME_COLORS.textMuted} />
+          </TouchableOpacity>
+          <Text style={styles.locationHint}>Điểm trả mặc định giống điểm nhận xe.</Text>
+        </View>
+
+        {/* Promo code */}
+        <View style={styles.card}>
+          <Text style={styles.sectionTitle}>Mã giảm giá</Text>
+          <View style={styles.promoRow}>
+            <TextInput
+              style={[styles.promoInput, !!price.promoError && styles.promoInputError]}
+              value={promoDraft}
+              onChangeText={setPromoDraft}
+              onSubmitEditing={() => setPromoCode(promoDraft.trim().toUpperCase())}
+              placeholder="Nhập mã giảm giá"
+              placeholderTextColor={THEME_COLORS.textMuted}
+              autoCapitalize="characters"
+              returnKeyType="done"
+            />
+            <TouchableOpacity
+              style={styles.applyPromoButton}
+              onPress={() => setPromoCode(promoDraft.trim().toUpperCase())}
+              activeOpacity={PRESS_OPACITY}
+            >
+              <Text style={styles.applyPromoText}>Áp dụng</Text>
+            </TouchableOpacity>
+          </View>
+          {price.promoError ? (
+            <Text style={styles.promoError}>{price.promoError}</Text>
+          ) : promoCode && price.discount > 0 ? (
+            <View style={styles.promoSuccess}>
+              <Ionicons name="checkmark-circle" size={17} color={THEME_COLORS.success} />
+              <Text style={styles.promoSuccessText}>Đã áp dụng mã {promoCode}.</Text>
+            </View>
+          ) : null}
         </View>
 
         {/* Add-ons */}
@@ -276,7 +296,7 @@ export default function CheckoutScreen() {
                 <Text style={styles.addonPrice}>{formatCurrency(addon.price)}/chuyến</Text>
               </View>
               <View style={[styles.checkbox, addon.selected && styles.checkedBox]}>
-                {addon.selected && <Ionicons name="checkmark" size={14} color="#FFFFFF" />}
+                {addon.selected && <Ionicons name="checkmark" size={14} color={THEME_COLORS.textInverse} />}
               </View>
             </TouchableOpacity>
           ))}
@@ -286,7 +306,7 @@ export default function CheckoutScreen() {
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>Chi tiết giá</Text>
           <View style={styles.priceRow}>
-            <Text style={styles.priceLabel}>Tiền thuê xe ({selectedDuration.days} ngày)</Text>
+            <Text style={styles.priceLabel}>Tiền thuê xe ({days} ngày)</Text>
             <Text style={styles.priceValue}>{formatCurrency(subtotal)}</Text>
           </View>
           {selectedAddOns
@@ -298,12 +318,28 @@ export default function CheckoutScreen() {
               </View>
             ))}
           <View style={styles.priceRow}>
+            <Text style={[styles.priceLabel, price.discount > 0 && styles.discountLabel]}>Giảm giá</Text>
+            <Text style={[styles.priceValue, price.discount > 0 && styles.discountValue]}>
+              {price.discount > 0 ? "−" : ""}{formatCurrency(price.discount)}
+            </Text>
+          </View>
+          <View style={styles.priceRow}>
             <Text style={styles.priceLabel}>Thuế VAT ({Math.round(VAT_RATE * 100)}%)</Text>
             <Text style={styles.priceValue}>{formatCurrency(tax)}</Text>
           </View>
           <View style={[styles.priceRow, styles.totalRow]}>
             <Text style={styles.totalLabel}>Tổng cộng</Text>
             <Text style={styles.totalValue}>{formatCurrency(total)}</Text>
+          </View>
+          <View style={styles.depositRow}>
+            <View style={styles.depositIcon}>
+              <Ionicons name="shield-checkmark-outline" size={18} color={THEME_COLORS.primary} />
+            </View>
+            <View style={styles.depositContent}>
+              <Text style={styles.depositLabel}>Tiền cọc (trả khi nhận xe)</Text>
+              <Text style={styles.depositHint}>Khoản này không cộng vào tổng thanh toán online.</Text>
+            </View>
+            <Text style={styles.depositValue}>{formatCurrency(car.deposit)}</Text>
           </View>
         </View>
       </ScrollView>
@@ -332,7 +368,7 @@ export default function CheckoutScreen() {
           <View style={styles.locationModal}>
             <View style={styles.sheetHandle} />
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Chọn điểm nhận xe</Text>
+              <Text style={styles.modalTitle}>Chọn điểm {locationTarget === "pickup" ? "nhận" : "trả"} xe</Text>
               <TouchableOpacity style={styles.iconButton} onPress={() => setShowLocationModal(false)} activeOpacity={PRESS_OPACITY}>
                 <Ionicons name="close" size={20} color={THEME_COLORS.textSecondary} />
               </TouchableOpacity>
@@ -340,19 +376,24 @@ export default function CheckoutScreen() {
             <SearchBar
               value={locationSearch}
               onChangeText={filterLocations}
-              placeholder="Tìm điểm nhận xe..."
+              placeholder={`Tìm điểm ${locationTarget === "pickup" ? "nhận" : "trả"} xe...`}
               containerStyle={styles.searchBox}
             />
             <FlatList
               data={filteredLocations}
               keyExtractor={(item) => item}
               renderItem={({ item }) => {
-                const active = item === pickupLocation
+                const active = item === (locationTarget === "pickup" ? pickupLocation : returnLocation)
                 return (
                   <TouchableOpacity
                     style={[styles.locationItem, active && styles.optionSelected]}
                     onPress={() => {
-                      setPickupLocation(item)
+                      if (locationTarget === "pickup") {
+                        setReturnLocation((current) => current === pickupLocation ? item : current)
+                        setPickupLocation(item)
+                      } else {
+                        setReturnLocation(item)
+                      }
                       setShowLocationModal(false)
                     }}
                     activeOpacity={PRESS_OPACITY}
@@ -488,10 +529,59 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
   },
+  fieldLabel: {
+    ...TYPOGRAPHY.caption,
+    color: THEME_COLORS.textSecondary,
+    marginBottom: SPACE.sm,
+  },
+  returnLocationLabel: {
+    marginTop: SPACE.lg,
+  },
   locationText: {
     ...TYPOGRAPHY.bodyStrong,
     marginLeft: SPACE.md,
     flex: 1,
+  },
+  locationHint: {
+    ...TYPOGRAPHY.caption,
+    marginTop: SPACE.sm,
+  },
+  promoRow: {
+    flexDirection: "row",
+    gap: SPACE.sm,
+  },
+  promoInput: {
+    ...UI.input,
+    flex: 1,
+    textTransform: "uppercase",
+  },
+  promoInputError: {
+    borderColor: THEME_COLORS.danger,
+  },
+  applyPromoButton: {
+    ...UI.secondaryButton,
+    height: UI.input.height,
+    paddingHorizontal: SPACE.lg,
+  },
+  applyPromoText: {
+    ...UI.secondaryButtonText,
+    color: THEME_COLORS.primary,
+    fontSize: 14,
+  },
+  promoError: {
+    ...TYPOGRAPHY.caption,
+    color: THEME_COLORS.danger,
+    marginTop: SPACE.sm,
+  },
+  promoSuccess: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SPACE.xs,
+    marginTop: SPACE.sm,
+  },
+  promoSuccessText: {
+    ...TYPOGRAPHY.caption,
+    color: THEME_COLORS.success,
   },
   lastOption: {
     marginBottom: 0,
@@ -555,6 +645,14 @@ const styles = StyleSheet.create({
   priceValue: {
     ...TYPOGRAPHY.bodyStrong,
   },
+  discountLabel: {
+    ...TYPOGRAPHY.body,
+    color: THEME_COLORS.success,
+  },
+  discountValue: {
+    ...TYPOGRAPHY.bodyStrong,
+    color: THEME_COLORS.success,
+  },
   totalRow: {
     borderTopWidth: 1,
     borderTopColor: THEME_COLORS.border,
@@ -567,6 +665,38 @@ const styles = StyleSheet.create({
   totalValue: {
     ...TYPOGRAPHY.price,
     fontSize: 20,
+  },
+  depositRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SPACE.md,
+    marginTop: SPACE.lg,
+    padding: SPACE.md,
+    borderRadius: RADIUS.control,
+    backgroundColor: THEME_COLORS.primarySubtle,
+  },
+  depositIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: RADIUS.pill,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: THEME_COLORS.primarySoft,
+  },
+  depositContent: {
+    flex: 1,
+  },
+  depositLabel: {
+    ...TYPOGRAPHY.bodyStrong,
+    fontSize: 14,
+  },
+  depositHint: {
+    ...TYPOGRAPHY.caption,
+    marginTop: 1,
+  },
+  depositValue: {
+    ...TYPOGRAPHY.bodyStrong,
+    color: THEME_COLORS.primary,
   },
   confirmContainer: {
     backgroundColor: THEME_COLORS.surface,
@@ -679,37 +809,28 @@ const styles = StyleSheet.create({
   errorButtonText: {
     ...UI.primaryButtonText,
   },
-  durationContainer: {
+  durationSummary: {
     flexDirection: "row",
-    gap: SPACE.sm,
-  },
-  durationBox: {
-    flex: 1,
     alignItems: "center",
-    paddingVertical: SPACE.md,
-    paddingHorizontal: SPACE.xs,
-    borderRadius: RADIUS.control,
-    backgroundColor: THEME_COLORS.surface,
-    borderWidth: 1,
-    borderColor: THEME_COLORS.border,
+    gap: SPACE.sm,
+    marginTop: SPACE.lg,
   },
-  selectedDurationBox: {
-    backgroundColor: THEME_COLORS.primarySoft,
-    borderColor: THEME_COLORS.primary,
-  },
-  durationDays: {
-    ...TYPOGRAPHY.h2,
-  },
-  durationLabel: {
-    ...TYPOGRAPHY.caption,
-    marginBottom: SPACE.xs,
-  },
-  durationPrice: {
-    fontSize: 11,
-    fontWeight: "600",
-    color: THEME_COLORS.textSecondary,
-  },
-  selectedDurationText: {
+  durationSummaryText: {
+    ...TYPOGRAPHY.bodyStrong,
     color: THEME_COLORS.primary,
+  },
+  conflictMessage: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: SPACE.sm,
+    marginTop: SPACE.md,
+    padding: SPACE.md,
+    borderRadius: RADIUS.control,
+    backgroundColor: THEME_COLORS.dangerSoft,
+  },
+  conflictText: {
+    ...TYPOGRAPHY.caption,
+    color: THEME_COLORS.danger,
+    flex: 1,
   },
 })

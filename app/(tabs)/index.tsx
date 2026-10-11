@@ -15,6 +15,7 @@ import { BRAND_ASSETS, PROMO_ASSETS } from "../../data/assets"
 import { StatusBar } from "expo-status-bar"
 import { THEME_COLORS, RADIUS, SPACE, SHADOWS, TYPOGRAPHY, UI, PRESS_OPACITY, layout } from "../../utils/theme"
 import { CarCardCompact, CarCardFeatured, CarCardSkeleton, PromoModal, SearchBar, SectionHeader } from "../../components"
+import DateTimeRangePicker from "../../components/DateTimeRangePicker"
 
 
 const { width } = Dimensions.get("window")
@@ -47,12 +48,20 @@ const openCarsTab = (params: CarsTabParams = {}) => {
   })
 }
 
+const createDefaultRange = () => {
+  const pickup = new Date()
+  pickup.setDate(pickup.getDate() + 1)
+  pickup.setHours(9, 0, 0, 0)
+  return { pickup, returnAt: new Date(pickup.getTime() + 86_400_000) }
+}
+
 export default function HomeScreen() {
   const [currentCouponIndex, setCurrentCouponIndex] = useState(0)
   const [userName, setUserName] = useState("bạn")
   const [showPromoModal, setShowPromoModal] = useState(false)
   const [timeLeft, setTimeLeft] = useState(180) // 180 seconds = 3 minutes
   const [hasNotifications, setHasNotifications] = useState(false)
+  const [rentalRange, setRentalRange] = useState(createDefaultRange)
   const { cars, loading: carsLoading } = useCars()
   const { likedIds, toggleLike } = useLikedCarIds()
 
@@ -181,6 +190,36 @@ export default function HomeScreen() {
           onFilterPress={() => openCarsTab({ openFilter: "1" })}
           containerStyle={styles.searchContainer}
         />
+
+        <View style={styles.dateSearchSection}>
+          <View style={styles.dateSearchHeader}>
+            <View>
+              <Text style={styles.dateSearchOverline}>Lịch thuê</Text>
+              <Text style={styles.dateSearchTitle}>Nhận xe – Trả xe</Text>
+            </View>
+            <View style={styles.availableBadge}>
+              <Ionicons name="sparkles" size={14} color={THEME_COLORS.primary} />
+              <Text style={styles.availableBadgeText}>Xe còn trống</Text>
+            </View>
+          </View>
+          <DateTimeRangePicker
+            pickupAt={rentalRange.pickup}
+            returnAt={rentalRange.returnAt}
+            onPickupChange={(pickup) => setRentalRange((current) => ({ ...current, pickup }))}
+            onReturnChange={(returnAt) => setRentalRange((current) => ({ ...current, returnAt }))}
+          />
+          <TouchableOpacity
+            style={styles.findCarsButton}
+            onPress={() => openCarsTab({
+              pickup: rentalRange.pickup.toISOString(),
+              return: rentalRange.returnAt.toISOString(),
+            })}
+            activeOpacity={PRESS_OPACITY}
+          >
+            <Ionicons name="search" size={19} color={THEME_COLORS.textInverse} />
+            <Text style={styles.findCarsButtonText}>Tìm xe trống</Text>
+          </TouchableOpacity>
+        </View>
 
         {/* Coupon Section */}
         <View style={styles.couponSection}>
@@ -430,6 +469,50 @@ const styles = StyleSheet.create({
     gap: SPACE.md,
     paddingHorizontal: SPACE.screen,
     marginTop: SPACE.lg,
+  },
+  dateSearchSection: {
+    ...UI.card,
+    marginHorizontal: SPACE.screen,
+    marginTop: SPACE["2xl"],
+    padding: SPACE.lg,
+  },
+  dateSearchHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: SPACE.md,
+    marginBottom: SPACE.lg,
+  },
+  dateSearchOverline: {
+    ...TYPOGRAPHY.overline,
+  },
+  dateSearchTitle: {
+    ...TYPOGRAPHY.h3,
+    marginTop: 2,
+  },
+  availableBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SPACE.xs,
+    paddingHorizontal: SPACE.md,
+    paddingVertical: 6,
+    borderRadius: RADIUS.pill,
+    backgroundColor: THEME_COLORS.primarySoft,
+  },
+  availableBadgeText: {
+    ...TYPOGRAPHY.caption,
+    color: THEME_COLORS.primary,
+  },
+  findCarsButton: {
+    ...UI.primaryButton,
+    height: 48,
+    flexDirection: "row",
+    gap: SPACE.sm,
+    marginTop: SPACE.lg,
+  },
+  findCarsButtonText: {
+    ...UI.primaryButtonText,
+    fontSize: 15,
   },
   // Coupons
   couponSection: {

@@ -15,7 +15,9 @@ import { formatCurrency, formatDate } from "../utils/helpers"
 import { AMENITIES, CAR_STATUS_LABELS, getBookingStatusLabel, PAYMENT_STATUS_LABELS, TRANSMISSIONS } from "../utils/constants"
 import { useCars, getCarImage } from "../hooks/useCars"
 import { useAuth } from "../hooks/useAuth"
+import { useAllLicenses } from "../hooks/useLicense"
 import { seedCars, deleteCar } from "../utils/carActions"
+import { rejectLicense, verifyLicense } from "../utils/licenseActions"
 import type { Car, CarStatus, Transmission } from "../types/car"
 import { THEME_COLORS, RADIUS, SPACE, SHADOWS, TYPOGRAPHY, UI, PRESS_OPACITY } from "../utils/theme"
 
@@ -240,6 +242,7 @@ export default function AdminScreen() {
   const { cars, loading: carsLoading } = useCars()
   const { user: authUser, loading: authLoading } = useAuth()
   const isAdmin = authUser?.isAdmin === true
+  const { licenses, loading: licensesLoading } = useAllLicenses(isAdmin)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isSeeding, setIsSeeding] = useState(false)
 
@@ -255,6 +258,9 @@ export default function AdminScreen() {
   const [userFilter, setUserFilter] = useState("all")
   const [showUserFilters, setShowUserFilters] = useState(false)
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null)
+  const [rejectLicenseId, setRejectLicenseId] = useState<string | null>(null)
+  const [rejectReason, setRejectReason] = useState("")
+  const [licenseProcessingId, setLicenseProcessingId] = useState<string | null>(null)
 
   // Ô nhập đang focus (để áp UI.inputFocused)
   const [focusedField, setFocusedField] = useState<string | null>(null)
@@ -371,6 +377,11 @@ export default function AdminScreen() {
     users.forEach((u) => { map[u.id] = u })
     return map
   }, [users])
+
+  const pendingLicenses = useMemo(
+    () => licenses.filter((license) => license.status === "pending"),
+    [licenses],
+  )
 
   const bookingCountByUser = useMemo(() => {
     const map: Record<string, number> = {}
@@ -767,6 +778,33 @@ export default function AdminScreen() {
       },
       locking
     )
+  }
+
+  const handleVerifyLicense = async (uid: string) => {
+    setLicenseProcessingId(uid)
+    try {
+      await verifyLicense(uid)
+      Alert.alert("Đã duyệt GPLX", "Giấy phép lái xe của khách hàng đã được xác minh.")
+    } catch (error: any) {
+      Alert.alert("Không thể duyệt GPLX", error?.message || "Vui lòng thử lại.")
+    } finally {
+      setLicenseProcessingId(null)
+    }
+  }
+
+  const handleRejectLicense = async () => {
+    if (!rejectLicenseId) return
+    setLicenseProcessingId(rejectLicenseId)
+    try {
+      await rejectLicense(rejectLicenseId, rejectReason)
+      setRejectLicenseId(null)
+      setRejectReason("")
+      Alert.alert("Đã từ chối GPLX", "Lý do từ chối đã được gửi đến khách hàng.")
+    } catch (error: any) {
+      Alert.alert("Không thể từ chối GPLX", error?.message || "Vui lòng thử lại.")
+    } finally {
+      setLicenseProcessingId(null)
+    }
   }
 
   const renderBadge = (label: string, tone: Tone) => (
@@ -1343,6 +1381,100 @@ export default function AdminScreen() {
     </View>
   )
 
+  const renderPendingLicenses = () => (
+    <View style={styles.licensesSection}>
+      <View style={styles.licensesSectionHeader}>
+        <View style={styles.flex1}>
+          <Text style={styles.licensesOverline}>Xác minh hồ sơ</Text>
+          <Text style={styles.licensesTitle}>GPLX chờ duyệt</Text>
+        </View>
+        <View style={styles.licenseCountBadge}>
+          <Text style={styles.licenseCountText}>{pendingLicenses.length}</Text>
+        </View>
+      </View>
+
+      {licensesLoading
+        ? renderEmpty("hourglass-outline", "Đang tải giấy phép lái xe...")
+        : pendingLicenses.length === 0
+          ? renderEmpty("checkmark-circle-outline", "Không có GPLX nào đang chờ duyệt.")
+          : pendingLicenses.map((license) => {
+            const customer = usersById[license.userId]
+            const processing = licenseProcessingId === license.userId
+            return (
+              <View key={license.userId} style={styles.licenseCard}>
+                <View style={styles.licenseCustomerRow}>
+                  <View style={styles.licenseIcon}>
+                    <Ionicons name="card-outline" size={22} color={THEME_COLORS.primary} />
+                  </View>
+                  <View style={styles.flex1}>
+                    <Text style={styles.licenseCustomerName} numberOfLines={1}>
+                      {customer?.name || "Khách hàng chưa cập nhật tên"}
+                    </Text>
+                    <Text style={styles.userEmail} numberOfLines={1}>{customer?.email || license.userId}</Text>
+                  </View>
+                  {renderBadge("Chờ duyệt", "warning")}
+                </View>
+
+                <View style={styles.infoBlock}>
+                  {renderInfoRow("Số GPLX", license.licenseNumber || "Chưa cập nhật")}
+                  {renderInfoRow("Hạng", license.licenseClass || "Chưa cập nhật")}
+                  {renderInfoRow("Có giá trị đến", formatAnyDate(license.expiryDate) || "Chưa cập nhật")}
+                  {renderInfoRow("Nơi cấp", license.issuingAuthority || "Chưa cập nhật")}
+                </View>
+
+                <View style={styles.licenseImages}>
+                  {[
+                    { label: "Mặt trước", uri: license.frontImage },
+                    { label: "Mặt sau", uri: license.backImage },
+                  ].map((image) => (
+                    <View key={image.label} style={styles.licenseImageColumn}>
+                      <Text style={styles.licenseImageLabel}>{image.label}</Text>
+                      {image.uri ? (
+                        <Image source={{ uri: image.uri }} style={styles.licenseImage} resizeMode="cover" />
+                      ) : (
+                        <View style={[styles.licenseImage, styles.imagePlaceholder]}>
+                          <Ionicons name="image-outline" size={24} color={THEME_COLORS.textMuted} />
+                        </View>
+                      )}
+                    </View>
+                  ))}
+                </View>
+
+                <View style={styles.licenseActions}>
+                  <TouchableOpacity
+                    style={[styles.licenseActionButton, styles.licenseRejectButton, processing && styles.disabledButton]}
+                    onPress={() => {
+                      setRejectReason("")
+                      setRejectLicenseId(license.userId)
+                    }}
+                    disabled={processing}
+                    activeOpacity={PRESS_OPACITY}
+                  >
+                    <Ionicons name="close-circle-outline" size={18} color={THEME_COLORS.danger} />
+                    <Text style={styles.licenseRejectText}>Từ chối</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.licenseActionButton, styles.licenseApproveButton, processing && styles.disabledButton]}
+                    onPress={() => handleVerifyLicense(license.userId)}
+                    disabled={processing}
+                    activeOpacity={PRESS_OPACITY}
+                  >
+                    {processing ? (
+                      <ActivityIndicator size="small" color={THEME_COLORS.textInverse} />
+                    ) : (
+                      <>
+                        <Ionicons name="checkmark-circle-outline" size={18} color={THEME_COLORS.textInverse} />
+                        <Text style={styles.licenseApproveText}>Duyệt</Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )
+          })}
+    </View>
+  )
+
   const renderUsersTab = () => (
     <View style={styles.tabContent}>
       <Text style={[styles.tabTitle, styles.tabTitleSpacing]}>Quản lý người dùng</Text>
@@ -1352,6 +1484,8 @@ export default function AdminScreen() {
         {renderStatCard("pulse-outline", "Đang hoạt động", stats.activeUsers)}
         {renderStatCard("receipt-outline", "Tổng số đơn", stats.totalBookings)}
       </View>
+
+      {renderPendingLicenses()}
 
       <View style={styles.userFilters}>
         {renderSearchBox("userSearch", "Tìm theo tên, email, số điện thoại...", userSearch, setUserSearch, styles.flex1)}
@@ -1710,6 +1844,57 @@ export default function AdminScreen() {
     )
   }
 
+  const renderRejectLicenseModal = () => {
+    if (!rejectLicenseId) return null
+    const customer = usersById[rejectLicenseId]
+    const processing = licenseProcessingId === rejectLicenseId
+    return (
+      <Modal visible transparent animationType="slide" onRequestClose={() => setRejectLicenseId(null)}>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, styles.rejectModalContent]}>
+            {renderModalHeader("Từ chối GPLX", () => setRejectLicenseId(null))}
+            <Text style={styles.rejectLicenseDescription}>
+              Nhập lý do để {customer?.name || "khách hàng"} biết thông tin nào cần cập nhật trước khi gửi lại.
+            </Text>
+            <Text style={styles.inputLabel}>Lý do từ chối</Text>
+            <TextInput
+              style={[styles.input, styles.textArea]}
+              value={rejectReason}
+              onChangeText={setRejectReason}
+              placeholder="VD: Ảnh mặt trước bị mờ, không đọc được số GPLX..."
+              placeholderTextColor={THEME_COLORS.textMuted}
+              multiline
+              textAlignVertical="top"
+              autoFocus
+            />
+            <View style={styles.rejectModalActions}>
+              <TouchableOpacity
+                style={[styles.modalActionButton, styles.rejectCancelButton]}
+                onPress={() => setRejectLicenseId(null)}
+                disabled={processing}
+                activeOpacity={PRESS_OPACITY}
+              >
+                <Text style={styles.rejectCancelText}>Huỷ</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalActionButton, styles.modalDangerButton, processing && styles.disabledButton]}
+                onPress={handleRejectLicense}
+                disabled={processing}
+                activeOpacity={PRESS_OPACITY}
+              >
+                {processing ? (
+                  <ActivityIndicator size="small" color={THEME_COLORS.danger} />
+                ) : (
+                  <Text style={styles.modalDangerText}>Xác nhận từ chối</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    )
+  }
+
   if (!isAdmin) {
     return (
       <SafeAreaView style={[styles.container, { alignItems: "center", justifyContent: "center" }]}>
@@ -1763,6 +1948,7 @@ export default function AdminScreen() {
 
       {renderBookingDetailModal()}
       {renderUserDetailModal()}
+      {renderRejectLicenseModal()}
     </SafeAreaView>
   )
 }
@@ -2286,6 +2472,110 @@ const styles = StyleSheet.create({
     marginTop: SPACE.md,
   },
 
+  // ===== Duyệt GPLX =====
+  licensesSection: {
+    marginBottom: SPACE.section,
+  },
+  licensesSectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SPACE.md,
+    marginBottom: SPACE.lg,
+  },
+  licensesOverline: {
+    ...TYPOGRAPHY.overline,
+  },
+  licensesTitle: {
+    ...TYPOGRAPHY.h3,
+    marginTop: 2,
+  },
+  licenseCountBadge: {
+    minWidth: 32,
+    height: 32,
+    paddingHorizontal: SPACE.sm,
+    borderRadius: RADIUS.pill,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: THEME_COLORS.warningSoft,
+  },
+  licenseCountText: {
+    ...TYPOGRAPHY.bodyStrong,
+    color: THEME_COLORS.warning,
+  },
+  licenseCard: {
+    ...UI.card,
+    padding: SPACE.lg,
+    marginBottom: SPACE.lg,
+  },
+  licenseCustomerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SPACE.md,
+  },
+  licenseIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: RADIUS.pill,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: THEME_COLORS.primarySoft,
+  },
+  licenseCustomerName: {
+    ...TYPOGRAPHY.bodyStrong,
+  },
+  licenseImages: {
+    flexDirection: "row",
+    gap: SPACE.md,
+    marginTop: SPACE.lg,
+  },
+  licenseImageColumn: {
+    flex: 1,
+  },
+  licenseImageLabel: {
+    ...TYPOGRAPHY.caption,
+    color: THEME_COLORS.textSecondary,
+    marginBottom: SPACE.sm,
+  },
+  licenseImage: {
+    width: "100%",
+    aspectRatio: 1.5,
+    borderRadius: RADIUS.control,
+    borderWidth: 1,
+    borderColor: THEME_COLORS.border,
+    backgroundColor: THEME_COLORS.surfaceMuted,
+  },
+  licenseActions: {
+    flexDirection: "row",
+    gap: SPACE.md,
+    marginTop: SPACE.lg,
+  },
+  licenseActionButton: {
+    flex: 1,
+    height: 46,
+    borderRadius: RADIUS.control,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: SPACE.sm,
+  },
+  licenseRejectButton: {
+    backgroundColor: THEME_COLORS.dangerSoft,
+  },
+  licenseRejectText: {
+    color: THEME_COLORS.danger,
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  licenseApproveButton: {
+    backgroundColor: THEME_COLORS.primary,
+    ...SHADOWS.primaryButton,
+  },
+  licenseApproveText: {
+    color: THEME_COLORS.textInverse,
+    fontSize: 14,
+    fontWeight: "700",
+  },
+
   // ===== Badge trạng thái =====
   statusBadge: {
     paddingHorizontal: 10,
@@ -2562,5 +2852,24 @@ const styles = StyleSheet.create({
     color: THEME_COLORS.danger,
     fontSize: 16,
     fontWeight: "700",
+  },
+  rejectModalContent: {
+    paddingBottom: SPACE["3xl"],
+  },
+  rejectLicenseDescription: {
+    ...TYPOGRAPHY.body,
+    marginBottom: SPACE.lg,
+  },
+  rejectModalActions: {
+    flexDirection: "row",
+    gap: SPACE.md,
+    marginTop: SPACE.lg,
+  },
+  rejectCancelButton: {
+    ...UI.secondaryButton,
+    flex: 1,
+  },
+  rejectCancelText: {
+    ...UI.secondaryButtonText,
   },
 })

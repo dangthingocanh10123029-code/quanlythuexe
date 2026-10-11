@@ -11,8 +11,9 @@ import { useAuth } from "../../hooks/useAuth"
 import { useLicense } from "../../hooks/useLicense"
 import { validateLicense, type LicenseInput } from "../../utils/license"
 import { submitLicense } from "../../utils/licenseActions"
-import { LICENSE_STATUS_LABELS } from "../../utils/constants"
+import { LICENSE_CLASSES, LICENSE_STATUS_LABELS } from "../../utils/constants"
 import { PRESS_OPACITY, RADIUS, SPACE, THEME_COLORS, TYPOGRAPHY, UI } from "../../utils/theme"
+import { AppInput } from "../../components"
 
 // Ảnh GPLX (base64) lưu ở collection riêng `licenses/{uid}` để không làm phình doc `users`
 const MAX_IMAGE_BYTES = 400 * 1024
@@ -154,14 +155,6 @@ export default function LicenseScreen() {
     </View>
   )
 
-  const infoRows = [
-    // ponytail: hiển thị tạm, U2.3 thay bằng ô nhập (updateForm, errors[field])
-    { label: "Số GPLX", value: form.licenseNumber || "Chưa nhập" },
-    { label: "Có giá trị đến", value: form.expiryDate || "Chưa nhập" },
-    { label: "Nơi cấp", value: form.issuingAuthority || "Chưa nhập" },
-    { label: "Hạng", value: form.licenseClass || "Chưa chọn" },
-  ]
-
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar style="dark" />
@@ -205,15 +198,58 @@ export default function LicenseScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Thông tin GPLX</Text>
           <View style={styles.infoCard}>
-            {infoRows.map((row, index) => (
-              <View key={row.label}>
-                {index > 0 && <View style={styles.infoDivider} />}
-                <View style={styles.infoItem}>
-                  <Text style={styles.infoLabel}>{row.label}</Text>
-                  <Text style={styles.infoValue}>{row.value}</Text>
-                </View>
+            <AppInput
+              label="Số GPLX"
+              value={form.licenseNumber}
+              onChangeText={(value) => updateForm("licenseNumber", value.replace(/\D/g, "").slice(0, 12))}
+              placeholder="Nhập 12 chữ số"
+              keyboardType="number-pad"
+              maxLength={12}
+              icon="card-outline"
+              error={errors.licenseNumber}
+            />
+
+            <View>
+              <Text style={styles.formLabel}>Hạng GPLX</Text>
+              <View style={styles.classChips}>
+                {LICENSE_CLASSES.map((licenseClass) => {
+                  const selected = form.licenseClass === licenseClass
+                  return (
+                    <TouchableOpacity
+                      key={licenseClass}
+                      style={[styles.classChip, selected && styles.classChipActive]}
+                      onPress={() => updateForm("licenseClass", licenseClass)}
+                      activeOpacity={PRESS_OPACITY}
+                    >
+                      <Text style={[styles.classChipText, selected && styles.classChipTextActive]}>{licenseClass}</Text>
+                    </TouchableOpacity>
+                  )
+                })}
               </View>
-            ))}
+              {errors.licenseClass ? <Text style={styles.fieldError}>{errors.licenseClass}</Text> : null}
+            </View>
+
+            <AppInput
+              label="Có giá trị đến"
+              value={form.expiryDate}
+              onChangeText={(value) => updateForm("expiryDate", value)}
+              placeholder="dd/mm/yyyy"
+              keyboardType="numbers-and-punctuation"
+              maxLength={10}
+              icon="calendar-outline"
+              error={errors.expiryDate}
+              helperText="Nhập theo định dạng ngày/tháng/năm."
+            />
+
+            <AppInput
+              label="Nơi cấp"
+              value={form.issuingAuthority}
+              onChangeText={(value) => updateForm("issuingAuthority", value)}
+              placeholder="VD: Cục Cảnh sát giao thông"
+              autoCapitalize="words"
+              icon="business-outline"
+              error={errors.issuingAuthority}
+            />
           </View>
         </View>
 
@@ -221,8 +257,14 @@ export default function LicenseScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Ảnh GPLX</Text>
           <View style={styles.imageContainer}>
-            {renderImageSlot("front", "Mặt trước", form.frontImage || "")}
-            {renderImageSlot("back", "Mặt sau", form.backImage || "")}
+            <View>
+              {renderImageSlot("front", "Mặt trước", form.frontImage || "")}
+              {errors.frontImage ? <Text style={styles.fieldError}>{errors.frontImage}</Text> : null}
+            </View>
+            <View>
+              {renderImageSlot("back", "Mặt sau", form.backImage || "")}
+              {errors.backImage ? <Text style={styles.fieldError}>{errors.backImage}</Text> : null}
+            </View>
           </View>
         </View>
 
@@ -252,7 +294,9 @@ export default function LicenseScreen() {
               disabled={submitting}
               activeOpacity={PRESS_OPACITY}
             >
-              <Text style={styles.verifyButtonText}>{submitting ? "Đang gửi..." : "Gửi xác minh"}</Text>
+              <Text style={styles.verifyButtonText}>
+                {submitting ? "Đang gửi..." : status === "rejected" || (status && dirty) ? "Gửi lại xác minh" : "Gửi xác minh"}
+              </Text>
             </TouchableOpacity>
           </View>
         )}
@@ -335,26 +379,36 @@ const styles = StyleSheet.create({
   },
   infoCard: {
     ...UI.card,
-    paddingHorizontal: SPACE.lg,
-  },
-  infoItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
+    padding: SPACE.lg,
     gap: SPACE.lg,
-    paddingVertical: 14,
   },
-  infoDivider: {
-    ...UI.divider,
-  },
-  infoLabel: {
-    ...TYPOGRAPHY.caption,
-    fontSize: 14,
-  },
-  infoValue: {
+  formLabel: {
     ...TYPOGRAPHY.bodyStrong,
-    flexShrink: 1,
-    textAlign: "right",
+    fontSize: 14,
+    marginBottom: SPACE.sm,
+  },
+  classChips: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: SPACE.sm,
+  },
+  classChip: {
+    ...UI.chip,
+    minWidth: 52,
+  },
+  classChipActive: {
+    ...UI.chipActive,
+  },
+  classChipText: {
+    ...UI.chipText,
+  },
+  classChipTextActive: {
+    ...UI.chipTextActive,
+  },
+  fieldError: {
+    ...TYPOGRAPHY.caption,
+    color: THEME_COLORS.danger,
+    marginTop: SPACE.sm,
   },
   imageContainer: {
     gap: SPACE.xl,
