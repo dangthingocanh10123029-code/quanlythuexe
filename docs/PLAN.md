@@ -209,10 +209,10 @@ Thứ tự bắt buộc: G0 → G1 → … → G6 → G8. G7 tuỳ chọn, làm 
 - [x] **L2.5** GPLX: sửa mặc định `verified: true`; lưu các trường nhập (kiểm tra số GPLX 12 chữ số, hạng, ngày hết hạn > hôm nay); `useLicense()`; `verifyLicense`/`rejectLicense` + thông báo.
 
 **Codex**
-- [ ] **U2.1** Checkout: chọn ngày-giờ nhận và ngày-giờ trả (`@react-native-community/datetimepicker` đã cài) thay chip 1–4 ngày; điểm trả xe (mặc định = điểm nhận); ô mã giảm giá + dòng "Giảm giá"; dòng "Tiền cọc (trả khi nhận xe)"; hiện lỗi trùng lịch.
-- [ ] **U2.2** Home/Search: thanh "Nhận xe – Trả xe" mở bộ chọn ngày rồi sang Search; chip hộp số trong bộ lọc; dòng tóm tắt khoảng ngày đang lọc.
-- [ ] **U2.3** Màn GPLX: form nhập 4 trường + ảnh trước/sau; trạng thái Chờ duyệt / Đã xác minh / Bị từ chối (kèm lý do, nút gửi lại).
-- [ ] **U2.4** Admin: mục "GPLX chờ duyệt" (tab mới hoặc trong Người dùng) — xem ảnh, Duyệt / Từ chối (nhập lý do).
+- [x] **U2.1** Checkout: chọn ngày-giờ nhận và ngày-giờ trả (`@react-native-community/datetimepicker` đã cài) thay chip 1–4 ngày; điểm trả xe (mặc định = điểm nhận); ô mã giảm giá + dòng "Giảm giá"; dòng "Tiền cọc (trả khi nhận xe)"; hiện lỗi trùng lịch.
+- [x] **U2.2** Home/Search: thanh "Nhận xe – Trả xe" mở bộ chọn ngày rồi sang Search; chip hộp số trong bộ lọc; dòng tóm tắt khoảng ngày đang lọc.
+- [x] **U2.3** Màn GPLX: form nhập 4 trường + ảnh trước/sau; trạng thái Chờ duyệt / Đã xác minh / Bị từ chối (kèm lý do, nút gửi lại).
+- [x] **U2.4** Admin: mục "GPLX chờ duyệt" (tab mới hoặc trong Người dùng) — xem ảnh, Duyệt / Từ chối (nhập lý do).
 
 **Ghi chú bàn giao G2** (Claude, L2):
 - `utils/booking.ts` (hàm thuần, 32 test): `calcBookingPrice({ pricePerDay, days, addOns, promoCode, isFirstBooking, pickupDate })` → `{ subtotal, addOnTotal, discount, tax, total, promoError? }` (mã sai/không đủ điều kiện → `discount = 0` và `promoError` tiếng Việt; giảm giá chỉ trên tiền thuê, trước VAT); `daysBetween(start, end)` (làm tròn lên theo 24h, tối thiểu 1); `getBookingRange(b)`, `isCarFree(...)`, `toDate(v)`.
@@ -222,6 +222,9 @@ Thứ tự bắt buộc: G0 → G1 → … → G6 → G8. G7 tuỳ chọn, làm 
 - Search: nhận params `pickup`, `return` (ISO) → state `dateRange` / `setDateRange(null)` để xoá; xe bận đã bị lọc; `filters.transmission` đã lọc (cần chip trong bộ lọc theo `TRANSMISSIONS`); `clearAll` xoá cả khoảng ngày; bấm xe mang `pickup`/`return` sang Chi tiết xe → Checkout. Home: `openCarsTab({ pickup: iso, return: iso })` cho thanh "Nhận xe – Trả xe".
 - GPLX (`app/profile/license.tsx`): bỏ dữ liệu mẫu và mặc định "Đã xác minh". State `form: LicenseInput`, `updateForm(field, value)`, `errors[field]`, `status` (`null` | `pending` | `verified` | `rejected`), `license.rejectReason`, `canSubmit`, `handleVerifyLicense` (kiểm tra bằng `validateLicense`: số 12 chữ số, hạng trong `LICENSE_CLASSES`, hết hạn `dd/mm/yyyy` > hôm nay, đủ 2 ảnh). Các dòng thông tin đang chỉ hiển thị (comment `ponytail:`) — U2.3 đổi thành ô nhập. Nhãn `LICENSE_STATUS_LABELS`.
 - Admin GPLX: `useAllLicenses(isAdmin)` (hooks/useLicense) → `{ licenses, loading }` (mỗi phần tử có `userId`, ảnh base64, `status`); `verifyLicense(uid)`, `rejectLicense(uid, reason)` trong `utils/licenseActions.ts` (gửi thông báo, ném `Error` nếu thiếu lý do). Tên khách lấy từ `usersById` có sẵn.
+
+**Bàn giao U2** (Codex): `components/DateTimeRangePicker` (`.tsx` native + `.web.tsx` dự phòng bằng chip ngày/giờ), props `pickupAt`, `returnAt`, `onPickupChange`, `onReturnChange`. Không thiếu hàm/hook.
+**V2** (Claude): tsc + 50 test sạch; rà diff không ghi Firestore mới, không hard-code màu. Codex đã chạy `expo export` web/android/ios thành công. Cần thử trên Expo Go: chọn ngày bằng DateTimePicker native.
 
 ### G3 — Xác nhận đơn, thanh toán, huỷ & hoàn tiền, chi tiết đơn
 **Claude**
