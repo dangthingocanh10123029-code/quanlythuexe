@@ -49,7 +49,7 @@ export const CAR_IMAGES: Record<string, ImageSourcePropType> = {
   hyundai_genesis: require("../assets/cars/hyundai_genesis.png"),
   hyundai_palisade: require("../assets/cars/hyundai_palisade.png"),
   hyundai_veloster_n: require("../assets/cars/hyundai_veloster_n.png"),
-  mercedes_benz: require("../assets/cars/mercedes_benz.gif"),
+  mercedes_benz: require("../assets/cars/mercedes_benz.png"),
   mercedes_benz_a_class: require("../assets/cars/mercedes_benz_a_class.png"),
   mercedes_benz_c_class: require("../assets/cars/mercedes_benz_c_class.png"),
   nissan_altima: require("../assets/cars/nissan_altima.png"),
