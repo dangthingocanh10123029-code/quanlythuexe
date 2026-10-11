@@ -67,68 +67,6 @@ export const BORDER_RADIUS = {
   full: 9999,
 }
 
-export const CAR_BRANDS = [
-  "BMW",
-  "Mercedes",
-  "Audi",
-  "Toyota",
-  "Honda",
-  "Nissan",
-  "Ford",
-  "Hyundai",
-  "Volkswagen",
-  "Mazda",
-]
-
-export const CAR_TYPES = ["sedan", "suv", "hatchback", "coupe", "convertible", "truck", "van"]
-
-export const FUEL_TYPES = ["gasoline", "diesel", "hybrid", "electric"]
-
-export const TRANSMISSION_TYPES = ["manual", "automatic", "cvt"]
-
-export const BOOKING_STATUS = {
-  PENDING: "pending",
-  CONFIRMED: "confirmed",
-  ACTIVE: "active",
-  COMPLETED: "completed",
-  CANCELLED: "cancelled",
-}
-
-export const PAYMENT_STATUS = {
-  PENDING: "pending",
-  PAID: "paid",
-  FAILED: "failed",
-  REFUNDED: "refunded",
-}
-
-export const NOTIFICATION_TYPES = {
-  BOOKING_CONFIRMED: "booking_confirmed",
-  BOOKING_REMINDER: "booking_reminder",
-  PAYMENT_SUCCESSFUL: "payment_successful",
-  PAYMENT_FAILED: "payment_failed",
-  CAR_RETURNED: "car_returned",
-  REVIEW_REQUEST: "review_request",
-  PROMOTION: "promotion",
-  SYSTEM_UPDATE: "system_update",
-  EMERGENCY: "emergency",
-}
-
-export const API_ENDPOINTS = {
-  USERS: "/api/users",
-  CARS: "/api/cars",
-  BOOKINGS: "/api/bookings",
-  NOTIFICATIONS: "/api/notifications",
-  REVIEWS: "/api/reviews",
-  PAYMENTS: "/api/payments",
-}
-
-export const STORAGE_KEYS = {
-  USER_TOKEN: "user_token",
-  USER_PREFERENCES: "user_preferences",
-  SEARCH_HISTORY: "search_history",
-  RECENT_SEARCHES: "recent_searches",
-}
-
 // ===== Bản địa hoá Việt Nam =====
 
 export const CITIES = ["TP. Hồ Chí Minh", "Hà Nội", "Đà Nẵng"]
@@ -157,21 +95,66 @@ export const PAYMENT_METHODS = {
   ZALOPAY: { id: "zalopay", label: "ZaloPay", short: "ZaloPay", color: "#0068FF" },
 } as const
 
-// Nhãn tiếng Việt cho trạng thái booking. Giá trị lưu trên Firestore giữ nguyên (tiếng Anh),
-// chỉ đổi phần hiển thị. Tra cứu không phân biệt hoa thường qua getBookingStatusLabel.
+// Nhãn tiếng Việt cho trạng thái booking (docs/PLAN.md mục 4). Giá trị lưu trên Firestore giữ nguyên
+// (tiếng Anh), chỉ đổi phần hiển thị. Tra cứu không phân biệt hoa thường qua getBookingStatusLabel.
 export const BOOKING_STATUS_LABELS: Record<string, string> = {
-  pending: "Chờ thanh toán",
+  pending: "Chờ xác nhận",
+  confirmed: "Chờ thanh toán",
   upcoming: "Sắp nhận xe",
-  confirmed: "Đã xác nhận",
   active: "Đang thuê",
   completed: "Hoàn thành",
   cancelled: "Đã huỷ",
   canceled: "Đã huỷ",
+  rejected: "Bị từ chối",
 }
 
 export const getBookingStatusLabel = (status?: string): string => {
   if (!status) return ""
   return BOOKING_STATUS_LABELS[status.toLowerCase()] ?? status
+}
+
+// Nhóm tab Chuyến đi theo trạng thái (chữ thường)
+export const BOOKING_TABS = {
+  upcoming: ["pending", "confirmed", "upcoming"],
+  active: ["active"],
+  history: ["completed", "cancelled", "canceled", "rejected"],
+} as const
+
+// Đơn còn giữ xe (chặn trùng lịch, chặn xoá xe)
+export const OPEN_BOOKING_STATUSES = ["Pending", "Confirmed", "Upcoming", "Active"] as const
+
+export const CAR_STATUS_LABELS: Record<string, string> = {
+  Available: "Sẵn sàng",
+  Rented: "Đang cho thuê",
+  Maintenance: "Đang bảo dưỡng",
+  Inactive: "Tạm ngừng",
+}
+
+// Xe ở trạng thái này không hiện khi tìm và không đặt được
+export const HIDDEN_CAR_STATUSES = ["Maintenance", "Inactive"]
+
+export const FUELS = ["Xăng", "Dầu diesel", "Điện", "Hybrid"] as const
+export const TRANSMISSIONS = ["Số tự động", "Số sàn"] as const
+
+export const AMENITIES = [
+  "Bluetooth",
+  "Camera lùi",
+  "Camera 360",
+  "Cảm biến va chạm",
+  "Định vị GPS",
+  "Apple CarPlay / Android Auto",
+  "Cửa sổ trời",
+  "Ghế da",
+  "Cốp điện",
+  "Kiểm soát hành trình",
+]
+
+// Mã giảm giá, áp trước VAT. firstBookingOnly: chỉ cho người chưa có đơn đã thanh toán;
+// weekendOnly: chỉ khi ngày nhận xe là Thứ 7/Chủ nhật.
+export const PROMO_CODES: Record<string, { percent: number; label: string; firstBookingOnly?: boolean; weekendOnly?: boolean }> = {
+  FIRST20: { percent: 20, label: "Giảm 20% chuyến thuê đầu tiên", firstBookingOnly: true },
+  WELCOME25: { percent: 25, label: "Giảm 25% quà chào mừng", firstBookingOnly: true },
+  WEEKEND50: { percent: 50, label: "Giảm 50% thuê xe cuối tuần", weekendOnly: true },
 }
 
 export const PAYMENT_STATUS_LABELS: Record<string, string> = {

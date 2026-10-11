@@ -5,12 +5,13 @@ import { type TextStyle, View, Text, StyleSheet, ScrollView, TouchableOpacity, I
 import { SafeAreaView } from "react-native-safe-area-context"
 import { Ionicons } from "@expo/vector-icons"
 import { router, useLocalSearchParams } from "expo-router"
-import { cars } from "../../data/cars"
+import { useCar, getCarImage } from "../../hooks/useCars"
+import { useLikedCarIds } from "../../hooks/useLikedCarIds"
 import { db } from "../../config/firebase"
 import { collection, addDoc, query, where, onSnapshot, serverTimestamp } from "firebase/firestore"
 import { useAuth } from "../../hooks/useAuth"
 import { formatCurrency, formatDate } from "../../utils/helpers"
-import { HOTLINE } from "../../utils/constants"
+import { HOTLINE, CAR_STATUS_LABELS, HIDDEN_CAR_STATUSES } from "../../utils/constants"
 import { getBrandAsset } from "../../data/assets"
 import { StatusBar } from "expo-status-bar"
 import { THEME_COLORS, RADIUS, SPACE, TYPOGRAPHY, UI, PRESS_OPACITY } from "../../utils/theme"
@@ -50,7 +51,8 @@ const formatUserName = (email: string) => {
 
 export default function CarDetailsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>()
-  const car = cars.find(car => car.id === id)
+  const { car, loading: carLoading } = useCar(id)
+  const { likedIds, toggleLike } = useLikedCarIds()
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
 
   // Review state
@@ -123,10 +125,18 @@ export default function CarDetailsScreen() {
   if (!car) {
     return (
       <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
-        <Text style={styles.emptyText}>Không tìm thấy xe</Text>
+        {carLoading ? (
+          <ActivityIndicator color={THEME_COLORS.primary} />
+        ) : (
+          <Text style={styles.emptyText}>Không tìm thấy xe</Text>
+        )}
       </View>
     )
   }
+
+  // Xe bảo dưỡng / tạm ngừng thì không đặt được
+  const bookingLocked = HIDDEN_CAR_STATUSES.includes(car.status)
+  const liked = likedIds.includes(car.id)
 
   const specs: { icon: keyof typeof Ionicons.glyphMap; value: string; label: string }[] = [
     { icon: "people-outline", value: `${car.seats} chỗ`, label: "Số chỗ" },
@@ -140,7 +150,20 @@ export default function CarDetailsScreen() {
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       <StatusBar style="dark" />
-      <AppHeader title="Chi tiết xe" onBack={() => router.back()} />
+      <AppHeader
+        title="Chi tiết xe"
+        onBack={() => router.back()}
+        right={
+          <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel={liked ? "Bỏ khỏi xe yêu thích" : "Thêm vào xe yêu thích"}
+            onPress={() => toggleLike(car.id).catch((e) => Alert.alert("Không thể lưu xe yêu thích", e.message))}
+            activeOpacity={PRESS_OPACITY}
+          >
+            <Ionicons name={liked ? "heart" : "heart-outline"} size={24} color={liked ? THEME_COLORS.danger : THEME_COLORS.textPrimary} />
+          </TouchableOpacity>
+        }
+      />
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         {/* Car Name and Brand Logo Section */}
         <View style={styles.heroSection}>
@@ -163,7 +186,7 @@ export default function CarDetailsScreen() {
           </View>
 
           <View style={styles.imageWrapper}>
-            <Image source={car.image} style={styles.carImage} />
+            <Image source={getCarImage(car)} style={styles.carImage} />
 
             {/* Image Indicators */}
             <View style={styles.imageIndicators}>
@@ -321,8 +344,9 @@ export default function CarDetailsScreen() {
             </View>
           </View>
           <PrimaryButton
-            title="Thuê ngay"
-            icon="arrow-forward"
+            title={bookingLocked ? CAR_STATUS_LABELS[car.status] : "Thuê ngay"}
+            icon={bookingLocked ? undefined : "arrow-forward"}
+            disabled={bookingLocked}
             onPress={() => router.push({
               pathname: "/checkout",
               params: { carId: id }

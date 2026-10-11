@@ -1,45 +1,72 @@
+// Doc `bookings/{id}` trên Firestore (docs/PLAN.md mục 4). Đơn cũ có thể thiếu các field mới.
+export type BookingStatus = "Pending" | "Confirmed" | "Upcoming" | "Active" | "Completed" | "Cancelled" | "Rejected"
+export type PaymentStatus = "Completed" | "Failed" | "Refunded"
+
+export interface BookingAddOn {
+  id: number
+  name: string
+  price: number
+  selected?: boolean
+}
+
+export interface BookingPayment {
+  method: string
+  amount: number
+  transactionId?: string
+  paidAt?: any
+  status: PaymentStatus
+  refundAmount?: number
+  refundedAt?: any
+}
+
+export interface Handover {
+  at: any
+  documentsChecked: boolean
+  depositCollected: boolean
+  conditionNote: string
+  odometer: number
+  fuelLevel: string
+}
+
+export interface ReturnInspection {
+  at: any
+  odometer: number
+  fuelLevel: string
+  damageNote: string
+  lateFee: number
+  extraFees: number
+  depositRefund: number
+}
+
 export interface Booking {
   id: string
   userId: string
   carId: string
   carName: string
-  carImage: string
-  startDate: Date
-  endDate: Date
-  pickupLocation: string
-  dropoffLocation: string
+  pickupDate?: any // Timestamp
+  returnDate?: any // Timestamp
+  duration: number // số ngày
+  location: string // điểm nhận
+  returnLocation?: string
+  subtotal?: number
+  addOnTotal?: number
+  discount?: number
+  promoCode?: string
+  tax?: number
+  deposit?: number
+  price: number // tổng thanh toán online
+  selectedAddOns: BookingAddOn[]
   status: BookingStatus
-  totalCost: number
-  addOns: BookingAddOn[]
-  paymentMethod: string
-  paymentStatus: PaymentStatus
-  createdAt: Date
-  updatedAt?: Date
-}
-
-export interface BookingAddOn {
-  id: string
-  name: string
-  price: number
-  selected: boolean
-}
-
-export type BookingStatus = "pending" | "confirmed" | "active" | "completed" | "cancelled"
-export type PaymentStatus = "pending" | "paid" | "failed" | "refunded"
-
-export interface BookingRequest {
-  carId: string
-  startDate: Date
-  endDate: Date
-  pickupLocation: string
-  dropoffLocation?: string
-  addOns: string[]
-  paymentMethodId: string
-}
-
-export interface BookingHistory {
-  bookings: Booking[]
-  totalBookings: number
-  totalSpent: number
-  averageRating: number
+  createdAt: any
+  confirmedAt?: any
+  rejectedAt?: any
+  rejectReason?: string
+  cancelledAt?: any
+  cancelledBy?: "user" | "admin"
+  payment?: BookingPayment
+  handover?: Handover
+  returnInspection?: ReturnInspection
+  handedOverAt?: any
+  returnedAt?: any
+  reviewed?: boolean
 }

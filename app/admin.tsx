@@ -2,36 +2,22 @@
 
 import { useState, useEffect, useMemo } from "react"
 import type { StyleProp, TextStyle } from "react-native"
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, Image, Animated, Modal, Platform } from "react-native"
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, Image, Animated, Modal, Platform, ActivityIndicator } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 import { Ionicons } from "@expo/vector-icons"
 import { router } from "expo-router"
-import { collection, addDoc, onSnapshot, deleteDoc, doc, updateDoc } from "firebase/firestore"
+import { collection, addDoc, onSnapshot, doc, updateDoc } from "firebase/firestore"
 import { db } from "../config/firebase"
 import * as ImagePicker from 'expo-image-picker';
 import { LineChart, BarChart } from "react-native-chart-kit"
 import { Dimensions } from "react-native"
 import { formatCurrency, formatDate } from "../utils/helpers"
-import { getBookingStatusLabel, PAYMENT_STATUS_LABELS } from "../utils/constants"
-import { cars as localCars } from "../data/cars"
+import { getBookingStatusLabel, PAYMENT_STATUS_LABELS, CAR_STATUS_LABELS } from "../utils/constants"
+import { useCars, getCarImage } from "../hooks/useCars"
+import { useAuth } from "../hooks/useAuth"
+import { seedCars, deleteCar } from "../utils/carActions"
+import type { Car, CarStatus, Transmission } from "../types/car"
 import { THEME_COLORS, RADIUS, SPACE, SHADOWS, TYPOGRAPHY, UI, PRESS_OPACITY } from "../utils/theme"
-
-interface Car {
-  id: string
-  name: string
-  brand: string
-  pricePerDay: number
-  type: string
-  fuel: string
-  seats: number
-  year?: number
-  image: string
-  createdAt: Date
-  status: string
-  bookings: number
-  rating: number
-  availability: boolean
-}
 
 interface User {
   id: string;
@@ -105,17 +91,7 @@ const USER_FILTERS = [
 const PAID_STATUSES = ["upcoming", "active", "completed"]
 
 // Nhãn hiển thị cho trạng thái xe / người dùng (giá trị lưu giữ nguyên tiếng Anh)
-const getCarStatusLabel = (status?: string) => {
-  switch ((status || "").toLowerCase()) {
-    case "available":
-      return "Còn xe"
-    case "unavailable":
-    case "rented":
-      return "Hết xe"
-    default:
-      return status || "Chưa xác định"
-  }
-}
+const getCarStatusLabel = (status?: string) => CAR_STATUS_LABELS[status || ""] || status || "Chưa xác định"
 
 const USER_STATUS_LABELS: Record<User["status"], string> = {
   active: "Hoạt động",
@@ -225,12 +201,13 @@ const getBookingTone = (status?: string): Tone => {
 }
 
 const getCarTone = (status?: string): Tone => {
-  switch ((status || "").toLowerCase()) {
-    case "available":
+  switch (status) {
+    case "Available":
       return "success"
-    case "unavailable":
-    case "rented":
-      return "danger"
+    case "Rented":
+      return "info"
+    case "Maintenance":
+      return "warning"
     default:
       return "neutral"
   }
@@ -244,7 +221,14 @@ const emptyCarForm = {
   fuel: "",
   seats: "",
   year: "",
-  carImage: "",
+  carImage: "", // data URI admin tải lên
+  imageKey: "", // ảnh có sẵn (xe mẫu)
+  licensePlate: "",
+  transmission: "Số tự động" as Transmission,
+  deposit: "",
+  description: "",
+  amenities: [] as string[],
+  status: "Available" as CarStatus,
 }
 
 export default function AdminScreen() {
@@ -253,7 +237,9 @@ export default function AdminScreen() {
   const [newCar, setNewCar] = useState(emptyCarForm)
   const [editingCarId, setEditingCarId] = useState<string | null>(null)
   const [formErrors, setFormErrors] = useState<{ [key: string]: string }>({})
-  const [cars, setCars] = useState<Car[]>([])
+  const { cars, loading: carsLoading } = useCars()
+  const { user: authUser, loading: authLoading } = useAuth()
+  const isAdmin = authUser?.isAdmin === true
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const [bookings, setBookings] = useState<Booking[]>([])
@@ -304,43 +290,14 @@ export default function AdminScreen() {
     ]).start();
   }, [activeTab]); // Add activeTab as dependency to re-run animation on tab change
 
-  // Xe (collection `cars`)
+  // Chỉ tài khoản có users/{uid}.isAdmin mới vào được trang quản trị
   useEffect(() => {
-    const unsubscribe = onSnapshot(
-      collection(db, "cars"),
-      (snapshot) => {
-        const carsData = snapshot.docs.map((d) => {
-          const data = d.data()
-          return {
-            id: d.id,
-            name: data.name || "",
-            brand: data.brand || "",
-            pricePerDay: Number(data.pricePerDay) || 0,
-            type: data.type || "",
-            fuel: data.fuel || "",
-            seats: Number(data.seats) || 0,
-            year: data.year ? Number(data.year) : undefined,
-            image: data.image,
-            createdAt: data.createdAt,
-            status: data.status,
-            bookings: data.bookings,
-            rating: data.rating,
-            availability: data.availability,
-          }
-        }) as Car[]
-        setCars(carsData)
-        setLoaded((prev) => ({ ...prev, cars: true }))
-      },
-      (error) => {
-        console.error("Error loading cars:", error)
-        setLoaded((prev) => ({ ...prev, cars: true }))
-      }
-    )
-    return () => unsubscribe()
-  }, [])
+    if (!authLoading && !isAdmin) router.replace("/login")
+  }, [authLoading, isAdmin])
 
   // Đơn đặt xe (collection `bookings`)
   useEffect(() => {
+    if (!isAdmin) return
     const unsubscribe = onSnapshot(
       collection(db, "bookings"),
       (snapshot) => {
@@ -373,10 +330,11 @@ export default function AdminScreen() {
       }
     )
     return () => unsubscribe()
-  }, [])
+  }, [isAdmin])
 
   // Người dùng (collection `users`)
   useEffect(() => {
+    if (!isAdmin) return
     const unsubscribe = onSnapshot(
       collection(db, "users"),
       (snapshot) => {
@@ -405,7 +363,7 @@ export default function AdminScreen() {
       }
     )
     return () => unsubscribe()
-  }, [])
+  }, [isAdmin])
 
   const usersById = useMemo(() => {
     const map: Record<string, User> = {}
@@ -423,14 +381,11 @@ export default function AdminScreen() {
 
   const getCustomerAvatar = (booking: Booking) => usersById[booking.userId]?.avatar || avatarFor(getCustomerName(booking))
 
-  // Ảnh xe của đơn: ưu tiên ảnh trong data/cars.ts (đơn tạo từ app), rồi xe trên Firestore, rồi field carImage
+  // Ảnh xe của đơn: theo xe trên Firestore; đơn cũ có thể còn carImage dạng chuỗi (URL / data URI)
   const getBookingImageSource = (booking: Booking): any => {
-    const local = localCars.find((c) => c.id === booking.carId)
-    if (local?.image) return local.image
-    const remote = cars.find((c) => c.id === booking.carId)
-    if (remote?.image) return { uri: remote.image }
+    const car = cars.find((c) => c.id === booking.carId)
+    if (car) return getCarImage(car)
     if (typeof booking.carImage === "string" && booking.carImage) return { uri: booking.carImage }
-    if (typeof booking.carImage === "number") return booking.carImage
     return null
   }
 
@@ -565,7 +520,12 @@ export default function AdminScreen() {
       }
     }
 
-    if (!data.carImage) errors.carImage = "Vui lòng thêm ảnh xe";
+    if (!data.carImage && !data.imageKey) errors.carImage = "Vui lòng thêm ảnh xe";
+
+    if (data.deposit.trim()) {
+      const deposit = parsePriceInput(data.deposit);
+      if (!Number.isInteger(deposit) || deposit < 0) errors.deposit = "Tiền cọc phải là số nguyên không âm (VND)";
+    }
 
     return errors;
   };
@@ -588,12 +548,12 @@ export default function AdminScreen() {
 
     if (!result.canceled) {
       const base64Image = `data:image/jpeg;base64,${result.assets[0].base64}`;
-      setNewCar(prev => ({ ...prev, carImage: base64Image }));
+      setNewCar(prev => ({ ...prev, carImage: base64Image, imageKey: "" }));
       setFormErrors(prev => ({ ...prev, carImage: "" }));
     }
   };
 
-  const updateField = (field: keyof typeof emptyCarForm, value: string) => {
+  const updateField = <K extends keyof typeof emptyCarForm>(field: K, value: (typeof emptyCarForm)[K]) => {
     setNewCar(prev => ({ ...prev, [field]: value }))
     if (formErrors[field]) setFormErrors(prev => ({ ...prev, [field]: "" }))
   }
@@ -627,6 +587,13 @@ export default function AdminScreen() {
       seats: car.seats ? String(car.seats) : "",
       year: car.year ? String(car.year) : "",
       carImage: car.image || "",
+      imageKey: car.imageKey || "",
+      licensePlate: car.licensePlate || "",
+      transmission: car.transmission || "Số tự động",
+      deposit: car.deposit ? String(car.deposit) : "",
+      description: car.description || "",
+      amenities: car.amenities || [],
+      status: car.status || "Available",
     })
     setFormErrors({})
     setShowAddCarForm(true)
@@ -654,8 +621,15 @@ export default function AdminScreen() {
         type: newCar.type.trim() || 'Chưa xác định',
         fuel: newCar.fuel.trim() || 'Chưa xác định',
         seats: Number(newCar.seats.trim()),
-        image: newCar.carImage,
+        licensePlate: newCar.licensePlate.trim().toUpperCase(),
+        transmission: newCar.transmission,
+        deposit: newCar.deposit.trim() ? parsePriceInput(newCar.deposit) : 0,
+        description: newCar.description.trim(),
+        amenities: newCar.amenities,
+        status: newCar.status,
+        imageKey: newCar.imageKey,
       };
+      if (newCar.carImage) carFields.image = newCar.carImage;
       if (newCar.year.trim()) carFields.year = Number(newCar.year.trim());
 
       if (editingCarId) {
@@ -668,10 +642,9 @@ export default function AdminScreen() {
         await addDoc(collection(db, 'cars'), {
           ...carFields,
           createdAt: new Date().toISOString(),
-          status: 'Available',
           bookings: 0,
           rating: 0,
-          availability: true
+          reviewCount: 0,
         });
         Alert.alert('Thành công', 'Đã thêm xe mới!');
       }
@@ -693,14 +666,24 @@ export default function AdminScreen() {
   const handleDeleteCar = (car: Car) => {
     confirmAction("Xoá xe", `Bạn có chắc muốn xoá xe "${car.name}"? Thao tác này không thể hoàn tác.`, "Xoá", async () => {
       try {
-        await deleteDoc(doc(db, "cars", car.id))
+        await deleteCar(car.id)
         if (editingCarId === car.id) closeCarForm()
         Alert.alert("Thành công", "Đã xoá xe.")
-      } catch (error) {
+      } catch (error: any) {
         console.error("Error deleting car:", error)
-        Alert.alert("Lỗi", "Không thể xoá xe. Vui lòng thử lại.")
+        Alert.alert("Không thể xoá xe", error?.message || "Vui lòng thử lại.")
       }
     })
+  }
+
+  const handleSeedCars = async () => {
+    try {
+      const added = await seedCars()
+      Alert.alert("Nạp dữ liệu xe mẫu", added > 0 ? `Đã thêm ${added} xe mẫu.` : "Tất cả xe mẫu đã có sẵn.")
+    } catch (error) {
+      console.error("Error seeding cars:", error)
+      Alert.alert("Lỗi", "Không thể nạp dữ liệu xe mẫu. Vui lòng thử lại.")
+    }
   }
 
   // ===== Thao tác với đơn đặt xe =====
@@ -847,9 +830,9 @@ export default function AdminScreen() {
   const renderCarCard = (car: Car) => (
     <View key={car.id} style={styles.carCard}>
       <View style={styles.carImageWrap}>
-        {car.image ? (
+        {car.image || car.imageKey ? (
           <Image
-            source={{ uri: car.image }}
+            source={getCarImage(car)}
             style={styles.carImage}
             resizeMode="cover"
           />
@@ -906,6 +889,12 @@ export default function AdminScreen() {
         <TouchableOpacity style={styles.addButton} onPress={openAddCarForm} activeOpacity={PRESS_OPACITY}>
           <Ionicons name="add" size={20} color="#FFFFFF" />
           <Text style={styles.addButtonText}>Thêm xe</Text>
+        </TouchableOpacity>
+      </View>
+      {/* ponytail: nút tạm, Codex làm lại giao diện ở U1.1 */}
+      <View style={styles.tabHeader}>
+        <TouchableOpacity onPress={handleSeedCars} activeOpacity={PRESS_OPACITY}>
+          <Text style={styles.smallSecondaryText}>Nạp dữ liệu xe mẫu</Text>
         </TouchableOpacity>
       </View>
 
@@ -1012,10 +1001,10 @@ export default function AdminScreen() {
 
           <View style={styles.inputGroup}>
             <Text style={styles.inputLabel}>Ảnh xe *</Text>
-            {newCar.carImage ? (
+            {newCar.carImage || newCar.imageKey ? (
               <View style={styles.imagePreviewContainer}>
                 <Image
-                  source={{ uri: newCar.carImage }}
+                  source={getCarImage({ image: newCar.carImage, imageKey: newCar.imageKey })}
                   style={styles.imagePreview}
                 />
                 <TouchableOpacity
@@ -1063,7 +1052,7 @@ export default function AdminScreen() {
       )}
 
       <View style={styles.carsList}>
-        {!loaded.cars
+        {carsLoading
           ? renderEmpty("hourglass-outline", "Đang tải danh sách xe...")
           : cars.length === 0
             ? renderEmpty("car-outline", "Chưa có xe nào. Bấm \"Thêm xe\" để thêm xe mới.")
@@ -1582,6 +1571,14 @@ export default function AdminScreen() {
           </View>
         </View>
       </Modal>
+    )
+  }
+
+  if (!isAdmin) {
+    return (
+      <SafeAreaView style={[styles.container, { alignItems: "center", justifyContent: "center" }]}>
+        <ActivityIndicator color={THEME_COLORS.primary} />
+      </SafeAreaView>
     )
   }
 

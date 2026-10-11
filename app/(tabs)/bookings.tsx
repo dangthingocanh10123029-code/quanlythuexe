@@ -11,7 +11,8 @@ import { collection, query, where, onSnapshot, doc, updateDoc } from "firebase/f
 import { useAuth } from "../../hooks/useAuth"
 import { formatCurrency, formatDate } from "../../utils/helpers"
 import { getBookingStatusLabel, PAYMENT_METHODS } from "../../utils/constants"
-import { cars } from "../../data/cars"
+import { useCars, getCarImage } from "../../hooks/useCars"
+import type { Car } from "../../types/car"
 import PaymentLogo from "../../components/ui/PaymentLogo"
 import { StatusBar } from "expo-status-bar"
 import type { ViewStyle } from "react-native"
@@ -131,14 +132,12 @@ const canModifyStatus = (status?: string) => ["pending", "upcoming"].includes(no
 const isPaidBooking = (booking: Booking) =>
   normalizeStatus(booking.payment?.status) === "completed" || normalizeStatus(booking.status) === "upcoming"
 
-// Ưu tiên ảnh trong data/cars theo carId; nếu không có thì xử lý cả số (require) lẫn chuỗi URL
-const resolveCarImage = (booking: Booking) => {
+// Ảnh theo xe trên Firestore; đơn cũ có thể còn carImage dạng chuỗi (URL / data URI)
+const resolveCarImage = (booking: Booking, cars: Car[]) => {
   const car = cars.find(c => c.id === booking.carId)
-  if (car?.image) return car.image
+  if (car) return getCarImage(car)
   const image = booking.carImage
-  if (typeof image === "number") return image
   if (typeof image === "string" && image.length > 0) return { uri: image }
-  if (image && typeof image === "object" && typeof image.uri === "string") return { uri: image.uri }
   return null
 }
 
@@ -151,6 +150,7 @@ const startOfToday = () => {
 export default function BookingsScreen() {
   const [activeTab, setActiveTab] = useState<TabKey>("upcoming")
   const { user } = useAuth()
+  const { cars } = useCars()
   const [bookings, setBookings] = useState<Booking[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -353,7 +353,7 @@ export default function BookingsScreen() {
   const renderBookingCard = ({ item }: { item: Booking }) => {
     const isPending = isPendingStatus(item.status)
     const canModify = canModifyStatus(item.status)
-    const imageSource = resolveCarImage(item)
+    const imageSource = resolveCarImage(item, cars)
     const pickupRaw = toDate(item.pickupDate)
     const tone = getStatusTone(item.status)
 

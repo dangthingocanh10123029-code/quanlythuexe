@@ -1,17 +1,16 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Dimensions, FlatList } from "react-native"
+import { useState, useEffect, useMemo } from "react"
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Dimensions, FlatList, Alert } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 import { Ionicons } from "@expo/vector-icons"
 import { router } from "expo-router"
 import { auth } from "../../config/firebase"
 import type { Car } from "../../types/car"
-import DateTimePicker from '@react-native-community/datetimepicker'
-import { Platform } from 'react-native'
 import { onAuthStateChanged } from 'firebase/auth'
-import AsyncStorage from '@react-native-async-storage/async-storage'
-import { cars } from "../../data/cars"
+import { useCars, getCarImage } from "../../hooks/useCars"
+import { useLikedCarIds } from "../../hooks/useLikedCarIds"
+import { HIDDEN_CAR_STATUSES } from "../../utils/constants"
 import { BRAND_ASSETS, PROMO_ASSETS } from "../../data/assets"
 import { StatusBar } from "expo-status-bar"
 import { THEME_COLORS, RADIUS, SPACE, SHADOWS, TYPOGRAPHY, UI, PRESS_OPACITY, layout } from "../../utils/theme"
@@ -37,87 +36,6 @@ const coupons = [
   },
 ]
 
-// Update featuredCars type
-const featuredCars = [
-    {
-    id: "21",
-    name: "Ford Mustang",
-    brand: "Ford",
-    model: "GT",
-    year: 2024,
-    pricePerDay: 1800000,
-    location: "Đà Nẵng",
-    image: require("../../assets/cars/ford_mustang.png"),
-    seats: 4,
-    rating: 4.8,
-    availability: true,
-    type: "Xe thể thao",
-    createdAt: new Date(),
-  },
-    {
-    id: "15",
-    name: "Honda NSX",
-    brand: "Honda",
-    model: "NSX Type S",
-    year: 2024,
-    pricePerDay: 1900000,
-    location: "Đà Nẵng",
-    image: require("../../assets/cars/honda_nsx.png"),
-    seats: 2,
-    rating: 4.8,
-    availability: true,
-    type: "Xe thể thao",
-    createdAt: new Date(),
-  },
-  {
-    id: "11",
-    name: "Land Cruiser",
-    brand: "Toyota",
-    model: "300 Series",
-    year: 2024,
-    pricePerDay: 1500000,
-    location: "Hà Nội",
-    image: require("../../assets/cars/toyota_land_cruiser.png"),
-    seats: 7,
-    rating: 4.7,
-    availability: true,
-    type: "SUV",
-    createdAt: new Date(),
-  },
-  {
-    id: "17",
-    name: "Nissan GT-R",
-    brand: "Nissan",
-    model: "R35 NISMO",
-    year: 2024,
-    pricePerDay: 2000000,
-    location: "Hà Nội",
-    image: require("../../assets/cars/nissan_gtr.png"),
-    seats: 4,
-    rating: 4.9,
-    availability: true,
-    type: "Xe thể thao",
-    createdAt: new Date(),
-    
-  },
-    {
-    id: "12",
-    name: "Toyota Supra",
-    brand: "Toyota",
-    model: "GR Supra",
-    year: 2024,
-    pricePerDay: 1700000,
-    location: "Đà Nẵng",
-    image: require("../../assets/cars/toyota_supra.png"),
-    seats: 2,
-    rating: 4.9,
-    availability: true,
-    type: "Xe thể thao",
-    createdAt: new Date(),
-  },
-]
-const recentlyRented = cars.slice(0, 4) // Just for demo, normally would be from booking history
-
 // Mở tab Xe kèm tham số. `ts` luôn mới để tab Xe nhận ra lần mở mới (kể cả khi bấm lại cùng một hãng)
 type CarsTabParams = { brand?: string; city?: string; focus?: "1"; openFilter?: "1" }
 const openCarsTab = (params: CarsTabParams = {}) => {
@@ -131,30 +49,16 @@ const openCarsTab = (params: CarsTabParams = {}) => {
 export default function HomeScreen() {
   const [currentCouponIndex, setCurrentCouponIndex] = useState(0)
   const [userName, setUserName] = useState("bạn")
-  const [isRental, setIsRental] = useState(true)
-  const [showPicker, setShowPicker] = useState(false)
-  const [pickerMode, setPickerMode] = useState<'date' | 'time'>('date')
-  const [activeField, setActiveField] = useState<'pickUp' | 'dropOff' | null>(null)
-  const [formData, setFormData] = useState({
-    pickUpDate: new Date(),
-    pickUpTime: new Date(),
-    pickUpLocation: '',
-    dropOffDate: new Date(),
-    dropOffTime: new Date(),
-    dropOffLocation: '',
-    // Airport specific fields
-    flightNumber: '',
-    airline: '',
-    terminal: '',
-  })
   const [showPromoModal, setShowPromoModal] = useState(false)
-  const [isNewLogin, setIsNewLogin] = useState(false)
   const [timeLeft, setTimeLeft] = useState(180) // 180 seconds = 3 minutes
-  const [searchQuery, setSearchQuery] = useState("")
   const [hasNotifications, setHasNotifications] = useState(false)
+  const { cars } = useCars()
+  const { likedIds, toggleLike } = useLikedCarIds()
 
-  // Add this state to track first render
-  const [isFirstRender, setIsFirstRender] = useState(true)
+  // Xe nổi bật: điểm đánh giá cao nhất trong các xe đang cho thuê
+  const visibleCars = useMemo(() => cars.filter((c) => !HIDDEN_CAR_STATUSES.includes(c.status)), [cars])
+  const featuredCars = useMemo(() => [...visibleCars].sort((a, b) => b.rating - a.rating).slice(0, 5), [visibleCars])
+  const recentlyRented = visibleCars.slice(0, 4) // Demo; về sau lấy từ lịch sử thuê
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -167,13 +71,6 @@ export default function HomeScreen() {
     })
 
     return () => unsubscribe()
-  }, [])
-
-  // Add this useEffect to reset first render state on unmount
-  useEffect(() => {
-    return () => {
-      setIsFirstRender(true)
-    }
   }, [])
 
   // Cập nhật lời chào khi Firebase khôi phục xong phiên đăng nhập
@@ -215,25 +112,11 @@ export default function HomeScreen() {
     return `${hours.toString().padStart(2, '0')} : ${minutes.toString().padStart(2, '0')} : ${remainingSeconds.toString().padStart(2, '0')}`
   }
 
-  const showDateTimePicker = (mode: 'date' | 'time', field: 'pickUp' | 'dropOff') => {
-    setPickerMode(mode)
-    setActiveField(field)
-    setShowPicker(true)
-  }
-
-  const onDateTimeChange = (event: any, selectedValue: Date | undefined) => {
-    setShowPicker(Platform.OS === 'ios')
-    if (selectedValue && activeField) {
-      setFormData(prev => ({
-        ...prev,
-        [`${activeField}${pickerMode === 'date' ? 'Date' : 'Time'}`]: selectedValue
-      }))
-    }
-  }
-
   const renderRecentCarCard = ({ item }: { item: Car }) => (
     <CarCardCompact
-      car={item}
+      car={{ ...item, image: getCarImage(item) }}
+      liked={likedIds.includes(item.id)}
+      onFavoritePress={() => toggleLike(item.id).catch((e) => Alert.alert("Không thể lưu xe yêu thích", e.message))}
       onPress={() => router.push({ pathname: "/car-details/[id]", params: { id: item.id } })}
       style={styles.recentCarCard}
     />
@@ -242,7 +125,7 @@ export default function HomeScreen() {
   const renderFeaturedCarCard = ({ item }: { item: Car }) => (
     <View style={styles.featuredSlide}>
       <CarCardFeatured
-        car={item}
+        car={{ ...item, image: getCarImage(item) }}
         onPress={() => router.push({ pathname: "/car-details/[id]", params: { id: item.id } })}
       />
     </View>

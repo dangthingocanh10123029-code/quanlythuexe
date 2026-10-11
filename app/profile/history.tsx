@@ -9,7 +9,8 @@ import { router } from "expo-router"
 import { collection, query, where, onSnapshot } from "firebase/firestore"
 import { db } from "../../config/firebase"
 import { useAuth } from "../../hooks/useAuth"
-import { cars } from "../../data/cars"
+import { useCars, getCarImage } from "../../hooks/useCars"
+import type { Car } from "../../types/car"
 import { formatCurrency, formatDate } from "../../utils/helpers"
 import { getBookingStatusLabel } from "../../utils/constants"
 import { PRESS_OPACITY, RADIUS, SPACE, THEME_COLORS, TYPOGRAPHY, UI } from "../../utils/theme"
@@ -36,16 +37,17 @@ const toDate = (value: any): Date | null => {
   return isNaN(d.getTime()) ? null : d
 }
 
-const resolveCarImage = (carId?: string, carImage?: any) => {
-  const local = cars.find((c) => c.id === carId)
-  if (local) return local.image
-  if (typeof carImage === "number") return carImage
+// Ảnh theo xe trên Firestore; đơn cũ có thể còn carImage dạng chuỗi (URL / data URI)
+const resolveCarImage = (cars: Car[], carId?: string, carImage?: any) => {
+  const car = cars.find((c) => c.id === carId)
+  if (car) return getCarImage(car)
   if (typeof carImage === "string" && carImage) return { uri: carImage }
   return null
 }
 
 export default function HistoryScreen() {
   const { user } = useAuth()
+  const { cars } = useCars()
   const [filter, setFilter] = useState("all")
   const [rentalHistory, setRentalHistory] = useState<RentalHistoryItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -71,7 +73,7 @@ export default function HistoryScreen() {
             id: docSnap.id,
             carId: data.carId,
             carName: data.carName || "Xe thuê",
-            carImage: resolveCarImage(data.carId, data.carImage),
+            carImage: data.carImage,
             startDate,
             endDate,
             days,
@@ -126,15 +128,16 @@ export default function HistoryScreen() {
 
   const renderHistoryItem = ({ item }: { item: RentalHistoryItem }) => {
     const tone = getStatusTone(item.status)
+    const image = resolveCarImage(cars, item.carId, item.carImage)
     return (
       <TouchableOpacity
         style={styles.historyCard}
         onPress={() => router.push("/(tabs)/bookings")}
         activeOpacity={PRESS_OPACITY}
       >
-        {item.carImage ? (
+        {image ? (
           <View style={styles.carImageWrap}>
-            <Image source={item.carImage} style={styles.carImage} resizeMode="contain" />
+            <Image source={image} style={styles.carImage} resizeMode="contain" />
           </View>
         ) : (
           <View style={[styles.carImageWrap, styles.carImagePlaceholder]}>

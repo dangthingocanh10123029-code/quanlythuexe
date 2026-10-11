@@ -61,9 +61,6 @@ export default function LoginScreen() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
-  const [adminModalVisible, setAdminModalVisible] = useState(false)
-  const [adminPassword, setAdminPassword] = useState("")
-  const [showErrorModal, setShowErrorModal] = useState(false)
   const [errorModalVisible, setErrorModalVisible] = useState(false)
   const [errorMessage, setErrorMessage] = useState("")
   const [errorTitle, setErrorTitle] = useState("")
@@ -140,7 +137,8 @@ export default function LoginScreen() {
         return
       }
 
-      router.replace("/(tabs)")
+      // Tài khoản quản trị (users/{uid}.isAdmin bật trên Firebase Console) vào thẳng trang quản trị
+      router.replace(userData?.isAdmin === true ? "/admin" : "/(tabs)")
     } catch (error: any) {
       console.error("Login error:", error.code, error.message)
       setErrorTitle("Đăng nhập thất bại")
@@ -151,23 +149,6 @@ export default function LoginScreen() {
     }
   }
 
-  const handleAdminAccess = () => {
-    if (adminPassword === "ADMIN123") {
-      setAdminModalVisible(false)
-      setAdminPassword("")
-      router.replace("/admin")
-    } else {
-      setAdminModalVisible(false)
-      setAdminPassword("")
-      setShowErrorModal(true)
-      // Auto dismiss error modal after 2 seconds
-      setTimeout(() => {
-        setShowErrorModal(false)
-      }, 2000)
-    }
-  }
-
-
   const inputProps = (field: string) => ({
     onFocus: () => setFocusedField(field),
     onBlur: () => setFocusedField((current) => (current === field ? null : current)),
@@ -177,75 +158,6 @@ export default function LoginScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar style="dark" />
-      <Modal
-        animationType="fade"
-        transparent={true}
-        visible={adminModalVisible}
-        onRequestClose={() => setAdminModalVisible(false)}
-      >
-        <View style={styles.modalContainer}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalIcon}>
-              <Ionicons name="shield-checkmark-outline" size={24} color={THEME_COLORS.primary} />
-            </View>
-            <Text style={styles.modalTitle}>Bạn là quản trị viên?</Text>
-            <TextInput
-              style={[styles.modalInput, focusedField === "admin" && INPUT_FOCUSED_TEXT]}
-              placeholder="Nhập mật khẩu quản trị"
-              secureTextEntry
-              value={adminPassword}
-              onChangeText={setAdminPassword}
-              onSubmitEditing={handleAdminAccess}
-              returnKeyType="done"
-              {...inputProps("admin")}
-            />
-            <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={[styles.modalSecondaryButton, styles.modalButtonFlex]}
-                onPress={() => {
-                  setAdminModalVisible(false)
-                  setAdminPassword("")
-                }}
-                activeOpacity={PRESS_OPACITY}
-              >
-                <Text style={styles.modalSecondaryButtonText}>Huỷ</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.modalButtonFlex]}
-                onPress={handleAdminAccess}
-                activeOpacity={PRESS_OPACITY}
-              >
-                <Text style={styles.modalButtonText}>Xác nhận</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      <Modal
-        animationType="fade"
-        transparent={true}
-        visible={showErrorModal}
-        onRequestClose={() => setShowErrorModal(false)}
-      >
-        <View style={styles.modalContainer}>
-          <View style={styles.modalContent}>
-            <TouchableOpacity
-              style={styles.closeButton}
-              onPress={() => setShowErrorModal(false)}
-              activeOpacity={PRESS_OPACITY}
-            >
-              <Ionicons name="close" size={20} color={THEME_COLORS.textSecondary} />
-            </TouchableOpacity>
-            <View style={[styles.modalIcon, styles.modalIconDanger]}>
-              <Ionicons name="lock-closed-outline" size={24} color={THEME_COLORS.danger} />
-            </View>
-            <Text style={styles.errorTitle}>Truy cập bị từ chối</Text>
-            <Text style={styles.errorMessage}>Rất tiếc! Chỉ quản trị viên mới được vào.</Text>
-          </View>
-        </View>
-      </Modal>
-
       <Modal
         animationType="fade"
         transparent={true}
@@ -358,14 +270,6 @@ export default function LoginScreen() {
               </View>
               <Text style={styles.brandText}>RENTO</Text>
             </View>
-            <TouchableOpacity
-              style={styles.adminButton}
-              onPress={() => setAdminModalVisible(true)}
-              activeOpacity={PRESS_OPACITY}
-            >
-              <Ionicons name="shield-outline" size={14} color={THEME_COLORS.textSecondary} />
-              <Text style={styles.adminButtonText}>QUẢN TRỊ</Text>
-            </TouchableOpacity>
           </View>
 
           <View style={styles.header}>
@@ -503,23 +407,6 @@ const styles = StyleSheet.create({
   signupLink: {
     ...TYPOGRAPHY.bodyStrong,
     color: THEME_COLORS.primary,
-  },
-  adminButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: SPACE.xs,
-    height: 32,
-    paddingHorizontal: SPACE.md,
-    borderRadius: RADIUS.control,
-    borderWidth: 1,
-    borderColor: THEME_COLORS.border,
-    backgroundColor: THEME_COLORS.surface,
-  },
-  adminButtonText: {
-    fontSize: 12,
-    fontWeight: "600",
-    letterSpacing: 0.6,
-    color: THEME_COLORS.textSecondary,
   },
   modalContainer: {
     flex: 1,

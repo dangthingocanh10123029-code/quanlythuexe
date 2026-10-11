@@ -170,20 +170,31 @@ Thứ tự bắt buộc: G0 → G1 → … → G6 → G8. G7 tuỳ chọn, làm 
 
 ### G1 — Dữ liệu xe thống nhất + khoá trang quản trị
 **Claude**
-- [ ] **L1.1** Hợp đồng dữ liệu: viết lại `types/car.ts`, `types/booking.ts` theo mục 4 (bỏ `Booking` trùng trong `types/index.ts`); cập nhật `utils/constants.ts` (CAR_STATUS + nhãn, bảng nhãn đơn mới, TRANSMISSIONS, PROMO_CODES); tạo `utils/notify.ts`.
-- [ ] **L1.2** `data/cars.ts` thêm `transmission`, `deposit`, `licensePlate`, `description`, `amenities`, `status`, `imageKey`; `CAR_IMAGES` trong `data/assets.ts`; `seedCars()` (setDoc nếu chưa có); `useCars`/`useCar`/`getCarImage`.
-- [ ] **L1.3** Chuyển Home, Search, Car details, Checkout, Liked, Bookings, History, Admin sang `useCars`. Bỏ `featuredCars` riêng trong Home (lấy xe điểm cao). Đơn mới không lưu `carImage`; ảnh lấy theo `carId`.
-- [ ] **L1.4** Trạng thái xe: Search ẩn `Maintenance`/`Inactive`; Car details khoá nút đặt; admin đổi trạng thái; chặn xoá xe còn đơn `Pending | Confirmed | Upcoming | Active`.
-- [ ] **L1.5** Khoá admin (D6): bỏ nhánh `ADMIN123`; `admin.tsx` chuyển về `/login` nếu chưa đăng nhập hoặc không `isAdmin`; đăng nhập bằng tài khoản admin thì vào thẳng `/admin`.
-- [ ] **L1.6** Thả tim: doc id `${uid}_${carId}` (hết trùng), `useLikedCarIds()`; thả tim được ở Home, Search, Car details.
-- [ ] **L1.7** Xoá `app/chats.tsx` rỗng và state chọn ngày chết ở Home.
+- [x] **L1.1** Hợp đồng dữ liệu: viết lại `types/car.ts`, `types/booking.ts` theo mục 4 (bỏ `Booking` trùng trong `types/index.ts`); cập nhật `utils/constants.ts` (CAR_STATUS + nhãn, bảng nhãn đơn mới, TRANSMISSIONS, PROMO_CODES); tạo `utils/notify.ts`.
+- [x] **L1.2** `data/cars.ts` thêm `transmission`, `deposit`, `licensePlate`, `description`, `amenities`, `status`, `imageKey`; `CAR_IMAGES` trong `data/assets.ts`; `seedCars()` (setDoc nếu chưa có); `useCars`/`useCar`/`getCarImage`.
+- [x] **L1.3** Chuyển Home, Search, Car details, Checkout, Liked, Bookings, History, Admin sang `useCars`. Bỏ `featuredCars` riêng trong Home (lấy xe điểm cao). Đơn mới không lưu `carImage`; ảnh lấy theo `carId`.
+- [x] **L1.4** Trạng thái xe: Search ẩn `Maintenance`/`Inactive`; Car details khoá nút đặt; admin đổi trạng thái; chặn xoá xe còn đơn `Pending | Confirmed | Upcoming | Active`.
+- [x] **L1.5** Khoá admin (D6): bỏ nhánh `ADMIN123`; `admin.tsx` chuyển về `/login` nếu chưa đăng nhập hoặc không `isAdmin`; đăng nhập bằng tài khoản admin thì vào thẳng `/admin`.
+- [x] **L1.6** Thả tim: doc id `${uid}_${carId}` (hết trùng), `useLikedCarIds()`; thả tim được ở Home, Search, Car details.
+- [x] **L1.7** Xoá `app/chats.tsx` rỗng và state chọn ngày chết ở Home.
 
 **Codex**
 - [ ] **U1.1** Form xe trong admin: thêm biển số, hộp số, tiền cọc, mô tả, tiện nghi (chip chọn nhiều), trạng thái (4 lựa chọn); nút "Nạp dữ liệu xe mẫu"; badge trạng thái trên thẻ xe.
 - [ ] **U1.2** Car details: hiển thị hộp số, tiền cọc, mô tả, tiện nghi; nút tim; nhãn "Đang bảo dưỡng"/"Tạm ngừng" + nút đặt bị khoá. Bỏ 4 chấm ảnh giả nếu chưa có A6.
 - [ ] **U1.3** Trạng thái loading (skeleton) và rỗng cho danh sách xe ở Home/Search.
 
-**Ghi chú bàn giao G1:** _(Claude ghi: hook/hàm nào, dùng ở đâu)_
+**Ghi chú bàn giao G1** (Claude, L1):
+- `hooks/useCars.ts`: `useCars()` → `{ cars, loading, error }` (realtime `cars`, xe mới lên đầu, xe mẫu theo id); `useCar(id)` → `{ car, loading }`; `getCarImage(car)` → `ImageSourcePropType` (ảnh `imageKey` trong `CAR_IMAGES`, nếu không thì data URI `image`). Thẻ xe dùng `car={{ ...item, image: getCarImage(item) }}`.
+- `hooks/useLikedCarIds.ts`: `useLikedCarIds()` → `{ likedIds, toggleLike(carId) }`; `toggleLike` trả `true` khi vừa thích, `false` khi bỏ thích, ném `Error` tiếng Việt nếu chưa đăng nhập. Doc id `${uid}_${carId}`; bỏ thích xoá cả doc trùng cũ. Đã nối ở Home (thẻ "Thuê gần đây"), Search, Chi tiết xe (nút tim tạm trong `AppHeader right`), Xe yêu thích.
+- `utils/carActions.ts`: `seedCars()` → số xe vừa thêm (id "1"…"24", xe đã có thì bỏ qua); `deleteCar(carId)` ném `"Xe đang có N đơn chưa kết thúc, không thể xoá."`. Admin đã nối: `handleSeedCars` (nút tạm có comment `ponytail:` dưới tiêu đề "Quản lý xe") và `handleDeleteCar`.
+- Form xe admin: state `newCar` thêm `licensePlate`, `transmission` (`TRANSMISSIONS`), `deposit` (chuỗi số), `description`, `amenities: string[]` (chọn từ `AMENITIES`), `status` (`CarStatus`, nhãn `CAR_STATUS_LABELS`), `imageKey`. `updateField(field, value)` đã generic; `handleSaveCar` đã ghi đủ field, `validateCarData` kiểm tra `deposit` (lỗi ở `formErrors.deposit`). U1.1 chỉ cần thêm ô nhập/chip.
+- `utils/constants.ts` mới: `CAR_STATUS_LABELS`, `HIDDEN_CAR_STATUSES` (Maintenance, Inactive), `FUELS`, `TRANSMISSIONS`, `AMENITIES`, `PROMO_CODES`, `BOOKING_TABS`, `OPEN_BOOKING_STATUSES`; nhãn đơn theo bảng mục 4. Đã xoá các hằng tiếng Anh không dùng (`BOOKING_STATUS`, `PAYMENT_STATUS`, `CAR_TYPES`…).
+- Chi tiết xe: biến `bookingLocked` (xe bảo dưỡng/tạm ngừng) → nút đặt bị `disabled`, tiêu đề là nhãn trạng thái; `car.transmission`, `car.deposit`, `car.description`, `car.amenities`, `car.licensePlate` sẵn để U1.2 hiển thị. Đang tải xe: `useCar().loading`.
+- Home: "Xe nổi bật" = 5 xe điểm cao nhất (bỏ mảng `featuredCars` cứng). `CarCardFeatured` chưa có nút tim (U1 có thể thêm `liked`/`onFavoritePress` như `CarCardCompact`). Home/Search chưa lấy `loading` từ `useCars()` — U1.3 lấy để làm skeleton.
+- Khoá admin (D6): bỏ nút "QUẢN TRỊ" + mật khẩu `ADMIN123` ở login; tài khoản `isAdmin` đăng nhập vào thẳng `/admin`; `/admin` hiện spinner rồi `router.replace("/login")` nếu không phải admin; listener `bookings`/`users` chỉ chạy khi là admin.
+- Đơn mới không lưu `carImage`; ảnh đơn lấy theo `carId` (Chuyến đi, Lịch sử, Admin), đơn cũ còn `carImage` dạng chuỗi vẫn hiện.
+- Đã xoá `app/chats.tsx`, `hooks/useBookings.ts` (không ai dùng; G3 viết `useUserBookings`), state chọn ngày chết ở Home.
+- Điều phối: Codex/Antigravity **không tự commit, không sửa docs/PLAN.md**; Claude (điều phối) commit và tick thay để tránh tranh chấp git/PLAN.md.
 
 ### G2 — Đặt xe theo ngày, xe còn trống, mã giảm giá, GPLX
 **Claude**

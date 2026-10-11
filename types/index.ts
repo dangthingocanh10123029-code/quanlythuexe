@@ -84,30 +84,4 @@ export interface UserPreferences {
   currency: string
 }
 
-export interface Car {
-  id: string;
-  name: string;
-  brand: string;
-  model: string;
-  year: number;
-  pricePerDay: number;
-  available: boolean;
-}
-
-export interface Booking {
-  id: string;
-  userId: string;
-  carId: string;
-  startDate: Date;
-  endDate: Date;
-  status: 'pending' | 'confirmed' | 'completed' | 'cancelled';
-}
-
-export interface Notification {
-  id: string;
-  userId: string;
-  title: string;
-  message: string;
-  read: boolean;
-  createdAt: Date;
-}
+export type { Notification, NotificationType } from "./notification"

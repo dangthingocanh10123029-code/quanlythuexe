@@ -17,11 +17,9 @@ import { SafeAreaView } from "react-native-safe-area-context"
 import { Ionicons } from "@expo/vector-icons"
 import { router, useLocalSearchParams } from "expo-router"
 import DummyMap from '../../components/DummyMap';
-import { cars } from "../../data/cars";
-import { db } from "../../config/firebase"
-import { collection, addDoc, deleteDoc, getDocs, query, where, doc } from "firebase/firestore"
-import { useAuth } from "../../hooks/useAuth"
-import { CITIES } from "../../utils/constants"
+import { useCars, getCarImage } from "../../hooks/useCars"
+import { useLikedCarIds } from "../../hooks/useLikedCarIds"
+import { CITIES, FUELS, HIDDEN_CAR_STATUSES } from "../../utils/constants"
 import { BRAND_ASSETS } from "../../data/assets"
 import { StatusBar } from "expo-status-bar"
 import { THEME_COLORS, RADIUS, SPACE, SHADOWS, TYPOGRAPHY, UI, PRESS_OPACITY, layout } from "../../utils/theme"
@@ -40,10 +38,7 @@ const brands = [
   { id: 8, name: "Hyundai", logo: BRAND_ASSETS.Hyundai },
 ]
 
-// Loại xe lấy trực tiếp từ dữ liệu xe (giữ thứ tự xuất hiện)
-const CAR_TYPE_OPTIONS = Array.from(new Set(cars.map((car) => car.type)))
-
-const FUEL_OPTIONS = ["Xăng", "Dầu diesel"]
+const FUEL_OPTIONS = FUELS
 
 const SEAT_OPTIONS = [4, 5, 7]
 
@@ -90,67 +85,26 @@ export default function SearchScreen() {
   const [showFilterModal, setShowFilterModal] = useState(false)
   const searchInputRef = useRef<TextInput>(null)
   const params = useLocalSearchParams<SearchParams>()
-  const { user } = useAuth()
-  const [likedCars, setLikedCars] = useState<string[]>([])
+  const { cars: allCars } = useCars()
+  const { likedIds: likedCars, toggleLike } = useLikedCarIds()
+  // Xe bảo dưỡng / tạm ngừng không hiện khi tìm
+  const cars = useMemo(() => allCars.filter((car) => !HIDDEN_CAR_STATUSES.includes(car.status)), [allCars])
+  // Loại xe lấy trực tiếp từ dữ liệu xe (giữ thứ tự xuất hiện)
+  const CAR_TYPE_OPTIONS = useMemo(() => Array.from(new Set(cars.map((car) => car.type).filter(Boolean))), [cars])
   const [showLikeModal, setShowLikeModal] = useState(false)
   const [likedCarName, setLikedCarName] = useState("")
 
-  const fetchLikedCars = async () => {
-    if (!user?.id) return
-    
+  const handleLike = async (car: { id: string; name: string }) => {
     try {
-      const q = query(
-        collection(db, "likedCars"), 
-        where("userId", "==", user.id)
-      )
-      const querySnapshot = await getDocs(q)
-      const likedCarIds = querySnapshot.docs.map(doc => doc.data().carId)
-      setLikedCars(likedCarIds)
-    } catch (error) {
-      console.error("Error fetching liked cars:", error)
-    }
-  }
-
-  const handleLike = async (car: any) => {
-    if (!user?.id) {
-      Alert.alert("Vui lòng đăng nhập để lưu xe yêu thích")
-      return
-    }
-
-    try {
-      if (likedCars.includes(car.id)) {
-        // Unlike
-        const q = query(
-          collection(db, "likedCars"),
-          where("userId", "==", user.id),
-          where("carId", "==", car.id)
-        )
-        const querySnapshot = await getDocs(q)
-        querySnapshot.forEach(async (document) => {
-          await deleteDoc(doc(db, "likedCars", document.id))
-        })
-        setLikedCars(prev => prev.filter(id => id !== car.id))
-      } else {
-        // Like
-        await addDoc(collection(db, "likedCars"), {
-          userId: user.id,
-          carId: car.id,
-          createdAt: new Date(),
-        })
-        setLikedCars(prev => [...prev, car.id])
+      if (await toggleLike(car.id)) {
         setLikedCarName(car.name)
         setShowLikeModal(true)
         setTimeout(() => setShowLikeModal(false), 2000)
       }
-    } catch (error) {
-      console.error("Error handling like:", error)
-      Alert.alert("Lỗi", "Không thể xử lý yêu cầu. Vui lòng thử lại.")
+    } catch (error: any) {
+      Alert.alert("Không thể lưu xe yêu thích", error.message)
     }
   }
-
-  useEffect(() => {
-    fetchLikedCars()
-  }, [user])
 
   // Mỗi lần được mở từ Trang chủ (có `ts` mới) thì đặt lại tìm kiếm/bộ lọc rồi áp dụng tham số truyền sang
   useEffect(() => {
@@ -158,7 +112,7 @@ export default function SearchScreen() {
 
     const brandParam = typeof params.brand === "string" ? params.brand.trim().toLowerCase() : ""
     const matchedBrand = brandParam
-      ? cars.find((car) => car.brand.toLowerCase() === brandParam)?.brand ?? null
+      ? brands.find((b) => b.name.toLowerCase() === brandParam)?.name ?? null
       : null
     const cityParam = typeof params.city === "string" && CITIES.includes(params.city) ? params.city : null
 
@@ -204,7 +158,7 @@ export default function SearchScreen() {
 
       return true
     })
-  }, [searchQuery, selectedBrand, filters])
+  }, [cars, searchQuery, selectedBrand, filters])
 
   const activeFilterCount = countActiveFilters(filters)
   const draftFilterCount = countActiveFilters(draftFilters)
@@ -258,7 +212,7 @@ export default function SearchScreen() {
 
   const renderCarItem = ({ item }: { item: any }) => (
     <CarCardCompact
-      car={item}
+      car={{ ...item, image: getCarImage(item) }}
       wide={!!selectedBrand}
       liked={likedCars.includes(item.id)}
       onFavoritePress={() => handleLike(item)}

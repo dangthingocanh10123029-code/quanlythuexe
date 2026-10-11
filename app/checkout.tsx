@@ -5,7 +5,7 @@ import { type ViewStyle, View, Text, StyleSheet, ScrollView, TouchableOpacity, A
 import { SafeAreaView } from "react-native-safe-area-context"
 import { Ionicons } from "@expo/vector-icons"
 import { router, useLocalSearchParams } from "expo-router"
-import { cars } from "../data/cars"
+import { useCar, getCarImage } from "../hooks/useCars"
 import { db } from "../config/firebase"
 import { collection, addDoc } from "firebase/firestore"
 import { useAuth } from "../hooks/useAuth"
@@ -52,7 +52,7 @@ type PaymentMethod = 'momo' | 'zalopay' | 'credit-card';
 
 export default function CheckoutScreen() {
   const { carId } = useLocalSearchParams<{ carId: string }>()
-  const car = cars.find(c => c.id === carId)
+  const { car, loading: carLoading } = useCar(carId)
   const { user } = useAuth()
 
   const [selectedAddOns, setSelectedAddOns] = useState(addOns)
@@ -77,7 +77,7 @@ export default function CheckoutScreen() {
   if (!car) {
     return (
       <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
-        <Text style={styles.priceLabel}>Không tìm thấy xe</Text>
+        <Text style={styles.priceLabel}>{carLoading ? "Đang tải..." : "Không tìm thấy xe"}</Text>
       </View>
     )
   }
@@ -124,7 +124,6 @@ export default function CheckoutScreen() {
         userId: user.id,
         carId: car.id,
         carName: car.name,
-        carImage: car.image,
         duration: selectedDuration.days,
         location: pickupLocation,
         status: "Pending",
@@ -188,7 +187,7 @@ export default function CheckoutScreen() {
           <Text style={styles.overline}>Thông tin đặt xe</Text>
           <View style={styles.carSummary}>
             <View style={styles.carThumb}>
-              <Image source={car.image} style={styles.carThumbImage} resizeMode="contain" />
+              <Image source={getCarImage(car)} style={styles.carThumbImage} resizeMode="contain" />
             </View>
             <View style={styles.carDetails}>
               <Text style={styles.carName} numberOfLines={1}>{car.name}</Text>

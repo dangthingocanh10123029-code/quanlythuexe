@@ -1,6 +1,5 @@
 "use client"
 
-import { useState, useEffect } from "react"
 import {
   View,
   Text,
@@ -13,108 +12,35 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context"
 import { Ionicons } from "@expo/vector-icons"
 import { router } from "expo-router"
-import { db } from "../config/firebase"
-import { collection, getDocs, query, where, deleteDoc, doc } from "firebase/firestore"
-import { useAuth } from "../hooks/useAuth"
-import { cars } from "../data/cars"
+import { useCars, getCarImage } from "../hooks/useCars"
+import { useLikedCarIds } from "../hooks/useLikedCarIds"
+import type { Car } from "../types/car"
 import { formatCurrency } from "../utils/helpers"
 import { StatusBar } from "expo-status-bar"
 import { THEME_COLORS, RADIUS, SPACE, SHADOWS, TYPOGRAPHY, UI, PRESS_OPACITY } from "../utils/theme"
 
-// Update the interface first
-interface LikedCarDocument {
-  id: string;
-  userId: string;
-  carId: string;
-  createdAt: Date;
-}
-
-interface LikedCar extends LikedCarDocument {
-  name: string;
-  brand: string;
-  model: string;
-  year: number;
-  pricePerDay: number;
-  location: string;
-  seats: number;
-  rating: number;
-  availability: boolean;
-  type: string;
-  fuel: string;
-  image: any;
-}
-
 export default function LikedCarsScreen() {
-  const { user } = useAuth()
-  const [likedCars, setLikedCars] = useState<LikedCar[]>([])
+  const { cars } = useCars()
+  const { likedIds, toggleLike } = useLikedCarIds()
+  // Bỏ qua các xe đã bị xoá khỏi Firestore
+  const likedCars = cars.filter((car) => likedIds.includes(car.id))
 
-  useEffect(() => {
-    if (user) {
-      fetchLikedCars()
-    }
-  }, [user])
+  const handleUnlike = (carId: string) =>
+    toggleLike(carId).catch((error) => Alert.alert("Lỗi", error.message || "Không thể bỏ yêu thích xe này. Vui lòng thử lại."))
 
-  const fetchLikedCars = async () => {
-    if (!user) return
-
-    try {
-      const q = query(
-        collection(db, "likedCars"),
-        where("userId", "==", user.id) // Changed from user.id to user.uid
-      )
-      const querySnapshot = await getDocs(q)
-      const likedCarData = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as LikedCarDocument[]
-
-      // Get full car details for each liked car
-      // Bỏ qua các xe không còn trong danh sách xe tĩnh
-      const fullLikedCars = likedCarData
-        .map(likedCar => {
-          const carDetails = cars.find(car => car.id === likedCar.carId)
-          return carDetails ? ({ ...likedCar, ...carDetails, id: likedCar.id } as LikedCar) : null
-        })
-        .filter((car): car is LikedCar => car !== null)
-
-      setLikedCars(fullLikedCars)
-    } catch (error) {
-      console.error("Error fetching liked cars:", error)
-      Alert.alert("Lỗi", "Không tải được danh sách xe yêu thích. Vui lòng thử lại.")
-    }
-  }
-
-  const handleUnlike = async (carId: string) => {
-    if (!user) return
-    try {
-      const q = query(
-        collection(db, "likedCars"),
-        where("userId", "==", user.id),
-        where("carId", "==", carId)
-      )
-      const querySnapshot = await getDocs(q)
-      // Chờ xoá xong toàn bộ rồi mới cập nhật giao diện
-      await Promise.all(querySnapshot.docs.map((document) => deleteDoc(doc(db, "likedCars", document.id))))
-      setLikedCars(prev => prev.filter(car => car.carId !== carId))
-    } catch (error) {
-      console.error("Error unliking car:", error)
-      Alert.alert("Lỗi", "Không thể bỏ yêu thích xe này. Vui lòng thử lại.")
-    }
-  }
-
-  const renderCarItem = ({ item }: { item: LikedCar }) => (
+  const renderCarItem = ({ item }: { item: Car }) => (
     <TouchableOpacity
       style={styles.carCard}
       activeOpacity={PRESS_OPACITY}
       onPress={() => router.push({
         pathname: "/car-details/[id]",
-        params: { id: item.carId }
+        params: { id: item.id }
       })}
     >
       <View style={styles.imageWrapper}>
-        <Image source={item.image} style={styles.carImage} resizeMode="contain" />
+        <Image source={getCarImage(item)} style={styles.carImage} resizeMode="contain" />
         <TouchableOpacity
-          onPress={() => handleUnlike(item.carId)}
+          onPress={() => handleUnlike(item.id)}
           style={styles.unlikeButton}
           activeOpacity={PRESS_OPACITY}
         >
