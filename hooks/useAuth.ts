@@ -55,6 +55,8 @@ export function useAuth() {
   }
 
   const isAdmin = user?.isAdmin || false
+  // Nhân viên (chủ xe, G7): vào được trang quản trị nhưng không quản lý người dùng
+  const isStaff = !isAdmin && user?.role === "staff"
 
   // Add this function to manually refresh user data
   const refresh = useCallback(async () => {
@@ -83,6 +85,7 @@ export function useAuth() {
     signOut,
     isAuthenticated: !!user,
     isAdmin,
+    isStaff,
     refresh, // <-- add this
   }
 }

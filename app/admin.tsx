@@ -13,6 +13,7 @@ import { LineChart, BarChart } from "react-native-chart-kit"
 import { Dimensions } from "react-native"
 import { formatCurrency, formatDate } from "../utils/helpers"
 import { confirmDialog, showAlert } from "../utils/dialog"
+import { setUserRole } from "../utils/adminActions"
 import EmptyState from "../components/EmptyState"
 import { AMENITIES, CAR_STATUS_LABELS, FUEL_LEVELS, getBookingStatusLabel, PAYMENT_STATUS_LABELS, TRANSMISSIONS } from "../utils/constants"
 import { useCars, getCarImage } from "../hooks/useCars"
@@ -34,6 +35,7 @@ interface User {
   joinDate: Date | null;
   status: 'active' | 'inactive';
   isAdmin: boolean;
+  role?: "staff";
   avatar: string;
 }
 
@@ -262,8 +264,12 @@ export default function AdminScreen() {
   const [inspectionSubmitting, setInspectionSubmitting] = useState(false)
   const { user: authUser, loading: authLoading } = useAuth()
   const isAdmin = authUser?.isAdmin === true
-  const { licenses, loading: licensesLoading } = useAllLicenses(isAdmin)
-  const { reviews, loading: reviewsLoading } = useAllReviews(isAdmin)
+  // Nhân viên (users.role "staff", G7) vào được trang quản trị nhưng không thấy tab Người dùng
+  const isStaff = !isAdmin && authUser?.role === "staff"
+  const canManage = isAdmin || isStaff
+  const visibleTabs = isAdmin ? adminTabs : adminTabs.filter((tab) => tab.id !== "users")
+  const { licenses, loading: licensesLoading } = useAllLicenses(canManage)
+  const { reviews, loading: reviewsLoading } = useAllReviews(canManage)
   const [reviewFilter, setReviewFilter] = useState("all")
   const [deletingReviewId, setDeletingReviewId] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -324,14 +330,14 @@ export default function AdminScreen() {
     ]).start();
   }, [activeTab]); // Add activeTab as dependency to re-run animation on tab change
 
-  // Chỉ tài khoản có users/{uid}.isAdmin mới vào được trang quản trị
+  // Chỉ quản trị viên (users/{uid}.isAdmin) hoặc nhân viên (role "staff") mới vào được trang quản trị
   useEffect(() => {
-    if (!authLoading && !isAdmin) router.replace("/login")
-  }, [authLoading, isAdmin])
+    if (!authLoading && !canManage) router.replace("/login")
+  }, [authLoading, canManage])
 
   // Đơn đặt xe (collection `bookings`)
   useEffect(() => {
-    if (!isAdmin) return
+    if (!canManage) return
     const unsubscribe = onSnapshot(
       collection(db, "bookings"),
       (snapshot) => {
@@ -365,11 +371,11 @@ export default function AdminScreen() {
       }
     )
     return () => unsubscribe()
-  }, [isAdmin])
+  }, [canManage])
 
   // Người dùng (collection `users`)
   useEffect(() => {
-    if (!isAdmin) return
+    if (!canManage) return
     const unsubscribe = onSnapshot(
       collection(db, "users"),
       (snapshot) => {
@@ -385,6 +391,7 @@ export default function AdminScreen() {
             joinDate: toDate(u.createdAt),
             status: locked ? "inactive" : "active",
             isAdmin: u.isAdmin === true,
+            role: u.role === "staff" ? "staff" : undefined,
             avatar: u.avatar || avatarFor(name),
           } as User
         })
@@ -398,7 +405,7 @@ export default function AdminScreen() {
       }
     )
     return () => unsubscribe()
-  }, [isAdmin])
+  }, [canManage])
 
   const usersById = useMemo(() => {
     const map: Record<string, User> = {}
@@ -856,6 +863,27 @@ export default function AdminScreen() {
   }
 
   // ===== Thao tác với người dùng =====
+  // Gán / bỏ vai trò nhân viên (chỉ quản trị viên). U7.3 gọi từ modal chi tiết người dùng.
+  const handleSetStaff = (user: User, staff: boolean) => {
+    confirmDialog(
+      staff ? "Gán vai trò nhân viên" : "Bỏ vai trò nhân viên",
+      staff
+        ? `${user.name} sẽ vào được trang quản trị (xe, đơn, GPLX, đánh giá) nhưng không quản lý người dùng.`
+        : `${user.name} sẽ không vào được trang quản trị nữa.`,
+      staff ? "Gán" : "Bỏ vai trò",
+      async () => {
+        try {
+          await setUserRole(user.id, staff ? "staff" : null)
+          showAlert("Thành công", staff ? "Đã gán vai trò nhân viên." : "Đã bỏ vai trò nhân viên.")
+        } catch (error: any) {
+          console.error("Error setting user role:", error)
+          showAlert("Không thể đổi vai trò", error?.message || "Vui lòng thử lại.")
+        }
+      },
+      { destructive: !staff },
+    )
+  }
+
   const handleToggleUserLock = (user: User) => {
     const locking = user.status === "active"
     confirmDialog(
@@ -2418,7 +2446,7 @@ export default function AdminScreen() {
     )
   }
 
-  if (!isAdmin) {
+  if (!canManage) {
     return (
       <SafeAreaView style={[styles.container, { alignItems: "center", justifyContent: "center" }]}>
         <ActivityIndicator color={THEME_COLORS.primary} />
@@ -2443,7 +2471,7 @@ export default function AdminScreen() {
           style={styles.tabsContainer}
           contentContainerStyle={styles.tabsContent}
         >
-          {adminTabs.map((tab) => {
+          {visibleTabs.map((tab) => {
             const isActive = activeTab === tab.id
             return (
               <TouchableOpacity

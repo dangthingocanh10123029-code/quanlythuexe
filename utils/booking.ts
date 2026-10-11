@@ -165,3 +165,65 @@ export function findPickupReminder<T extends RangeSource & { status?: string }>(
     .sort((x, y) => x.start - y.start)
   return soon[0]?.b ?? null
 }
+
+export type PaymentRow = {
+  bookingId: string
+  userId: string
+  carName: string
+  method: string
+  amount: number
+  status: string // Completed | Failed | Refunded | Pending (tiền mặt chưa thu)
+  at: Date | null // thời điểm thanh toán / thất bại
+  refundAmount: number
+  refundedAt: Date | null
+}
+
+type PaymentSource = {
+  id: string
+  userId?: string
+  carName?: string
+  payment?: {
+    method?: string
+    amount?: number
+    status?: string
+    paidAt?: any
+    failedAt?: any
+    refundAmount?: number
+    refundedAt?: any
+  } | null
+}
+
+// Danh sách thanh toán suy ra từ bookings (L7.5), mới nhất trước
+export function listPayments(bookings: PaymentSource[]): PaymentRow[] {
+  return bookings
+    .filter((b) => b.payment)
+    .map((b) => {
+      const p = b.payment!
+      return {
+        bookingId: b.id,
+        userId: b.userId ?? "",
+        carName: b.carName ?? "",
+        method: p.method ?? "",
+        amount: Number(p.amount) || 0,
+        status: p.status ?? "",
+        at: toDate(p.paidAt) ?? toDate(p.failedAt),
+        refundAmount: Number(p.refundAmount) || 0,
+        refundedAt: toDate(p.refundedAt),
+      }
+    })
+    .sort((a, b) => (b.at?.getTime() ?? 0) - (a.at?.getTime() ?? 0))
+}
+
+// Tổng hợp: đã thu (gồm đơn đã hoàn), đã hoàn, chờ thu tiền mặt, số giao dịch lỗi, đã thu theo phương thức
+export function summarizePayments(rows: PaymentRow[]) {
+  const collected = rows.filter((r) => ["completed", "refunded"].includes(lower(r.status)))
+  const byMethod: Record<string, number> = {}
+  for (const r of collected) byMethod[r.method] = (byMethod[r.method] ?? 0) + r.amount
+  return {
+    totalPaid: collected.reduce((sum, r) => sum + r.amount, 0),
+    totalRefunded: rows.reduce((sum, r) => sum + (lower(r.status) === "refunded" ? r.refundAmount : 0), 0),
+    pendingCash: rows.filter((r) => lower(r.status) === "pending").reduce((sum, r) => sum + r.amount, 0),
+    failedCount: rows.filter((r) => lower(r.status) === "failed").length,
+    byMethod,
+  }
+}

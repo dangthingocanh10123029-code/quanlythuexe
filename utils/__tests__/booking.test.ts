@@ -4,6 +4,8 @@ import {
   bookingRevenue,
   calcReturnSettlement,
   findPickupReminder,
+  listPayments,
+  summarizePayments,
   calcBookingPrice,
   calcDepositRefund,
   calcLateFee,
@@ -160,4 +162,24 @@ describe("findPickupReminder", () => {
     expect(findPickupReminder(list, now)?.id).toBe("sooner")
   })
   it("không có → null", () => expect(findPickupReminder([], now)).toBeNull())
+})
+
+describe("listPayments / summarizePayments", () => {
+  const bookings = [
+    { id: "a", carName: "X", payment: { method: "MoMo", amount: 1_000_000, status: "Completed", paidAt: d("2026-10-01") } },
+    { id: "b", carName: "Y", payment: { method: "Thẻ ngân hàng", amount: 2_000_000, status: "Refunded", paidAt: d("2026-10-03"), refundAmount: 1_400_000 } },
+    { id: "c", carName: "Z", payment: { method: "Tiền mặt", amount: 500_000, status: "Pending" } },
+    { id: "d", carName: "W", payment: { method: "ZaloPay", amount: 800_000, status: "Failed", failedAt: d("2026-10-02") } },
+    { id: "e", carName: "V" },
+  ]
+  const rows = listPayments(bookings)
+  it("bỏ đơn chưa có payment, mới nhất trước", () => expect(rows.map((r) => r.bookingId)).toEqual(["b", "d", "a", "c"]))
+  it("tổng hợp", () =>
+    expect(summarizePayments(rows)).toEqual({
+      totalPaid: 3_000_000,
+      totalRefunded: 1_400_000,
+      pendingCash: 500_000,
+      failedCount: 1,
+      byMethod: { MoMo: 1_000_000, "Thẻ ngân hàng": 2_000_000 },
+    }))
 })

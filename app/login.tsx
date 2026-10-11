@@ -136,8 +136,8 @@ export default function LoginScreen() {
         return
       }
 
-      // Tài khoản quản trị (users/{uid}.isAdmin bật trên Firebase Console) vào thẳng trang quản trị
-      router.replace(userData?.isAdmin === true ? "/admin" : "/(tabs)")
+      // Quản trị viên (users/{uid}.isAdmin bật trên Firebase Console) và nhân viên (role "staff") vào thẳng trang quản trị
+      router.replace(userData?.isAdmin === true || userData?.role === "staff" ? "/admin" : "/(tabs)")
     } catch (error: any) {
       console.error("Login error:", error.code, error.message)
       setErrorTitle("Đăng nhập thất bại")

@@ -134,6 +134,7 @@ Lỗi nhỏ sửa kèm: `app/chats.tsx` rỗng (Expo Router cảnh báo), `liked
 - `licenses/{uid}` — field hiện có + `status: "pending" | "verified" | "rejected"`, `reviewedAt?`, `rejectReason?`
 - `users/{uid}` — thêm `phone`, `address`, `idNumber` (CCCD), `role?: "staff"` (G7); giữ `isAdmin`
 - `phones/{phone}` — `{ uid }`, giữ chỗ SĐT để chặn trùng (G6)
+- `carTypes/{id}` — `{ name, createdAt }` (G7); `supportTickets` thêm `reply`, `repliedAt`, `status: "open" | "resolved"`; `payment.method` thêm `"Tiền mặt"` với `status: "Pending"` tới khi giao xe
 - `bookedSlots/{bookingId}` — `{ carId, userId, pickupDate, returnDate }`: khoảng ngày xe đang bị giữ (đơn Pending | Confirmed | Upcoming | Active), mọi người dùng đọc được để kiểm tra xe trống mà không phải đọc `bookings` của người khác (cần cho rules G8). Tạo cùng đơn trong `createBooking` (batch); xoá khi huỷ / từ chối / hoàn thành; cập nhật khi đổi lịch. Đơn cũ trước G2 không có slot (chỉ admin kiểm tra lại khi Xác nhận).
 
 ### Hàm Claude cung cấp (Codex chỉ gọi, không viết lại)
@@ -323,6 +324,13 @@ Thứ tự bắt buộc: G0 → G1 → … → G6 → G8. G7 tuỳ chọn, làm 
 - [ ] **L7.3 / U7.3** Vai trò nhân viên (chủ xe): `users.role = "staff"` vào được `/admin` nhưng ẩn tab Người dùng; admin gán vai trò.
 - [ ] **L7.4 / U7.4** Thanh toán tiền mặt khi nhận xe: `Confirmed → Upcoming` với `payment.status: "Pending"`; admin tick "Đã thu tiền thuê" khi giao xe.
 - [ ] **L7.5 / U7.5** Danh sách thanh toán (suy từ bookings): lọc theo trạng thái/phương thức, tổng đã hoàn.
+
+**Ghi chú bàn giao G7** (Claude, L7 — người dùng chọn làm đầy đủ G7):
+- L7.1 Phiếu hỗ trợ: `hooks/useSupportTickets.ts` → `useMyTickets()`, `useAllTickets(enabled)` → `{ tickets, loading }` (`SupportTicket`: `subject`, `message`, `priority`, `status: "open" | "resolved"`, `reply?`, `repliedAt?`, `userEmail`, `createdAt`); `replyTicket(ticketId, reply)` (utils/adminActions) → `resolved` + thông báo cho khách. Nhãn `TICKET_STATUS_LABELS`. U7.1: admin xem/lọc/trả lời phiếu; khách xem phiếu của mình (kèm phản hồi) trong Trợ giúp.
+- L7.2 Loại xe: collection `carTypes/{id}` = `{ name, createdAt }`; `useCarTypes()` → `{ carTypes: { id, name }[], loading }`; `addCarType(name)` (chặn trùng), `deleteCarType(id)` (chặn nếu còn xe thuộc loại). `seedCars()` nạp thêm các loại của xe mẫu. U7.2: admin quản lý loại xe (thêm/xoá); ô "Loại xe" trong form xe chọn từ danh sách (chip) thay vì gõ tự do — `car.type` vẫn lưu tên.
+- L7.3 Nhân viên: `users.role = "staff"`; `useAuth().isStaff`; admin.tsx có `isStaff`, `canManage`, `visibleTabs` (nhân viên không thấy tab Người dùng), `handleSetStaff(user, staff: boolean)` (chỉ quản trị viên). Đăng nhập bằng nhân viên vào thẳng `/admin`. Rules: `isManager()` (admin hoặc staff) vận hành xe/đơn/GPLX/đánh giá/hỗ trợ/loại xe; chỉ `isAdmin()` sửa `users`. U7.3: nút gán/bỏ vai trò nhân viên trong modal chi tiết người dùng, nhãn vai trò (`USER_ROLE_LABELS`), bộ lọc "Nhân viên".
+- L7.4 Tiền mặt khi nhận xe: `PAYMENT_METHODS.CASH`; `chooseCashPayment(bookingId)` → `Upcoming` + `payment { method: "Tiền mặt", status: "Pending" }`; `handOverBooking(…, { …, rentCollected })` bắt buộc `rentCollected` khi `payment.status` là `Pending`, rồi chuyển thanh toán sang `Completed`. Nhãn `PAYMENT_STATUS_LABELS.pending = "Chờ thu tiền"`. U7.4: thêm lựa chọn "Tiền mặt khi nhận xe" trong `PaymentMethodSheet` (gọi `chooseCashPayment`, không mở màn thanh toán); checkbox "Đã thu tiền thuê {số tiền}" trong biên bản giao xe khi đơn chờ thu (`updateInspection("rentCollected", …)` — thêm field vào `emptyInspectionForm` và truyền vào `handOverBooking`).
+- L7.5 Danh sách thanh toán: `listPayments(bookings)` → `PaymentRow[]` (`bookingId`, `userId`, `carName`, `method`, `amount`, `status`, `at`, `refundAmount`, `refundedAt`), `summarizePayments(rows)` → `{ totalPaid, totalRefunded, pendingCash, failedCount, byMethod }` (utils/booking, có test). U7.5: tab "Thanh toán" trong admin, lọc theo trạng thái/phương thức, thẻ tổng.
 
 ### G8 — Bảo mật & hoàn thiện
 **Claude**

@@ -93,6 +93,8 @@ export const PAYMENT_METHODS = {
   CARD: { id: "credit-card", label: "Thẻ ngân hàng", short: "Thẻ", color: "#1054CF" },
   MOMO: { id: "momo", label: "Ví MoMo", short: "MoMo", color: "#A50064" },
   ZALOPAY: { id: "zalopay", label: "ZaloPay", short: "ZaloPay", color: "#0068FF" },
+  // Trả tiền thuê khi nhận xe (G7): đơn sang Upcoming với payment.status "Pending", thu khi giao xe
+  CASH: { id: "cash", label: "Tiền mặt khi nhận xe", short: "Tiền mặt", color: "#16A34A" },
 } as const
 
 // Nhãn tiếng Việt cho trạng thái booking (docs/PLAN.md mục 4). Giá trị lưu trên Firestore giữ nguyên
@@ -170,7 +172,7 @@ export const PROMO_CODES: Record<string, { percent: number; label: string; first
 }
 
 export const PAYMENT_STATUS_LABELS: Record<string, string> = {
-  pending: "Chờ xử lý",
+  pending: "Chờ thu tiền",
   paid: "Đã thanh toán",
   completed: "Đã thanh toán",
   failed: "Thất bại",
@@ -179,3 +181,16 @@ export const PAYMENT_STATUS_LABELS: Record<string, string> = {
 
 export const HOTLINE = "1900 6868"
 export const SUPPORT_EMAIL = "hotro@rento.vn"
+
+// Phiếu hỗ trợ (G7)
+export const TICKET_STATUS_LABELS: Record<string, string> = {
+  open: "Đang xử lý",
+  resolved: "Đã phản hồi",
+}
+
+// Vai trò người dùng (G7): admin = users.isAdmin; nhân viên = users.role "staff" (vào trang quản trị, không quản lý người dùng)
+export const USER_ROLE_LABELS: Record<string, string> = {
+  admin: "Quản trị viên",
+  staff: "Nhân viên",
+  customer: "Khách hàng",
+}

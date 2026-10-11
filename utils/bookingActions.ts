@@ -175,7 +175,7 @@ export async function rejectBooking(bookingId: string, reason: string) {
   })
 }
 
-const TRANSACTION_PREFIX: Record<string, string> = { "Thẻ ngân hàng": "CARD", MoMo: "MOMO", ZaloPay: "ZALO" }
+const TRANSACTION_PREFIX: Record<string, string> = { "Thẻ ngân hàng": "CARD", MoMo: "MOMO", ZaloPay: "ZALO", "Tiền mặt": "CASH" }
 
 // Thanh toán giả lập: chỉ đơn Confirmed, đúng số tiền. Thành công → Upcoming. Trả về mã giao dịch.
 // `details`: thông tin hiển thị thêm (vd lastFourDigits, cardholderName).
@@ -201,6 +201,26 @@ export async function payBooking(bookingId: string, method: string, amount: numb
     bookingId,
   })
   return transactionId
+}
+
+// Trả tiền mặt khi nhận xe (G7): Confirmed → Upcoming, payment "Pending"; admin thu tiền khi giao xe
+export async function chooseCashPayment(bookingId: string) {
+  const booking = await getBooking(bookingId)
+  if (booking.status?.toLowerCase() === "pending")
+    throw bookingError("Đơn đang chờ RENTO xác nhận, bạn chưa thể chọn phương thức thanh toán.")
+  assertTransition(booking, "Upcoming", "chọn thanh toán cho")
+  await writeBatch(db)
+    .update(doc(db, "bookings", bookingId), {
+      status: "Upcoming",
+      payment: { method: "Tiền mặt", amount: booking.price, status: "Pending", chosenAt: new Date() },
+    })
+    .commit()
+  await notify(booking.userId, {
+    type: "payment",
+    title: "Đã chọn thanh toán khi nhận xe",
+    message: `Vui lòng chuẩn bị ${formatCurrency(booking.price)} tiền thuê và tiền cọc khi nhận ${booking.carName}.`,
+    bookingId,
+  })
 }
 
 // Ghi nhận giao dịch thất bại; đơn giữ nguyên Confirmed để khách thử lại
@@ -323,6 +343,7 @@ export type HandoverInput = {
   conditionNote: string // tình trạng xe lúc giao
   odometer: number // số km
   fuelLevel: string // FUEL_LEVELS
+  rentCollected?: boolean // đã thu tiền thuê (đơn trả tiền mặt khi nhận xe)
 }
 
 // Admin giao xe: Upcoming → Active, xe chuyển "Rented"
@@ -334,6 +355,10 @@ export async function handOverBooking(bookingId: string, input: HandoverInput) {
   if (!input.conditionNote.trim()) throw bookingError("Vui lòng ghi tình trạng xe lúc giao.")
   if (!Number.isInteger(input.odometer) || input.odometer < 0) throw bookingError("Số km không hợp lệ.")
   if (!FUEL_LEVELS.includes(input.fuelLevel)) throw bookingError("Vui lòng chọn mức nhiên liệu.")
+  // Đơn trả tiền mặt: phải thu tiền thuê lúc giao xe
+  const cashDue = booking.payment?.status?.toLowerCase() === "pending"
+  if (cashDue && !input.rentCollected)
+    throw bookingError(`Vui lòng thu tiền thuê ${formatCurrency(booking.price)} (khách trả tiền mặt) trước khi giao xe.`)
 
   const at = new Date()
   const batch = writeBatch(db)
@@ -341,6 +366,13 @@ export async function handOverBooking(bookingId: string, input: HandoverInput) {
     status: "Active",
     handover: { ...input, conditionNote: input.conditionNote.trim(), at },
     handedOverAt: at,
+    ...(cashDue
+      ? {
+          "payment.status": "Completed",
+          "payment.paidAt": at,
+          "payment.transactionId": `CASH-${at.getTime().toString(36).toUpperCase()}`,
+        }
+      : {}),
   })
   batch.update(doc(db, "cars", booking.carId), { status: "Rented", updatedAt: at })
   await batch.commit()

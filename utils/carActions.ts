@@ -1,10 +1,10 @@
-import { collection, deleteDoc, doc, getDoc, getDocs, query, setDoc, where } from "firebase/firestore"
+import { addDoc, collection, deleteDoc, doc, getDoc, getDocs, query, setDoc, where } from "firebase/firestore"
 import { db } from "../config/firebase"
 import { cars as SEED_CARS } from "../data/cars"
 import { OPEN_BOOKING_STATUSES } from "./constants"
 
-// Ghi 24 xe mẫu vào `cars` với id "1"…"24" (giữ khớp booking.carId cũ). Xe đã có thì bỏ qua.
-// Trả về số xe vừa thêm.
+// Ghi 24 xe mẫu vào `cars` với id "1"…"24" (giữ khớp booking.carId cũ) và các loại xe vào `carTypes`.
+// Xe đã có thì bỏ qua. Trả về số xe vừa thêm.
 export async function seedCars(): Promise<number> {
   const createdAt = new Date() // cùng mốc để useCars giữ thứ tự theo id
   const added = await Promise.all(
@@ -15,6 +15,10 @@ export async function seedCars(): Promise<number> {
       return 1
     }),
   )
+  // Loại xe (G7): thêm các loại của xe mẫu nếu chưa có
+  const existing = new Set((await getDocs(collection(db, "carTypes"))).docs.map((d) => String(d.data().name)))
+  const missing = [...new Set(SEED_CARS.map((c) => c.type))].filter((t) => !existing.has(t))
+  await Promise.all(missing.map((name) => addDoc(collection(db, "carTypes"), { name, createdAt })))
   return added.reduce<number>((sum, n) => sum + n, 0)
 }
 
