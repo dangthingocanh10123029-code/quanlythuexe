@@ -42,7 +42,7 @@ export default function PersonalInfoScreen() {
     address: user?.address || "",
     emergencyContact: user?.emergencyContact || "",
     avatar: user?.avatar || DEFAULT_AVATAR,
-    idNumber: user?.idNumber || "", // ponytail: chưa có ô nhập, U6.3 thêm trường CCCD
+    idNumber: user?.idNumber || "",
   })
   const [userInfo, setUserInfo] = useState(fromUser)
 
@@ -204,6 +204,21 @@ export default function PersonalInfoScreen() {
               placeholderTextColor={THEME_COLORS.textMuted}
               keyboardType="phone-pad"
               {...focusProps("phone")}
+            />
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Số CCCD</Text>
+            <TextInput
+              style={inputStyle("idNumber")}
+              value={userInfo.idNumber}
+              onChangeText={(text) => setUserInfo({ ...userInfo, idNumber: text.replace(/\D/g, "") })}
+              editable={isEditing}
+              placeholder="Nhập 12 chữ số"
+              placeholderTextColor={THEME_COLORS.textMuted}
+              keyboardType="number-pad"
+              maxLength={12}
+              {...focusProps("idNumber")}
             />
           </View>
 

@@ -11,14 +11,17 @@ import {
   Platform,
   ScrollView,
   Modal,
+  type TextInputProps,
 } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 import { router } from "expo-router"
-import { registerAccount, validateRegister } from "../utils/accountActions"
+import { registerAccount, validateRegister, type RegisterInput } from "../utils/accountActions"
 import { StatusBar } from "expo-status-bar"
 import { Ionicons } from "@expo/vector-icons"
 import { THEME_COLORS, RADIUS, SPACE, SHADOWS, TYPOGRAPHY, UI, PRESS_OPACITY } from "../utils/theme"
 import { AppInput, PrimaryButton } from "../components"
+
+type FieldKey = keyof RegisterInput | "confirmPassword"
 
 export default function RegisterScreen() {
   const [formData, setFormData] = useState({
@@ -34,9 +37,11 @@ export default function RegisterScreen() {
   const [modalVisible, setModalVisible] = useState(false)
   const [modalTitle, setModalTitle] = useState("")
   const [modalMessage, setModalMessage] = useState("")
+  const [errors, setErrors] = useState<Partial<Record<FieldKey, string>>>({})
 
-  const handleInputChange = (field: string, value: string) => {
+  const handleInputChange = (field: FieldKey, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }))
+    setErrors((prev) => ({ ...prev, [field]: undefined }))
   }
 
   const showModal = (title: string, message: string) => {
@@ -48,20 +53,12 @@ export default function RegisterScreen() {
   const handleRegister = async () => {
     const { confirmPassword, ...input } = formData
 
-    if (Object.values(formData).some((v) => !v.trim())) {
-      showModal("Thiếu thông tin", "Vui lòng điền đầy đủ các trường")
-      return
-    }
-
-    if (input.password !== confirmPassword) {
-      showModal("Mật khẩu chưa khớp", "Mật khẩu xác nhận không trùng với mật khẩu đã nhập")
-      return
-    }
-
-    // SĐT, CCCD, độ dài mật khẩu… (registerAccount kiểm tra lại)
-    const fieldErrors = Object.values(validateRegister(input))
-    if (fieldErrors.length > 0) {
-      showModal("Thông tin chưa hợp lệ", fieldErrors.join("\n"))
+    // Lỗi từng ô (ô trống, SĐT, CCCD, độ dài mật khẩu…); registerAccount kiểm tra lại
+    const fieldErrors: Partial<Record<FieldKey, string>> = validateRegister(input)
+    if (input.password !== confirmPassword) fieldErrors.confirmPassword = "Mật khẩu xác nhận chưa khớp."
+    if (Object.keys(fieldErrors).length > 0) {
+      setErrors(fieldErrors)
+      showModal("Thông tin chưa hợp lệ", "Vui lòng kiểm tra lại các ô được đánh dấu đỏ.")
       return
     }
 
@@ -102,19 +99,52 @@ export default function RegisterScreen() {
 
 
   const fields: {
-    key: "fullName" | "email" | "phone" | "idNumber" | "address" | "password" | "confirmPassword"
+    key: FieldKey
     label: string
     placeholder: string
     icon: keyof typeof Ionicons.glyphMap
+    helperText?: string
+    input?: TextInputProps
   }[] = [
-    { key: "fullName", label: "Họ và tên", placeholder: "Vd: Nguyễn Văn An", icon: "person-outline" },
-    { key: "email", label: "Email", placeholder: "Nhập email của bạn", icon: "mail-outline" },
-    // ponytail: 3 ô mới dùng giao diện sẵn có, U6.1 tinh chỉnh (bàn phím số, gợi ý định dạng)
-    { key: "phone", label: "Số điện thoại", placeholder: "Vd: 0912 345 678", icon: "call-outline" },
-    { key: "idNumber", label: "Số CCCD", placeholder: "12 chữ số", icon: "card-outline" },
-    { key: "address", label: "Địa chỉ", placeholder: "Số nhà, đường, phường/xã, tỉnh/thành", icon: "home-outline" },
-    { key: "password", label: "Mật khẩu", placeholder: "Tối thiểu 6 ký tự", icon: "lock-closed-outline" },
-    { key: "confirmPassword", label: "Xác nhận mật khẩu", placeholder: "Nhập lại mật khẩu", icon: "shield-checkmark-outline" },
+    { key: "fullName", label: "Họ và tên", placeholder: "Vd: Nguyễn Văn An", icon: "person-outline", input: { autoCapitalize: "words" } },
+    {
+      key: "email",
+      label: "Email",
+      placeholder: "Nhập email của bạn",
+      icon: "mail-outline",
+      input: { keyboardType: "email-address", autoCorrect: false },
+    },
+    {
+      key: "phone",
+      label: "Số điện thoại",
+      placeholder: "Vd: 0912 345 678",
+      icon: "call-outline",
+      helperText: "Số di động Việt Nam, bắt đầu bằng 0 hoặc +84.",
+      input: { keyboardType: "phone-pad", maxLength: 15 },
+    },
+    {
+      key: "idNumber",
+      label: "Số CCCD",
+      placeholder: "Nhập 12 chữ số",
+      icon: "card-outline",
+      helperText: "Gồm 12 chữ số in trên thẻ căn cước.",
+      input: { keyboardType: "number-pad", maxLength: 12 },
+    },
+    {
+      key: "address",
+      label: "Địa chỉ",
+      placeholder: "Số nhà, đường, phường/xã, tỉnh/thành",
+      icon: "home-outline",
+      input: { autoCapitalize: "sentences" },
+    },
+    { key: "password", label: "Mật khẩu", placeholder: "Tối thiểu 6 ký tự", icon: "lock-closed-outline", input: { secureTextEntry: true } },
+    {
+      key: "confirmPassword",
+      label: "Xác nhận mật khẩu",
+      placeholder: "Nhập lại mật khẩu",
+      icon: "shield-checkmark-outline",
+      input: { secureTextEntry: true },
+    },
   ]
 
   return (
@@ -159,24 +189,22 @@ export default function RegisterScreen() {
           </View>
 
           <View style={styles.form}>
-            {fields.map((field) => {
-              const isPassword = field.key === "password" || field.key === "confirmPassword"
-              return (
-                <AppInput
-                  key={field.key}
-                  label={field.label}
-                  icon={field.icon}
-                  placeholder={field.placeholder}
-                  value={formData[field.key]}
-                  onChangeText={(value) => handleInputChange(field.key, value)}
-                  secureTextEntry={isPassword}
-                  autoCapitalize={field.key === "fullName" ? "words" : "none"}
-                  keyboardType={field.key === "email" ? "email-address" : "default"}
-                  autoCorrect={field.key === "email" ? false : undefined}
-                  containerStyle={styles.inputContainer}
-                />
-              )
-            })}
+            {fields.map((field) => (
+              <AppInput
+                key={field.key}
+                label={field.label}
+                icon={field.icon}
+                placeholder={field.placeholder}
+                value={formData[field.key]}
+                // CCCD chỉ giữ chữ số (dán từ nơi khác có thể lẫn khoảng trắng)
+                onChangeText={(value) => handleInputChange(field.key, field.key === "idNumber" ? value.replace(/\D/g, "") : value)}
+                autoCapitalize="none"
+                {...field.input}
+                error={errors[field.key]}
+                helperText={field.helperText}
+                containerStyle={styles.inputContainer}
+              />
+            ))}
 
             <PrimaryButton
               title="Tạo tài khoản"

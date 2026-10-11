@@ -42,6 +42,12 @@ const menuItems = [
     route: "/profile/personal-info",
   },
   {
+    id: 7,
+    title: "Đổi mật khẩu",
+    icon: "key-outline",
+    route: "/profile/change-password",
+  },
+  {
     id: 2,
     title: "Giấy phép lái xe (GPLX)",
     icon: "card-outline",
@@ -116,7 +122,7 @@ export default function ProfileScreen() {
 
   // Nhóm menu theo chức năng (chỉ bố cục — giữ nguyên các mục & route)
   const menuGroups = [
-    { title: "Tài khoản", ids: [1, 2, 3] },
+    { title: "Tài khoản", ids: [1, 7, 2, 3] },
     { title: "Hoạt động", ids: [4] },
     { title: "Ứng dụng", ids: [5, 6] },
   ]
