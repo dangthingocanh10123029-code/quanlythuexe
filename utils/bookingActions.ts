@@ -248,12 +248,15 @@ export async function cancelBooking(bookingId: string, by: "user" | "admin" = "u
   if (booking.status?.toLowerCase() === "active") throw bookingError("Xe đã được giao, không thể huỷ chuyến.")
   assertTransition(booking, "Cancelled", "huỷ")
   const refund = previewRefund(booking, by)
+  // Đơn chọn trả tiền mặt chưa thu → huỷ luôn khoản chờ thu
+  const cashPending = booking.payment?.status?.toLowerCase() === "pending"
 
   const batch = writeBatch(db)
   batch.update(doc(db, "bookings", bookingId), {
     status: "Cancelled",
     cancelledAt: new Date(),
     cancelledBy: by,
+    ...(cashPending ? { "payment.status": "Cancelled" } : {}),
     ...(refund.amount > 0
       ? {
           "payment.status": "Refunded",

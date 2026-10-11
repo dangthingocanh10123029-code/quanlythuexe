@@ -177,12 +177,15 @@ export const PAYMENT_STATUS_LABELS: Record<string, string> = {
   completed: "Đã thanh toán",
   failed: "Thất bại",
   refunded: "Đã hoàn tiền",
+  cancelled: "Đã huỷ",
 }
 
 export const HOTLINE = "1900 6868"
 export const SUPPORT_EMAIL = "hotro@rento.vn"
 
 // Phiếu hỗ trợ (G7)
+export const PRIORITY_LABELS: Record<string, string> = { low: "Thấp", medium: "Trung bình", high: "Cao" }
+
 export const TICKET_STATUS_LABELS: Record<string, string> = {
   open: "Đang xử lý",
   resolved: "Đã phản hồi",

@@ -1,6 +1,6 @@
 // Doc `bookings/{id}` trên Firestore (docs/PLAN.md mục 4). Đơn cũ có thể thiếu các field mới.
 export type BookingStatus = "Pending" | "Confirmed" | "Upcoming" | "Active" | "Completed" | "Cancelled" | "Rejected"
-export type PaymentStatus = "Completed" | "Failed" | "Refunded"
+export type PaymentStatus = "Completed" | "Failed" | "Refunded" | "Pending" | "Cancelled" // Pending: tiền mặt chưa thu
 
 export interface BookingAddOn {
   id: number
