@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { type TextStyle, View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Dimensions, TextInput, ActivityIndicator, Alert } from "react-native"
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, ActivityIndicator, Alert } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 import { Ionicons } from "@expo/vector-icons"
 import { router, useLocalSearchParams } from "expo-router"
@@ -9,14 +9,13 @@ import { useCar, getCarImage } from "../../hooks/useCars"
 import { useLikedCarIds } from "../../hooks/useLikedCarIds"
 import { useCarReviews } from "../../hooks/useReviews"
 import { formatCurrency, formatDate } from "../../utils/helpers"
+import { toDate } from "../../utils/booking"
 import { HOTLINE, CAR_STATUS_LABELS, HIDDEN_CAR_STATUSES } from "../../utils/constants"
 import { getBrandAsset } from "../../data/assets"
 import { StatusBar } from "expo-status-bar"
 import { THEME_COLORS, RADIUS, SPACE, TYPOGRAPHY, UI, PRESS_OPACITY } from "../../utils/theme"
 import { AppHeader, PrimaryButton, StatCard } from "../../components"
 
-
-const { width } = Dimensions.get("window")
 
 // Địa chỉ chi nhánh RENTO theo thành phố của xe
 const BRANCH_ADDRESSES: Record<string, string> = {
@@ -25,13 +24,23 @@ const BRANCH_ADDRESSES: Record<string, string> = {
   "Đà Nẵng": "88 Bạch Đằng, Hải Châu, Đà Nẵng",
 };
 
-// Add this function before the CarDetailsScreen component
-const formatUserName = (email: string) => {
-  if (!email) return 'Ẩn danh';
-  // Extract the part before @ and capitalize first letter
-  const name = email.split('@')[0];
-  return name.charAt(0).toUpperCase() + name.slice(1);
-};
+// Đánh giá cũ lưu email làm tên: lấy phần trước @ và viết hoa chữ đầu
+const formatUserName = (userName: string) => {
+  if (!userName) return "Ẩn danh"
+  if (!userName.includes("@")) return userName
+  const name = userName.split("@")[0]
+  return name.charAt(0).toUpperCase() + name.slice(1)
+}
+
+// Điểm sao: làm tròn 0,5 → sao đầy / nửa / rỗng
+const renderStars = (value: number, size: number) =>
+  [1, 2, 3, 4, 5].map((star) => {
+    const v = Math.round(value * 2) / 2
+    const name = v >= star ? "star" : v >= star - 0.5 ? "star-half" : "star-outline"
+    return <Ionicons key={star} name={name} size={size} color={THEME_COLORS.accent} />
+  })
+
+const formatRating = (value: number) => (Number(value) || 0).toFixed(1).replace(".", ",")
 
 export default function CarDetailsScreen() {
   // pickup/return (ISO) từ bộ lọc ngày ở Search, chuyển tiếp sang Checkout
@@ -226,46 +235,51 @@ export default function CarDetailsScreen() {
         {/* --- Reviews Section --- */}
         <View style={styles.block}>
           <Text style={styles.sectionTitle}>Đánh giá</Text>
+          {car.reviewCount > 0 ? (
+            <View style={styles.ratingSummary}>
+              <Text style={styles.ratingValue}>{formatRating(car.rating)}</Text>
+              <View style={styles.ratingSummaryCopy}>
+                <View style={styles.summaryStars}>{renderStars(car.rating, 18)}</View>
+                <Text style={styles.ratingCount}>{car.reviewCount} đánh giá từ khách đã thuê</Text>
+              </View>
+            </View>
+          ) : null}
           {reviewLoading ? (
             <ActivityIndicator color={THEME_COLORS.primary} />
           ) : reviews.length === 0 ? (
-            <Text style={styles.emptyText}>Chưa có đánh giá nào. Hãy là người đầu tiên!</Text>
-          ) : (
-            reviews.map((review) => (
-              <View key={review.id} style={styles.reviewCard}>
-                <View style={styles.reviewHeader}>
-                  <View style={styles.reviewAvatar}>
-                    <Text style={styles.reviewAvatarText}>
-                      {formatUserName(review.userName).charAt(0)}
-                    </Text>
-                  </View>
-                  <View style={styles.userInfo}>
-                    <Text style={styles.reviewUserName}>
-                      {formatUserName(review.userName)}
-                    </Text>
-                    <Text style={styles.reviewEmail} numberOfLines={1}>{review.userName}</Text>
-                  </View>
-                  <View style={styles.ratingContainer}>
-                    {[...Array(review.rating)].map((_, index) => (
-                      <Ionicons
-                        key={index}
-                        name="star"
-                        size={14}
-                        color={THEME_COLORS.accent}
-                      />
-                    ))}
-                  </View>
-                </View>
-                <Text style={styles.reviewComment}>{review.comment}</Text>
-                <Text style={styles.reviewDate}>
-                  {review.createdAt?.toDate
-                    ? formatDate(review.createdAt.toDate(), "datetime")
-                    : ""}
-                </Text>
+            <View style={styles.reviewEmpty}>
+              <View style={styles.reviewEmptyIcon}>
+                <Ionicons name="chatbubble-ellipses-outline" size={28} color={THEME_COLORS.textMuted} />
               </View>
-            ))
-            )}
-
+              <Text style={styles.reviewEmptyTitle}>Chưa có đánh giá nào</Text>
+              <Text style={styles.reviewEmptyText}>
+                Khách hoàn thành chuyến đi với xe này có thể đánh giá trong mục Chuyến đi.
+              </Text>
+            </View>
+          ) : (
+            reviews.map((review) => {
+              const name = formatUserName(review.userName)
+              const at = toDate(review.createdAt)
+              return (
+                <View key={review.id} style={styles.reviewCard}>
+                  <View style={styles.reviewHeader}>
+                    <View style={styles.reviewAvatar}>
+                      <Text style={styles.reviewAvatarText}>{name.charAt(0).toUpperCase()}</Text>
+                    </View>
+                    <View style={styles.userInfo}>
+                      <Text style={styles.reviewUserName} numberOfLines={1}>{name}</Text>
+                      {review.userName?.includes("@") ? (
+                        <Text style={styles.reviewEmail} numberOfLines={1}>{review.userName}</Text>
+                      ) : null}
+                    </View>
+                    <View style={styles.ratingContainer}>{renderStars(review.rating, 14)}</View>
+                  </View>
+                  {review.comment ? <Text style={styles.reviewComment}>{review.comment}</Text> : null}
+                  {at ? <Text style={styles.reviewDate}>{formatDate(at, "datetime")}</Text> : null}
+                </View>
+              )
+            })
+          )}
         </View>
       </ScrollView>
 
@@ -596,9 +610,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     marginLeft: SPACE.sm,
   },
-  starButton: {
-    paddingHorizontal: 2,
-  },
   reviewComment: {
     ...TYPOGRAPHY.body,
   },
@@ -607,41 +618,49 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: SPACE.sm,
   },
-
-  // Review form styles
-  reviewForm: {
+  ratingSummary: {
     ...UI.card,
-    marginTop: SPACE.lg,
-    padding: SPACE.lg,
-  },
-  reviewFormTitle: {
-    ...TYPOGRAPHY.h3,
-    marginBottom: SPACE.md,
-  },
-  ratingInputContainer: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
+    gap: SPACE.lg,
+    padding: SPACE.lg,
     marginBottom: SPACE.lg,
   },
-  ratingLabel: {
+  ratingValue: {
+    ...TYPOGRAPHY.display,
+  },
+  ratingSummaryCopy: {
+    flex: 1,
+    gap: SPACE.xs,
+  },
+  summaryStars: {
+    flexDirection: "row",
+    gap: 2,
+  },
+  ratingCount: {
+    ...TYPOGRAPHY.caption,
+  },
+  reviewEmpty: {
+    alignItems: "center",
+    paddingVertical: SPACE["2xl"],
+    paddingHorizontal: SPACE.lg,
+  },
+  reviewEmptyIcon: {
+    width: 64,
+    height: 64,
+    borderRadius: RADIUS.pill,
+    backgroundColor: THEME_COLORS.surfaceMuted,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: SPACE.md,
+  },
+  reviewEmptyTitle: {
+    ...TYPOGRAPHY.h3,
+    marginBottom: SPACE.xs,
+  },
+  reviewEmptyText: {
     ...TYPOGRAPHY.body,
-  },
-  inputFocused: UI.inputFocused as TextStyle,
-  reviewInput: {
-    ...UI.input,
-    height: 112,
-    paddingTop: SPACE.md,
-    paddingBottom: SPACE.md,
-    textAlignVertical: "top",
-    marginBottom: SPACE.lg,
-  },
-  submitButton: {
-    ...UI.secondaryButton,
-    height: 48,
-  },
-  submitButtonText: {
-    ...UI.secondaryButtonText,
-    color: THEME_COLORS.primary,
+    fontSize: 14,
+    textAlign: "center",
   },
 })

@@ -13,6 +13,7 @@ import { useCars, getCarImage } from "../../hooks/useCars"
 import type { Car } from "../../types/car"
 import { formatCurrency, formatDate } from "../../utils/helpers"
 import BookingStatusBadge from "../../components/BookingStatusBadge"
+import { ReviewSheet } from "../../components/BookingSheets"
 import { PRESS_OPACITY, RADIUS, SPACE, THEME_COLORS, TYPOGRAPHY, UI } from "../../utils/theme"
 
 interface RentalHistoryItem {
@@ -26,6 +27,7 @@ interface RentalHistoryItem {
   totalCost: number
   status: string
   location: string
+  reviewed: boolean
 }
 
 // Ảnh theo xe trên Firestore; đơn cũ có thể còn carImage dạng chuỗi (URL / data URI)
@@ -41,6 +43,7 @@ export default function HistoryScreen() {
   const { cars } = useCars()
   const { bookings, loading } = useUserBookings()
   const [filter, setFilter] = useState("all")
+  const [reviewTarget, setReviewTarget] = useState<{ id: string; carName: string } | null>(null)
 
   const rentalHistory: RentalHistoryItem[] = useMemo(() => {
     const items = bookings.map((b: any) => {
@@ -56,6 +59,7 @@ export default function HistoryScreen() {
         totalCost: Number(b.price) || 0,
         status: b.status || "Pending",
         location: b.location || "",
+        reviewed: !!b.reviewed,
       }
     })
     return items.sort((a, b) => (b.startDate?.getTime() ?? 0) - (a.startDate?.getTime() ?? 0))
@@ -113,6 +117,25 @@ export default function HistoryScreen() {
 
           <View style={styles.bottomRow}>
             <Text style={styles.totalCost}>{formatCurrency(item.totalCost)}</Text>
+            {isStatus(item, "completed") ? (
+              item.reviewed ? (
+                <View style={styles.reviewedTag}>
+                  <Ionicons name="checkmark-circle" size={14} color={THEME_COLORS.success} />
+                  <Text style={styles.reviewedTagText}>Đã đánh giá</Text>
+                </View>
+              ) : (
+                <TouchableOpacity
+                  style={styles.reviewButton}
+                  onPress={() => setReviewTarget({ id: item.id, carName: item.carName })}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Đánh giá chuyến ${item.carName}`}
+                  activeOpacity={PRESS_OPACITY}
+                >
+                  <Ionicons name="star" size={14} color={THEME_COLORS.accent} />
+                  <Text style={styles.reviewButtonText}>Đánh giá</Text>
+                </TouchableOpacity>
+              )
+            ) : null}
           </View>
         </View>
       </TouchableOpacity>
@@ -198,6 +221,8 @@ export default function HistoryScreen() {
           )}
         </View>
       </ScrollView>
+
+      <ReviewSheet booking={reviewTarget} onClose={() => setReviewTarget(null)} />
     </SafeAreaView>
   )
 }
@@ -349,6 +374,36 @@ const styles = StyleSheet.create({
   totalCost: {
     ...TYPOGRAPHY.price,
     fontSize: 16,
+  },
+  reviewButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SPACE.xs,
+    height: 32,
+    paddingHorizontal: SPACE.md,
+    borderRadius: RADIUS.chip,
+    borderWidth: 1,
+    borderColor: THEME_COLORS.border,
+    backgroundColor: THEME_COLORS.surface,
+  },
+  reviewButtonText: {
+    ...UI.chipText,
+    fontSize: 13,
+    color: THEME_COLORS.textPrimary,
+  },
+  reviewedTag: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SPACE.xs,
+    height: 28,
+    paddingHorizontal: SPACE.sm,
+    borderRadius: RADIUS.pill,
+    backgroundColor: THEME_COLORS.successSoft,
+  },
+  reviewedTagText: {
+    color: THEME_COLORS.success,
+    fontSize: 12,
+    fontWeight: "600",
   },
   emptyState: {
     alignItems: "center",

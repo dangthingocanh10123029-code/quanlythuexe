@@ -12,7 +12,8 @@ import { useCars, getCarImage } from "../../hooks/useCars"
 import { useLikedCarIds } from "../../hooks/useLikedCarIds"
 import { useNotifications } from "../../hooks/useNotifications"
 import { useUserBookings } from "../../hooks/useBookings"
-import { findPickupReminder } from "../../utils/booking"
+import { findPickupReminder, getBookingRange } from "../../utils/booking"
+import { formatDate } from "../../utils/helpers"
 import { HIDDEN_CAR_STATUSES } from "../../utils/constants"
 import { BRAND_ASSETS, PROMO_ASSETS } from "../../data/assets"
 import { StatusBar } from "expo-status-bar"
@@ -65,9 +66,11 @@ export default function HomeScreen() {
   const [timeLeft, setTimeLeft] = useState(180) // 180 seconds = 3 minutes
   const { unreadCount } = useNotifications()
   const hasNotifications = unreadCount > 0
-  // Đơn "Sắp nhận xe" trong 24 giờ tới (U5.3 hiển thị thẻ nhắc nhận xe)
+  // Đơn "Sắp nhận xe" trong 24 giờ tới → thẻ nhắc nhận xe
   const { bookings } = useUserBookings()
   const pickupReminder = findPickupReminder(bookings)
+  const reminderStart = pickupReminder ? getBookingRange(pickupReminder)?.start ?? null : null
+  const reminderHours = reminderStart ? Math.max(0, Math.ceil((reminderStart.getTime() - Date.now()) / 3_600_000)) : 0
   const [rentalRange, setRentalRange] = useState(createDefaultRange)
   const { cars, loading: carsLoading } = useCars()
   const { likedIds, toggleLike } = useLikedCarIds()
@@ -179,6 +182,8 @@ export default function HomeScreen() {
             <TouchableOpacity
               style={styles.iconButton}
               onPress={() => router.push("/notifications")}
+              accessibilityRole="button"
+              accessibilityLabel={hasNotifications ? `Thông báo, ${unreadCount} chưa đọc` : "Thông báo"}
               activeOpacity={PRESS_OPACITY}
             >
               <Ionicons
@@ -186,9 +191,34 @@ export default function HomeScreen() {
                 size={22}
                 color={THEME_COLORS.primary}
               />
+              {hasNotifications && <View style={styles.bellDot} />}
             </TouchableOpacity>
           </View>
         </View>
+
+        {/* Nhắc nhận xe: đơn "Sắp nhận xe" trong 24 giờ tới */}
+        {pickupReminder && reminderStart ? (
+          <TouchableOpacity
+            style={styles.reminderCard}
+            onPress={() => router.push({ pathname: "/booking/[id]", params: { id: pickupReminder.id } })}
+            accessibilityRole="button"
+            activeOpacity={PRESS_OPACITY}
+          >
+            <View style={styles.reminderIcon}>
+              <Ionicons name="key" size={20} color={THEME_COLORS.primary} />
+            </View>
+            <View style={styles.reminderBody}>
+              <Text style={styles.reminderOverline}>
+                {reminderHours <= 1 ? "Sắp đến giờ nhận xe" : `Nhận xe sau ${reminderHours} giờ nữa`}
+              </Text>
+              <Text style={styles.reminderTitle} numberOfLines={1}>{pickupReminder.carName}</Text>
+              <Text style={styles.reminderText} numberOfLines={1}>
+                {formatDate(reminderStart, "datetime")} · {pickupReminder.location}
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={THEME_COLORS.textMuted} />
+          </TouchableOpacity>
+        ) : null}
 
         {/* Search Bar */}
         <SearchBar
@@ -467,6 +497,50 @@ const styles = StyleSheet.create({
     backgroundColor: THEME_COLORS.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  bellDot: {
+    position: "absolute",
+    top: 10,
+    right: 11,
+    width: 10,
+    height: 10,
+    borderRadius: RADIUS.pill,
+    backgroundColor: THEME_COLORS.danger,
+    borderWidth: 2,
+    borderColor: THEME_COLORS.primarySoft,
+  },
+  reminderCard: {
+    ...UI.card,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SPACE.md,
+    marginHorizontal: SPACE.screen,
+    marginTop: SPACE.lg,
+    padding: SPACE.lg,
+    borderColor: THEME_COLORS.primary,
+  },
+  reminderIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: RADIUS.pill,
+    backgroundColor: THEME_COLORS.primarySoft,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  reminderBody: {
+    flex: 1,
+  },
+  reminderOverline: {
+    ...TYPOGRAPHY.overline,
+    color: THEME_COLORS.primary,
+  },
+  reminderTitle: {
+    ...TYPOGRAPHY.bodyStrong,
+    marginTop: 2,
+  },
+  reminderText: {
+    ...TYPOGRAPHY.caption,
+    marginTop: 2,
   },
 
   // Search

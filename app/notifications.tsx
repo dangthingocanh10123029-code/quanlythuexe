@@ -1,6 +1,6 @@
 "use client"
 
-import { View, Text, StyleSheet, TouchableOpacity, FlatList } from "react-native"
+import { View, Text, StyleSheet, TouchableOpacity, FlatList, ActivityIndicator } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 import { StatusBar } from "expo-status-bar"
 import { useNotifications } from "../hooks/useNotifications"
@@ -10,28 +10,20 @@ import { Ionicons } from "@expo/vector-icons"
 import { router } from "expo-router"
 import { THEME_COLORS, RADIUS, SPACE, TYPOGRAPHY, UI, PRESS_OPACITY } from "../utils/theme"
 
-// Nền soft tương ứng với màu icon của từng loại thông báo
-const SOFT_BY_COLOR: Record<string, string> = {
-  [THEME_COLORS.success]: THEME_COLORS.successSoft,
-  [THEME_COLORS.primary]: THEME_COLORS.primarySoft,
-  [THEME_COLORS.warning]: THEME_COLORS.warningSoft,
-}
-// Thông báo chưa đọc: nền primarySoft nhạt (≈50%) + viền primary rất nhẹ
-const UNREAD_BG = "#F6F9FF"
+// Thông báo chưa đọc: nền primarySubtle + viền primary rất nhẹ
 const UNREAD_BORDER = "#D6E3FB"
 
-// Icon + màu theo loại thông báo (types/notification.ts)
-const TYPE_STYLE: Record<string, { icon: keyof typeof Ionicons.glyphMap; color: string }> = {
-  booking: { icon: "car", color: THEME_COLORS.primary },
-  payment: { icon: "card", color: THEME_COLORS.success },
-  license: { icon: "id-card", color: THEME_COLORS.warning },
-  support: { icon: "chatbubbles", color: THEME_COLORS.primary },
-  system: { icon: "notifications", color: THEME_COLORS.warning },
+// Icon + màu (chữ / nền soft) theo loại thông báo (types/notification.ts)
+const TYPE_STYLE: Record<string, { icon: keyof typeof Ionicons.glyphMap; color: string; bg: string; label: string }> = {
+  booking: { icon: "car", color: THEME_COLORS.primary, bg: THEME_COLORS.primarySoft, label: "Chuyến đi" },
+  payment: { icon: "card", color: THEME_COLORS.success, bg: THEME_COLORS.successSoft, label: "Thanh toán" },
+  license: { icon: "id-card", color: THEME_COLORS.warning, bg: THEME_COLORS.warningSoft, label: "GPLX" },
+  support: { icon: "chatbubbles", color: THEME_COLORS.primary, bg: THEME_COLORS.primarySoft, label: "Hỗ trợ" },
+  system: { icon: "notifications", color: THEME_COLORS.textSecondary, bg: THEME_COLORS.surfaceMuted, label: "Hệ thống" },
 }
 
 export default function NotificationsScreen() {
-  // ponytail: giao diện giữ như cũ, U5.3 làm lại (icon theo loại, đã đọc/chưa đọc, rỗng)
-  const { notifications: list, markAsRead: markRead, markAllAsRead } = useNotifications()
+  const { notifications: list, unreadCount, loading, error, markAsRead: markRead, markAllAsRead } = useNotifications()
   const notifications = list.map((n) => {
     const at = toDate(n.createdAt)
     return { ...n, ...(TYPE_STYLE[n.type] ?? TYPE_STYLE.system), time: at ? formatDate(at, "datetime") : "" }
@@ -43,29 +35,57 @@ export default function NotificationsScreen() {
     if (item.bookingId) router.push({ pathname: "/booking/[id]", params: { id: item.bookingId } })
   }
 
-  const renderNotificationItem = ({ item }: { item: any }) => (
+  const renderNotificationItem = ({ item }: { item: (typeof notifications)[number] }) => (
     <TouchableOpacity
       style={[styles.notificationCard, !item.read && styles.unreadCard]}
       onPress={() => openNotification(item)}
+      accessibilityRole="button"
+      accessibilityLabel={`${item.read ? "" : "Chưa đọc. "}${item.title}`}
       activeOpacity={PRESS_OPACITY}
     >
-      <View style={[styles.iconContainer, { backgroundColor: SOFT_BY_COLOR[item.color] ?? THEME_COLORS.surfaceMuted }]}>
-        <Ionicons name={item.icon as any} size={22} color={item.color} />
+      <View style={[styles.iconContainer, { backgroundColor: item.bg }]}>
+        <Ionicons name={item.icon} size={22} color={item.color} />
       </View>
       <View style={styles.notificationContent}>
         <View style={styles.notificationHeader}>
-          <Text style={[styles.notificationTitle, !item.read && styles.unreadTitle]} numberOfLines={1}>
-            {item.title}
-          </Text>
+          <Text style={[styles.typeLabel, { color: item.color }]}>{item.label}</Text>
           <Text style={styles.notificationTime}>{item.time}</Text>
         </View>
+        <Text style={[styles.notificationTitle, !item.read && styles.unreadTitle]} numberOfLines={2}>
+          {item.title}
+        </Text>
         <Text style={styles.notificationMessage}>{item.message}</Text>
+        {item.bookingId ? (
+          <View style={styles.linkRow}>
+            <Text style={styles.linkText}>Xem chi tiết chuyến đi</Text>
+            <Ionicons name="chevron-forward" size={14} color={THEME_COLORS.primary} />
+          </View>
+        ) : null}
       </View>
       {!item.read && <View style={styles.unreadDot} />}
     </TouchableOpacity>
   )
 
-  const unreadCount = notifications.filter((n) => !n.read).length
+  const renderEmpty = () => {
+    if (loading) return <ActivityIndicator size="large" color={THEME_COLORS.primary} style={styles.loading} />
+    return (
+      <View style={styles.emptyState}>
+        <View style={[styles.emptyIcon, error ? styles.emptyIconError : null]}>
+          <Ionicons
+            name={error ? "cloud-offline-outline" : "notifications-off-outline"}
+            size={32}
+            color={error ? THEME_COLORS.danger : THEME_COLORS.textMuted}
+          />
+        </View>
+        <Text style={styles.emptyTitle}>{error ? "Không tải được thông báo" : "Chưa có thông báo"}</Text>
+        <Text style={styles.emptyText}>
+          {error
+            ? "Vui lòng kiểm tra kết nối mạng rồi mở lại màn hình này."
+            : "Cập nhật về chuyến đi, thanh toán và GPLX của bạn sẽ hiển thị ở đây."}
+        </Text>
+      </View>
+    )
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -78,7 +98,10 @@ export default function NotificationsScreen() {
         >
           <Ionicons name="arrow-back" size={22} color={THEME_COLORS.textPrimary} />
         </TouchableOpacity>
-        <Text style={styles.title}>Thông báo</Text>
+        <View style={styles.titleWrap}>
+          <Text style={styles.title}>Thông báo</Text>
+          {unreadCount > 0 ? <Text style={styles.subtitle}>{unreadCount} chưa đọc</Text> : null}
+        </View>
         <View style={styles.headerSpacer} />
       </View>
 
@@ -93,7 +116,7 @@ export default function NotificationsScreen() {
         )}
 
         {notifications.length === 0 ? (
-          <Text style={styles.emptyText}>Bạn chưa có thông báo nào</Text>
+          renderEmpty()
         ) : (
           <FlatList
             data={notifications}
@@ -119,6 +142,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACE.screen,
     paddingVertical: SPACE.md,
     backgroundColor: THEME_COLORS.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: THEME_COLORS.border,
   },
   backButton: {
     width: 40,
@@ -131,22 +156,30 @@ const styles = StyleSheet.create({
   headerSpacer: {
     width: 40,
   },
+  titleWrap: {
+    flex: 1,
+    alignItems: "center",
+  },
   title: {
     ...TYPOGRAPHY.h3,
+  },
+  subtitle: {
+    ...TYPOGRAPHY.caption,
+    color: THEME_COLORS.primary,
   },
   content: {
     flex: 1,
     paddingHorizontal: SPACE.screen,
   },
   listContainer: {
-    paddingTop: SPACE.sm,
+    paddingTop: SPACE.lg,
     paddingBottom: SPACE.section,
     gap: SPACE.md,
   },
   actionContainer: {
     flexDirection: "row",
     justifyContent: "flex-end",
-    marginTop: SPACE.xs,
+    marginTop: SPACE.md,
     marginBottom: SPACE.sm,
   },
   markAllReadButton: {
@@ -170,7 +203,7 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
   },
   unreadCard: {
-    backgroundColor: UNREAD_BG,
+    backgroundColor: THEME_COLORS.primarySubtle,
     borderColor: UNREAD_BORDER,
   },
   iconContainer: {
@@ -192,10 +225,15 @@ const styles = StyleSheet.create({
     marginBottom: SPACE.xs,
     gap: SPACE.sm,
   },
+  typeLabel: {
+    ...TYPOGRAPHY.overline,
+    fontSize: 11,
+    flex: 1,
+  },
   notificationTitle: {
     ...TYPOGRAPHY.bodyStrong,
     color: THEME_COLORS.textSecondary,
-    flex: 1,
+    marginBottom: 2,
   },
   unreadTitle: {
     color: THEME_COLORS.textPrimary,
@@ -210,6 +248,17 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
   },
+  linkRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 2,
+    marginTop: SPACE.sm,
+  },
+  linkText: {
+    color: THEME_COLORS.primary,
+    fontSize: 13,
+    fontWeight: "600",
+  },
   unreadDot: {
     width: 8,
     height: 8,
@@ -219,9 +268,33 @@ const styles = StyleSheet.create({
     top: SPACE.lg,
     right: SPACE.md,
   },
+  loading: {
+    marginTop: SPACE.section,
+  },
+  emptyState: {
+    alignItems: "center",
+    paddingTop: SPACE.section * 2,
+    paddingHorizontal: SPACE.lg,
+  },
+  emptyIcon: {
+    width: 72,
+    height: 72,
+    borderRadius: RADIUS.pill,
+    backgroundColor: THEME_COLORS.surfaceMuted,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: SPACE.lg,
+  },
+  emptyIconError: {
+    backgroundColor: THEME_COLORS.dangerSoft,
+  },
+  emptyTitle: {
+    ...TYPOGRAPHY.h2,
+    textAlign: "center",
+    marginBottom: SPACE.sm,
+  },
   emptyText: {
     ...TYPOGRAPHY.body,
     textAlign: "center",
-    marginTop: SPACE.section,
   },
 })

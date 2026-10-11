@@ -15,7 +15,7 @@ import { formatCurrency, formatDate } from "../../utils/helpers"
 import type { Booking, BookingPayment } from "../../types/booking"
 import { AppHeader, PrimaryButton } from "../../components"
 import BookingStatusBadge from "../../components/BookingStatusBadge"
-import { PaymentMethodSheet, RescheduleSheet, confirmCancelBooking } from "../../components/BookingSheets"
+import { PaymentMethodSheet, RescheduleSheet, ReviewSheet, confirmCancelBooking } from "../../components/BookingSheets"
 import { PRESS_OPACITY, RADIUS, SPACE, THEME_COLORS, TYPOGRAPHY, UI } from "../../utils/theme"
 
 // Field ghi thêm khi thanh toán thất bại / hoàn tiền (utils/bookingActions), chưa khai báo trong types/booking
@@ -58,6 +58,7 @@ export default function BookingDetailScreen() {
   const { car } = useCar(booking?.carId)
   const [paying, setPaying] = useState(false)
   const [rescheduling, setRescheduling] = useState(false)
+  const [reviewing, setReviewing] = useState(false)
 
   if (loading || !booking) {
     return (
@@ -103,6 +104,7 @@ export default function BookingDetailScreen() {
       ? { uri: legacy.carImage }
       : null
   const currentStep = STEPS.findIndex((s) => s.status.toLowerCase() === status)
+  const canReview = status === "completed" && !booking.reviewed
 
   const renderRow = (label: string, value: string, options: { strong?: boolean; tone?: string } = {}) => (
     <View style={styles.row}>
@@ -221,6 +223,53 @@ export default function BookingDetailScreen() {
     )
   }
 
+  // Biên bản giao xe / nhận lại xe do RENTO lập (chỉ xem)
+  const renderInspections = () => {
+    const { handover, returnInspection: back } = booking
+    if (!handover && !back) return null
+    const totalFees = (Number(back?.lateFee) || 0) + (Number(back?.extraFees) || 0)
+    const distance = handover && back ? Number(back.odometer) - Number(handover.odometer) : null
+    return (
+      <>
+        {handover ? (
+          <>
+            <Text style={styles.sectionTitle}>Biên bản giao xe</Text>
+            <View style={styles.card}>
+              {renderRow("Thời gian giao", fmt(handover.at))}
+              {renderRow("Số km", `${handover.odometer} km`)}
+              {renderRow("Mức nhiên liệu", handover.fuelLevel)}
+              {renderRow("Giấy tờ (CCCD, GPLX)", handover.documentsChecked ? "Đã kiểm tra" : "Chưa kiểm tra")}
+              {renderRow("Tiền cọc", handover.depositCollected ? `Đã thu${booking.deposit ? ` ${formatCurrency(booking.deposit)}` : ""}` : "Chưa thu")}
+              {handover.conditionNote ? (
+                <>
+                  <View style={styles.divider} />
+                  <Text style={styles.noteLabel}>Tình trạng xe lúc giao</Text>
+                  <Text style={styles.noteText}>{handover.conditionNote}</Text>
+                </>
+              ) : null}
+            </View>
+          </>
+        ) : null}
+        {back ? (
+          <>
+            <Text style={styles.sectionTitle}>Biên bản nhận lại xe</Text>
+            <View style={styles.card}>
+              {renderRow("Thời gian trả", fmt(back.at))}
+              {renderRow("Số km", `${back.odometer} km${distance != null && distance >= 0 ? ` (đã đi ${distance} km)` : ""}`)}
+              {renderRow("Mức nhiên liệu", back.fuelLevel)}
+              {renderRow("Hư hỏng", back.damageNote || "Không có")}
+              <View style={styles.divider} />
+              {renderRow("Phí trễ giờ", formatCurrency(back.lateFee || 0))}
+              {renderRow("Phí phát sinh", formatCurrency(back.extraFees || 0))}
+              {totalFees > 0 ? renderRow("Tổng phí trừ cọc", formatCurrency(totalFees), { strong: true, tone: THEME_COLORS.danger }) : null}
+              {renderRow("Tiền cọc hoàn lại", formatCurrency(back.depositRefund || 0), { strong: true, tone: THEME_COLORS.success })}
+            </View>
+          </>
+        ) : null}
+      </>
+    )
+  }
+
   const discount = Number(booking.discount) || 0
 
   return (
@@ -283,6 +332,8 @@ export default function BookingDetailScreen() {
           {renderRow("Thời gian thuê", `${booking.duration} ngày`)}
           {renderRow("Ngày đặt", fmt(booking.createdAt))}
         </View>
+
+        {renderInspections()}
 
         {/* Chi tiết giá (đơn cũ chỉ có tổng cộng) */}
         <Text style={styles.sectionTitle}>Chi tiết giá</Text>
@@ -350,7 +401,28 @@ export default function BookingDetailScreen() {
         </SafeAreaView>
       )}
 
+      {status === "completed" && (
+        <SafeAreaView edges={["bottom"]} style={styles.footer}>
+          <View style={styles.footerInner}>
+            {canReview ? (
+              <PrimaryButton
+                title="Đánh giá chuyến đi"
+                icon="star-outline"
+                iconPosition="left"
+                onPress={() => setReviewing(true)}
+              />
+            ) : (
+              <View style={styles.reviewedRow}>
+                <Ionicons name="checkmark-circle" size={18} color={THEME_COLORS.success} />
+                <Text style={styles.reviewedText}>Đã đánh giá · Cảm ơn bạn đã chia sẻ trải nghiệm</Text>
+              </View>
+            )}
+          </View>
+        </SafeAreaView>
+      )}
+
       <PaymentMethodSheet booking={paying ? booking : null} onClose={() => setPaying(false)} />
+      <ReviewSheet booking={reviewing ? booking : null} onClose={() => setReviewing(false)} />
       <RescheduleSheet booking={rescheduling ? booking : null} car={car} onClose={() => setRescheduling(false)} />
     </SafeAreaView>
   )
@@ -599,6 +671,29 @@ const styles = StyleSheet.create({
   cardNote: {
     ...TYPOGRAPHY.caption,
     marginTop: SPACE.sm,
+  },
+  noteLabel: {
+    ...TYPOGRAPHY.caption,
+  },
+  noteText: {
+    ...TYPOGRAPHY.body,
+    fontSize: 14,
+    color: THEME_COLORS.textPrimary,
+    marginTop: SPACE.xs,
+  },
+  reviewedRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: SPACE.sm,
+    height: 44,
+    borderRadius: RADIUS.control,
+    backgroundColor: THEME_COLORS.successSoft,
+  },
+  reviewedText: {
+    color: THEME_COLORS.success,
+    fontSize: 14,
+    fontWeight: "600",
   },
   footer: {
     backgroundColor: THEME_COLORS.surface,

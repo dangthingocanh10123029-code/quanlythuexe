@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react"
 import type { StyleProp, TextStyle } from "react-native"
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, Image, Animated, Modal, Platform, ActivityIndicator } from "react-native"
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, Image, Animated, Modal, Platform, ActivityIndicator, KeyboardAvoidingView } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 import { Ionicons } from "@expo/vector-icons"
 import { router } from "expo-router"
@@ -16,10 +16,11 @@ import { AMENITIES, CAR_STATUS_LABELS, FUEL_LEVELS, getBookingStatusLabel, PAYME
 import { useCars, getCarImage } from "../hooks/useCars"
 import { useAuth } from "../hooks/useAuth"
 import { useAllLicenses } from "../hooks/useLicense"
+import { useAllReviews, type Review } from "../hooks/useReviews"
 import { seedCars, deleteCar } from "../utils/carActions"
 import { rejectLicense, verifyLicense } from "../utils/licenseActions"
-import { cancelBooking, confirmBooking, handOverBooking, previewRefund, previewReturn, rejectBooking, returnBooking } from "../utils/bookingActions"
-import { bookingRevenue } from "../utils/booking"
+import { cancelBooking, confirmBooking, deleteReview, handOverBooking, previewRefund, previewReturn, rejectBooking, returnBooking } from "../utils/bookingActions"
+import { bookingRevenue, getBookingRange } from "../utils/booking"
 import type { Car, CarStatus, Transmission } from "../types/car"
 import { THEME_COLORS, RADIUS, SPACE, SHADOWS, TYPOGRAPHY, UI, PRESS_OPACITY } from "../utils/theme"
 
@@ -81,8 +82,11 @@ const adminTabs = [
   { id: "cars", name: "Xe", icon: "car" },
   { id: "bookings", name: "Đơn đặt xe", icon: "calendar" },
   { id: "users", name: "Người dùng", icon: "people" },
+  { id: "reviews", name: "Đánh giá", icon: "star" },
   { id: "reports", name: "Báo cáo", icon: "analytics" },
 ]
+
+const REVIEW_STARS = [5, 4, 3, 2, 1]
 
 // Bộ lọc trạng thái đơn (giá trị so sánh không phân biệt hoa thường)
 const BOOKING_FILTERS = [
@@ -273,6 +277,9 @@ export default function AdminScreen() {
   const { user: authUser, loading: authLoading } = useAuth()
   const isAdmin = authUser?.isAdmin === true
   const { licenses, loading: licensesLoading } = useAllLicenses(isAdmin)
+  const { reviews, loading: reviewsLoading } = useAllReviews(isAdmin)
+  const [reviewFilter, setReviewFilter] = useState("all")
+  const [deletingReviewId, setDeletingReviewId] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isSeeding, setIsSeeding] = useState(false)
 
@@ -913,6 +920,28 @@ export default function AdminScreen() {
     } finally {
       setLicenseProcessingId(null)
     }
+  }
+
+  // ===== Đánh giá (U5.4) =====
+  const handleDeleteReview = (review: Review) => {
+    const carName = cars.find((c) => c.id === review.carId)?.name || "xe đã xoá"
+    confirmAction(
+      "Xoá đánh giá",
+      `Xoá đánh giá ${review.rating} sao của ${review.userName || "khách hàng"} cho ${carName}? Điểm trung bình của xe sẽ được tính lại.`,
+      "Xoá",
+      async () => {
+        setDeletingReviewId(review.id)
+        try {
+          await deleteReview(review.id)
+          Alert.alert("Đã xoá đánh giá", "Điểm đánh giá của xe đã được cập nhật.")
+        } catch (error: any) {
+          console.error("Error deleting review:", error)
+          Alert.alert("Không thể xoá đánh giá", error?.message || "Vui lòng thử lại.")
+        } finally {
+          setDeletingReviewId(null)
+        }
+      },
+    )
   }
 
   const renderBadge = (label: string, tone: Tone) => (
@@ -1696,6 +1725,85 @@ export default function AdminScreen() {
     </View>
   );
 
+  const renderReviewsTab = () => {
+    const starOf = (r: Review) => Math.round(Number(r.rating) || 0)
+    const average = reviews.length ? reviews.reduce((sum, r) => sum + (Number(r.rating) || 0), 0) / reviews.length : 0
+    const filters = [
+      { id: "all", label: `Tất cả (${reviews.length})` },
+      ...REVIEW_STARS.map((n) => ({ id: String(n), label: `${n} sao (${reviews.filter((r) => starOf(r) === n).length})` })),
+    ]
+    const visible = reviewFilter === "all" ? reviews : reviews.filter((r) => String(starOf(r)) === reviewFilter)
+    return (
+      <View style={styles.tabContent}>
+        <Text style={[styles.tabTitle, styles.tabTitleSpacing]}>Quản lý đánh giá</Text>
+
+        <View style={styles.statsGrid}>
+          {renderStatCard("chatbubbles-outline", "Tổng đánh giá", reviews.length)}
+          {renderStatCard("star-outline", "Điểm trung bình", reviews.length ? `${average.toFixed(1).replace(".", ",")} / 5` : "—")}
+          {renderStatCard("alert-circle-outline", "Từ 2 sao trở xuống", reviews.filter((r) => starOf(r) <= 2).length)}
+        </View>
+
+        <View style={styles.bookingsFilter}>{renderFilterChips(filters, reviewFilter, setReviewFilter)}</View>
+
+        <View style={styles.bookingsList}>
+          {reviewsLoading
+            ? renderEmpty("hourglass-outline", "Đang tải đánh giá...")
+            : visible.length === 0
+              ? renderEmpty("star-outline", reviews.length === 0 ? "Chưa có đánh giá nào." : "Không có đánh giá phù hợp.")
+              : visible.map((review) => {
+                  const car = cars.find((c) => c.id === review.carId)
+                  const deleting = deletingReviewId === review.id
+                  const hasBooking = bookings.some((b) => b.id === review.id)
+                  return (
+                    <Animated.View key={review.id} style={[styles.bookingCard, { opacity: fadeAnim }]}>
+                      <View style={styles.reviewHeader}>
+                        <View style={styles.reviewAvatar}>
+                          <Text style={styles.reviewAvatarText}>{(review.userName || "K").charAt(0).toUpperCase()}</Text>
+                        </View>
+                        <View style={styles.flex1}>
+                          <Text style={styles.bookingCarName} numberOfLines={1}>{review.userName || "Khách hàng"}</Text>
+                          <Text style={styles.bookingCode}>{formatAnyDate(review.createdAt, "datetime")}</Text>
+                        </View>
+                        <View style={styles.reviewStars}>
+                          {[1, 2, 3, 4, 5].map((n) => (
+                            <Ionicons key={n} name={n <= starOf(review) ? "star" : "star-outline"} size={14} color={THEME_COLORS.accent} />
+                          ))}
+                        </View>
+                      </View>
+
+                      <View style={styles.reviewCarRow}>
+                        <Ionicons name="car-sport-outline" size={16} color={THEME_COLORS.textMuted} />
+                        <Text style={styles.reviewCarName} numberOfLines={1}>{car?.name || "Xe đã bị xoá"}</Text>
+                        {hasBooking ? <Text style={styles.bookingCode} numberOfLines={1}>Mã đơn: {review.id}</Text> : null}
+                      </View>
+
+                      <Text style={review.comment ? styles.reviewComment : styles.reviewNoComment}>
+                        {review.comment || "Không có nhận xét."}
+                      </Text>
+
+                      <View style={styles.cardActions}>
+                        <TouchableOpacity
+                          style={[styles.smallButton, styles.smallDangerButton, deleting && styles.disabledButton]}
+                          onPress={() => handleDeleteReview(review)}
+                          disabled={deleting}
+                          activeOpacity={PRESS_OPACITY}
+                        >
+                          {deleting ? (
+                            <ActivityIndicator size="small" color={THEME_COLORS.danger} />
+                          ) : (
+                            <Ionicons name="trash-outline" size={16} color={THEME_COLORS.danger} />
+                          )}
+                          <Text style={styles.smallDangerText}>Xoá đánh giá</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </Animated.View>
+                  )
+                })}
+        </View>
+      </View>
+    )
+  }
+
   const renderReportsTab = () => {
     const hasRevenue = stats.revenueByMonth.some((m) => m.value > 0)
     return (
@@ -1771,6 +1879,8 @@ export default function AdminScreen() {
         return renderBookingsTab()
       case "users":
         return renderUsersTab()
+      case "reviews":
+        return renderReviewsTab()
       case "reports":
         return renderReportsTab()
       default:
@@ -2098,65 +2208,176 @@ export default function AdminScreen() {
     )
   }
 
-  // ponytail: biên bản tạm của L4, U4.1/U4.2 làm lại thành bottom sheet đúng thiết kế
+  // Bottom sheet biên bản giao xe (Upcoming → Active) / nhận lại xe (Active → Completed)
   const renderInspectionModal = () => {
     if (!inspection || !inspectionBooking) return null
+    const booking = inspectionBooking
     const isHandover = inspection.kind === "handover"
     const f = inspectionForm
-    const check = (field: "documentsChecked" | "depositCollected", label: string) => (
-      <TouchableOpacity onPress={() => updateInspection(field, !f[field])} activeOpacity={PRESS_OPACITY} style={styles.choiceChip}>
-        <Ionicons name={f[field] ? "checkbox" : "square-outline"} size={18} color={THEME_COLORS.primary} />
-        <Text style={styles.choiceChipText}>{label}</Text>
+    const close = () => !inspectionSubmitting && setInspection(null)
+    const deposit = Number(booking.deposit ?? inspectionCar?.deposit) || 0
+    const range = getBookingRange(booking)
+    const handoverKm = booking.handover?.odometer
+    const km = f.odometer === "" ? null : Number(f.odometer)
+    const kmTooLow = !isHandover && km != null && handoverKm != null && km < handoverKm
+    const totalFees = returnPreview ? returnPreview.lateFee + returnPreview.extraFees : 0
+    const ready = isHandover
+      ? f.documentsChecked && f.depositCollected && !!f.conditionNote.trim() && km != null && !!f.fuelLevel
+      : km != null && !kmTooLow && !!f.fuelLevel
+
+    const checkRow = (field: "documentsChecked" | "depositCollected", title: string, caption: string) => (
+      <TouchableOpacity
+        style={[styles.checkRow, f[field] && styles.checkRowActive]}
+        onPress={() => updateInspection(field, !f[field])}
+        accessibilityRole="checkbox"
+        accessibilityState={{ checked: f[field] }}
+        activeOpacity={PRESS_OPACITY}
+      >
+        <Ionicons
+          name={f[field] ? "checkbox" : "square-outline"}
+          size={22}
+          color={f[field] ? THEME_COLORS.primary : THEME_COLORS.textMuted}
+        />
+        <View style={styles.flex1}>
+          <Text style={styles.checkTitle}>{title}</Text>
+          <Text style={styles.checkCaption}>{caption}</Text>
+        </View>
       </TouchableOpacity>
     )
+
     return (
-      <Modal visible transparent animationType="slide" onRequestClose={() => setInspection(null)}>
-        <View style={styles.modalOverlay}>
-          <ScrollView style={[styles.modalContent, styles.rejectModalContent]}>
-            {renderModalHeader(isHandover ? "Biên bản giao xe" : "Biên bản nhận lại xe", () => setInspection(null))}
-            <Text style={styles.rejectLicenseDescription}>{inspectionBooking.carName} · {getCustomerName(inspectionBooking)}</Text>
-            {isHandover ? (
-              <View style={styles.choiceRow}>
-                {check("documentsChecked", "Đã kiểm tra CCCD, GPLX bản gốc")}
-                {check("depositCollected", `Đã thu cọc ${formatCurrency(inspectionBooking.deposit ?? inspectionCar?.deposit ?? 0)}`)}
+      <Modal visible transparent animationType="slide" onRequestClose={close}>
+        <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+          <View style={styles.modalContent}>
+            {renderModalHeader(isHandover ? "Biên bản giao xe" : "Biên bản nhận lại xe", close)}
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.modalScroll} keyboardShouldPersistTaps="handled">
+              <View style={styles.detailGroup}>
+                {renderDetailRow("Xe", [booking.carName, inspectionCar?.licensePlate].filter(Boolean).join(" · "))}
+                {renderDetailRow("Khách hàng", getCustomerName(booking))}
+                {isHandover
+                  ? renderDetailRow("Giờ nhận theo đơn", range ? formatDate(range.start, "datetime") : "")
+                  : renderDetailRow(
+                      "Lúc giao",
+                      [handoverKm != null ? `${handoverKm} km` : "", booking.handover?.fuelLevel ? `xăng ${booking.handover.fuelLevel}` : ""]
+                        .filter(Boolean)
+                        .join(" · "),
+                    )}
               </View>
-            ) : null}
-            <Text style={styles.inputLabel}>Số km {isHandover ? "" : `(lúc giao: ${inspectionBooking.handover?.odometer ?? 0})`}</Text>
-            <TextInput style={styles.input} value={f.odometer} onChangeText={(t) => updateInspection("odometer", t)} keyboardType="numeric" />
-            <Text style={styles.inputLabel}>Mức nhiên liệu</Text>
-            <View style={styles.choiceRow}>
-              {FUEL_LEVELS.map((level) => (
-                <TouchableOpacity key={level} style={[styles.choiceChip, f.fuelLevel === level && styles.choiceChipActive]} onPress={() => updateInspection("fuelLevel", level)} activeOpacity={PRESS_OPACITY}>
-                  <Text style={[styles.choiceChipText, f.fuelLevel === level && styles.choiceChipTextActive]}>{level}</Text>
+
+              {isHandover ? (
+                <>
+                  <Text style={styles.detailSection}>Giấy tờ & tiền cọc</Text>
+                  <View style={styles.checkList}>
+                    {checkRow("documentsChecked", "Đã kiểm tra giấy tờ", "CCCD và GPLX bản gốc khớp với hồ sơ đặt xe")}
+                    {checkRow("depositCollected", "Đã thu tiền cọc", deposit ? formatCurrency(deposit) : "Đơn không có tiền cọc")}
+                  </View>
+                </>
+              ) : null}
+
+              <Text style={styles.detailSection}>{isHandover ? "Số km lúc giao" : "Số km lúc trả"}</Text>
+              <TextInput
+                style={inputStyle("inspectionOdometer", kmTooLow)}
+                value={f.odometer}
+                onChangeText={(t) => updateInspection("odometer", t.replace(/\D/g, ""))}
+                placeholder="VD: 12500"
+                placeholderTextColor={THEME_COLORS.textMuted}
+                keyboardType="number-pad"
+                {...focusProps("inspectionOdometer")}
+              />
+              {kmTooLow ? (
+                <Text style={styles.fieldError}>Số km khi trả phải lớn hơn hoặc bằng lúc giao ({handoverKm} km).</Text>
+              ) : !isHandover && handoverKm != null ? (
+                <Text style={styles.inspectionHint}>
+                  Lúc giao: {handoverKm} km{km != null ? ` · Đã đi ${km - handoverKm} km` : ""}
+                </Text>
+              ) : null}
+
+              <Text style={styles.detailSection}>Mức nhiên liệu</Text>
+              <View style={styles.choiceRow}>
+                {FUEL_LEVELS.map((level) => {
+                  const selected = f.fuelLevel === level
+                  return (
+                    <TouchableOpacity
+                      key={level}
+                      style={[styles.choiceChip, styles.fuelChip, selected && styles.choiceChipActive]}
+                      onPress={() => updateInspection("fuelLevel", level)}
+                      accessibilityRole="radio"
+                      accessibilityState={{ selected }}
+                      activeOpacity={PRESS_OPACITY}
+                    >
+                      <Text style={[styles.choiceChipText, selected && styles.choiceChipTextActive]}>{level}</Text>
+                    </TouchableOpacity>
+                  )
+                })}
+              </View>
+              {!isHandover && booking.handover?.fuelLevel ? (
+                <Text style={styles.inspectionHint}>Lúc giao: {booking.handover.fuelLevel}</Text>
+              ) : null}
+
+              <Text style={styles.detailSection}>{isHandover ? "Tình trạng xe lúc giao" : "Hư hỏng (nếu có)"}</Text>
+              <TextInput
+                style={[inputStyle("inspectionNote"), styles.textArea]}
+                value={isHandover ? f.conditionNote : f.damageNote}
+                onChangeText={(t) => updateInspection(isHandover ? "conditionNote" : "damageNote", t)}
+                placeholder={
+                  isHandover
+                    ? "VD: Xe sạch, trầy nhẹ cản sau bên trái, đủ 2 chìa khoá..."
+                    : "Để trống nếu xe không có hư hỏng mới"
+                }
+                placeholderTextColor={THEME_COLORS.textMuted}
+                multiline
+                textAlignVertical="top"
+                {...focusProps("inspectionNote")}
+              />
+
+              {!isHandover && returnPreview ? (
+                <>
+                  <Text style={styles.detailSection}>Phí phát sinh</Text>
+                  <TextInput
+                    style={inputStyle("inspectionFees")}
+                    value={f.extraFees}
+                    onChangeText={(t) => updateInspection("extraFees", t.replace(/\D/g, ""))}
+                    placeholder="0"
+                    placeholderTextColor={THEME_COLORS.textMuted}
+                    keyboardType="number-pad"
+                    {...focusProps("inspectionFees")}
+                  />
+                  <Text style={styles.inspectionHint}>Hư hỏng, vệ sinh, thiếu nhiên liệu… (VND)</Text>
+
+                  <Text style={styles.detailSection}>Quyết toán tiền cọc</Text>
+                  <View style={styles.detailGroup}>
+                    {renderDetailRow("Giờ trả theo đơn", range ? formatDate(range.end, "datetime") : "")}
+                    {renderDetailRow("Phí trễ giờ", formatCurrency(returnPreview.lateFee))}
+                    {renderDetailRow("Phí phát sinh", formatCurrency(returnPreview.extraFees))}
+                    {renderDetailRow("Tổng phí", formatCurrency(totalFees))}
+                    {renderDetailRow("Tiền cọc", formatCurrency(deposit))}
+                    <View style={styles.settleTotalRow}>
+                      <Text style={styles.settleTotalLabel}>Hoàn cọc cho khách</Text>
+                      <Text style={styles.settleTotalValue}>{formatCurrency(returnPreview.depositRefund)}</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.inspectionHint}>Phí trễ giờ tính đến thời điểm xác nhận: mỗi giờ 10% giá ngày, tối đa 1 ngày.</Text>
+                </>
+              ) : null}
+
+              <View style={styles.modalActions}>
+                {!ready ? <Text style={styles.inspectionHint}>Điền đủ các mục bắt buộc để xác nhận biên bản.</Text> : null}
+                <TouchableOpacity
+                  style={[styles.modalActionButton, styles.modalPrimaryButton, (!ready || inspectionSubmitting) && styles.disabledButton]}
+                  onPress={submitInspection}
+                  disabled={!ready || inspectionSubmitting}
+                  activeOpacity={PRESS_OPACITY}
+                >
+                  {inspectionSubmitting ? (
+                    <ActivityIndicator color={THEME_COLORS.textInverse} />
+                  ) : (
+                    <Text style={styles.modalPrimaryText}>{isHandover ? "Xác nhận giao xe" : "Xác nhận nhận lại xe"}</Text>
+                  )}
                 </TouchableOpacity>
-              ))}
-            </View>
-            <Text style={styles.inputLabel}>{isHandover ? "Tình trạng xe lúc giao" : "Hư hỏng (nếu có)"}</Text>
-            <TextInput
-              style={[styles.input, styles.textArea]}
-              value={isHandover ? f.conditionNote : f.damageNote}
-              onChangeText={(t) => updateInspection(isHandover ? "conditionNote" : "damageNote", t)}
-              multiline
-              textAlignVertical="top"
-            />
-            {!isHandover && returnPreview ? (
-              <>
-                <Text style={styles.inputLabel}>Phí phát sinh (VND)</Text>
-                <TextInput style={styles.input} value={f.extraFees} onChangeText={(t) => updateInspection("extraFees", t)} keyboardType="numeric" />
-                {renderDetailRow("Phí trễ giờ", formatCurrency(returnPreview.lateFee))}
-                {renderDetailRow("Hoàn cọc", formatCurrency(returnPreview.depositRefund))}
-              </>
-            ) : null}
-            <TouchableOpacity
-              style={[styles.modalActionButton, styles.modalPrimaryButton, inspectionSubmitting && styles.disabledButton]}
-              onPress={submitInspection}
-              disabled={inspectionSubmitting}
-              activeOpacity={PRESS_OPACITY}
-            >
-              <Text style={styles.modalPrimaryText}>{isHandover ? "Xác nhận giao xe" : "Xác nhận nhận lại xe"}</Text>
-            </TouchableOpacity>
-          </ScrollView>
-        </View>
+              </View>
+            </ScrollView>
+          </View>
+        </KeyboardAvoidingView>
       </Modal>
     )
   }
@@ -2195,7 +2416,9 @@ export default function AdminScreen() {
                   size={18}
                   color={isActive ? THEME_COLORS.primary : THEME_COLORS.textMuted}
                 />
-                <Text style={[styles.tabText, isActive && styles.activeTabText]} numberOfLines={1}>{tab.name}</Text>
+                <Text style={[styles.tabText, isActive && styles.activeTabText]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>
+                  {tab.name}
+                </Text>
               </TouchableOpacity>
             )
           })}
@@ -2273,7 +2496,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     paddingVertical: SPACE.sm,
-    paddingHorizontal: SPACE.xs,
+    paddingHorizontal: 2,
     borderRadius: RADIUS.control - SPACE.xs,
     gap: 2,
   },
@@ -3144,5 +3367,99 @@ const styles = StyleSheet.create({
   },
   rejectCancelText: {
     ...UI.secondaryButtonText,
+  },
+
+  // ===== Biên bản giao / nhận lại xe =====
+  checkList: {
+    gap: SPACE.sm,
+  },
+  checkRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SPACE.md,
+    padding: SPACE.lg,
+    borderRadius: RADIUS.control,
+    borderWidth: 1,
+    borderColor: THEME_COLORS.border,
+    backgroundColor: THEME_COLORS.surface,
+  },
+  checkRowActive: {
+    borderColor: THEME_COLORS.primary,
+    backgroundColor: THEME_COLORS.primarySubtle,
+  },
+  checkTitle: {
+    ...TYPOGRAPHY.bodyStrong,
+  },
+  checkCaption: {
+    ...TYPOGRAPHY.caption,
+    marginTop: 2,
+  },
+  fuelChip: {
+    flex: 1,
+  },
+  inspectionHint: {
+    ...TYPOGRAPHY.caption,
+    marginTop: SPACE.sm,
+  },
+  settleTotalRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: SPACE.md,
+    paddingVertical: SPACE.md,
+    borderTopWidth: 1,
+    borderTopColor: THEME_COLORS.border,
+  },
+  settleTotalLabel: {
+    ...TYPOGRAPHY.bodyStrong,
+  },
+  settleTotalValue: {
+    ...TYPOGRAPHY.price,
+    color: THEME_COLORS.success,
+  },
+
+  // ===== Đánh giá =====
+  reviewHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SPACE.md,
+  },
+  reviewAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: RADIUS.pill,
+    backgroundColor: THEME_COLORS.primarySoft,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  reviewAvatarText: {
+    ...TYPOGRAPHY.bodyStrong,
+    color: THEME_COLORS.primary,
+  },
+  reviewStars: {
+    flexDirection: "row",
+    gap: 1,
+  },
+  reviewCarRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SPACE.xs,
+    marginTop: SPACE.md,
+  },
+  reviewCarName: {
+    ...TYPOGRAPHY.caption,
+    color: THEME_COLORS.textSecondary,
+    fontWeight: "600",
+    flexShrink: 1,
+  },
+  reviewComment: {
+    ...TYPOGRAPHY.body,
+    marginTop: SPACE.sm,
+  },
+  reviewNoComment: {
+    ...TYPOGRAPHY.body,
+    color: THEME_COLORS.textMuted,
+    fontStyle: "italic",
+    marginTop: SPACE.sm,
   },
 })

@@ -1,18 +1,30 @@
 import { useEffect, useState } from "react"
-import { Alert, Modal, Platform, StyleSheet, Text, TouchableOpacity, View, type ViewStyle } from "react-native"
+import {
+  Alert,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+  type TextStyle,
+  type ViewStyle,
+} from "react-native"
 import { Ionicons } from "@expo/vector-icons"
 import { router } from "expo-router"
 import DateTimePicker from "@react-native-community/datetimepicker"
 import PaymentLogo from "./ui/PaymentLogo"
 import { calcBookingPrice, toDate } from "../utils/booking"
-import { cancelBooking, previewRefund, rescheduleBooking } from "../utils/bookingActions"
+import { cancelBooking, previewRefund, rescheduleBooking, submitReview } from "../utils/bookingActions"
 import { PAYMENT_METHODS } from "../utils/constants"
 import { formatCurrency, formatDate } from "../utils/helpers"
 import type { Booking } from "../types/booking"
 import type { Car } from "../types/car"
 import { PRESS_OPACITY, RADIUS, SHADOWS, SPACE, THEME_COLORS, TYPOGRAPHY, UI } from "../utils/theme"
 
-// Bottom sheet chọn phương thức thanh toán, đổi lịch và hộp thoại huỷ chuyến —
+// Bottom sheet chọn phương thức thanh toán, đổi lịch, đánh giá và hộp thoại huỷ chuyến —
 // dùng chung cho tab Chuyến đi và màn chi tiết đơn (app/booking/[id].tsx)
 
 type PaymentRoute = "/credit-card" | "/momo" | "/zalopay"
@@ -279,6 +291,113 @@ export function RescheduleSheet({
   )
 }
 
+// ===== Đánh giá chuyến đi (G5): đơn Completed chưa đánh giá =====
+const RATING_LABELS = ["", "Rất tệ", "Chưa hài lòng", "Bình thường", "Hài lòng", "Tuyệt vời"]
+const MAX_COMMENT = 500
+
+export function ReviewSheet({
+  booking,
+  onClose,
+}: {
+  booking: Pick<Booking, "id" | "carName"> | null
+  onClose: () => void
+}) {
+  const [rating, setRating] = useState(0)
+  const [comment, setComment] = useState("")
+  const [focused, setFocused] = useState(false)
+  const [saving, setSaving] = useState(false)
+  // Lỗi hiện ngay trong sheet (Alert không hiện trên web)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!booking) return
+    setRating(0)
+    setComment("")
+    setError(null)
+  }, [booking?.id])
+
+  const submit = async () => {
+    if (!booking || !rating || saving) return
+    try {
+      setSaving(true)
+      setError(null)
+      await submitReview(booking.id, rating, comment)
+      onClose()
+      Alert.alert("Cảm ơn bạn!", "Đánh giá của bạn đã được gửi.")
+    } catch (e: any) {
+      console.error("Error submitting review:", e)
+      setError(e?.message || "Không gửi được đánh giá. Vui lòng thử lại.")
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Modal visible={!!booking} transparent animationType="slide" onRequestClose={onClose}>
+      <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+        <View style={styles.modalSheet}>
+          <SheetHeader title="Đánh giá chuyến đi" onClose={onClose} />
+          {booking && <Text style={styles.modalSubtitle}>{booking.carName}</Text>}
+
+          <View style={styles.starRow}>
+            {[1, 2, 3, 4, 5].map((star) => (
+              <TouchableOpacity
+                key={star}
+                onPress={() => setRating(star)}
+                accessibilityRole="button"
+                accessibilityLabel={`${star} sao`}
+                accessibilityState={{ selected: star <= rating }}
+                hitSlop={6}
+                activeOpacity={PRESS_OPACITY}
+              >
+                <Ionicons
+                  name={star <= rating ? "star" : "star-outline"}
+                  size={40}
+                  color={star <= rating ? THEME_COLORS.accent : THEME_COLORS.borderStrong}
+                />
+              </TouchableOpacity>
+            ))}
+          </View>
+          <Text style={styles.ratingLabel}>{rating ? RATING_LABELS[rating] : "Chạm để chọn số sao"}</Text>
+
+          <Text style={[styles.inputLabel, styles.inputLabelSpaced]}>Nhận xét (không bắt buộc)</Text>
+          <TextInput
+            style={[styles.commentInput, focused && (styles.dateInputFocused as TextStyle)]}
+            value={comment}
+            onChangeText={setComment}
+            placeholder="Chia sẻ trải nghiệm của bạn về xe và dịch vụ..."
+            placeholderTextColor={THEME_COLORS.textMuted}
+            maxLength={MAX_COMMENT}
+            multiline
+            textAlignVertical="top"
+            onFocus={() => setFocused(true)}
+            onBlur={() => setFocused(false)}
+          />
+          <Text style={styles.commentCounter}>
+            {comment.length}/{MAX_COMMENT}
+          </Text>
+
+          {error ? (
+            <View style={styles.errorBox}>
+              <Ionicons name="alert-circle" size={18} color={THEME_COLORS.danger} />
+              <Text style={styles.errorText}>{error}</Text>
+            </View>
+          ) : null}
+
+          <TouchableOpacity
+            style={[styles.confirmButton, (!rating || saving) && styles.disabledButton]}
+            onPress={submit}
+            disabled={!rating || saving}
+            activeOpacity={PRESS_OPACITY}
+          >
+            <Text style={styles.confirmButtonText}>{saving ? "Đang gửi..." : "Gửi đánh giá"}</Text>
+          </TouchableOpacity>
+        </View>
+      </KeyboardAvoidingView>
+    </Modal>
+  )
+}
+
 // ===== Huỷ chuyến (D5): hộp thoại hiện số tiền được hoàn =====
 export function confirmCancelBooking(booking: Booking) {
   const refund = previewRefund(booking)
@@ -463,5 +582,42 @@ const styles = StyleSheet.create({
   },
   confirmButtonText: {
     ...UI.primaryButtonText,
+  },
+  starRow: {
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: SPACE.md,
+  },
+  ratingLabel: {
+    ...TYPOGRAPHY.bodyStrong,
+    textAlign: "center",
+    marginTop: SPACE.sm,
+  },
+  commentInput: {
+    ...UI.input,
+    height: 120,
+    paddingTop: SPACE.md,
+    paddingBottom: SPACE.md,
+  },
+  commentCounter: {
+    ...TYPOGRAPHY.caption,
+    textAlign: "right",
+    marginTop: SPACE.xs,
+  },
+  errorBox: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: SPACE.sm,
+    marginTop: SPACE.md,
+    padding: SPACE.md,
+    borderRadius: RADIUS.control,
+    backgroundColor: THEME_COLORS.dangerSoft,
+  },
+  errorText: {
+    ...TYPOGRAPHY.body,
+    fontSize: 14,
+    lineHeight: 20,
+    color: THEME_COLORS.danger,
+    flex: 1,
   },
 })
