@@ -19,7 +19,7 @@ import { PaymentMethodSheet, RescheduleSheet, ReviewSheet, confirmCancelBooking 
 import { PRESS_OPACITY, RADIUS, SPACE, THEME_COLORS, TYPOGRAPHY, UI } from "../../utils/theme"
 
 // Field ghi thêm khi thanh toán thất bại / hoàn tiền (utils/bookingActions), chưa khai báo trong types/booking
-type Payment = BookingPayment & { refundPercent?: number; failReason?: string; failedAt?: any }
+type Payment = BookingPayment & { refundPercent?: number; failReason?: string; failedAt?: any; chosenAt?: any }
 // Đơn cũ có thể còn carImage dạng chuỗi (URL / data URI)
 type BookingDoc = Booking & { carImage?: unknown }
 
@@ -27,7 +27,8 @@ type BookingDoc = Booking & { carImage?: unknown }
 const STEPS: { status: string; at: (b: Booking) => any }[] = [
   { status: "Pending", at: (b) => b.createdAt },
   { status: "Confirmed", at: (b) => b.confirmedAt },
-  { status: "Upcoming", at: (b) => b.payment?.paidAt },
+  // Tiền mặt: đơn sang "Sắp nhận xe" lúc chọn phương thức (chosenAt), paidAt chỉ có khi giao xe
+  { status: "Upcoming", at: (b) => (b.payment as Payment | undefined)?.chosenAt ?? b.payment?.paidAt },
   { status: "Active", at: (b) => b.handedOverAt ?? b.handover?.at },
   { status: "Completed", at: (b) => b.returnedAt ?? b.returnInspection?.at },
 ]
@@ -178,10 +179,14 @@ export default function BookingDetailScreen() {
     }
     const failed = paymentStatus === "failed"
     const refunded = paymentStatus === "refunded"
-    const statusTone = failed ? THEME_COLORS.danger : refunded ? THEME_COLORS.warning : THEME_COLORS.success
+    // Tiền mặt khi nhận xe: payment.status "Pending" tới lúc giao xe; đơn đã huỷ/từ chối thì không thu nữa
+    const cash = paymentStatus === "pending"
+    const cashDue = cash && canModify
+    const statusTone = failed ? THEME_COLORS.danger : refunded || cash ? THEME_COLORS.warning : THEME_COLORS.success
+    const statusLabel = cash && !cashDue ? "Chưa thanh toán" : PAYMENT_STATUS_LABELS[paymentStatus] ?? payment.status
     return (
       <View style={styles.card}>
-        {renderRow("Trạng thái", PAYMENT_STATUS_LABELS[paymentStatus] ?? payment.status, { strong: true, tone: statusTone })}
+        {renderRow("Trạng thái", statusLabel, { strong: true, tone: statusTone })}
         {renderRow("Phương thức", getPaymentMethodLabel(payment.method))}
         {failed ? (
           <>
@@ -194,6 +199,11 @@ export default function BookingDetailScreen() {
             {renderRow("Số tiền", formatCurrency(payment.amount ?? booking.price))}
             {payment.transactionId ? renderRow("Mã giao dịch", payment.transactionId) : null}
             {payment.paidAt ? renderRow("Thời gian", fmt(payment.paidAt)) : null}
+            {cashDue ? (
+              <Text style={styles.cardNote}>
+                Thanh toán khi nhận xe · {PAYMENT_STATUS_LABELS.pending} {formatCurrency(payment.amount ?? booking.price)}. Bạn trả tiền thuê cùng tiền cọc khi nhận xe.
+              </Text>
+            ) : null}
           </>
         )}
         {refunded && payment.refundAmount ? (

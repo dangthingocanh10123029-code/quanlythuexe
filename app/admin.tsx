@@ -13,17 +13,31 @@ import { LineChart, BarChart } from "react-native-chart-kit"
 import { Dimensions } from "react-native"
 import { formatCurrency, formatDate } from "../utils/helpers"
 import { confirmDialog, showAlert } from "../utils/dialog"
-import { setUserRole } from "../utils/adminActions"
+import { addCarType, deleteCarType, replyTicket, setUserRole } from "../utils/adminActions"
 import EmptyState from "../components/EmptyState"
-import { AMENITIES, CAR_STATUS_LABELS, FUEL_LEVELS, getBookingStatusLabel, PAYMENT_STATUS_LABELS, TRANSMISSIONS } from "../utils/constants"
+import PaymentLogo from "../components/ui/PaymentLogo"
+import {
+  AMENITIES,
+  CAR_STATUS_LABELS,
+  FUEL_LEVELS,
+  getBookingStatusLabel,
+  PAYMENT_METHODS,
+  PAYMENT_STATUS_LABELS,
+  PRIORITY_LABELS,
+  TICKET_STATUS_LABELS,
+  TRANSMISSIONS,
+  USER_ROLE_LABELS,
+} from "../utils/constants"
 import { useCars, getCarImage } from "../hooks/useCars"
 import { useAuth } from "../hooks/useAuth"
 import { useAllLicenses } from "../hooks/useLicense"
 import { useAllReviews, type Review } from "../hooks/useReviews"
+import { useAllTickets, type SupportTicket } from "../hooks/useSupportTickets"
+import { useCarTypes, type CarType } from "../hooks/useCarTypes"
 import { seedCars, deleteCar } from "../utils/carActions"
 import { rejectLicense, verifyLicense } from "../utils/licenseActions"
 import { cancelBooking, confirmBooking, deleteReview, handOverBooking, previewRefund, previewReturn, rejectBooking, returnBooking } from "../utils/bookingActions"
-import { bookingRevenue, getBookingRange } from "../utils/booking"
+import { bookingRevenue, getBookingRange, listPayments, summarizePayments } from "../utils/booking"
 import type { Car, CarStatus, Transmission } from "../types/car"
 import { THEME_COLORS, RADIUS, SPACE, SHADOWS, TYPOGRAPHY, UI, PRESS_OPACITY } from "../utils/theme"
 
@@ -75,7 +89,7 @@ interface Booking {
   returnLocation?: string;
   subtotal?: number;
   deposit?: number;
-  handover?: { odometer?: number; fuelLevel?: string; conditionNote?: string; documentsChecked?: boolean; depositCollected?: boolean; at?: any } | null;
+  handover?: { odometer?: number; fuelLevel?: string; conditionNote?: string; documentsChecked?: boolean; depositCollected?: boolean; rentCollected?: boolean; at?: any } | null;
   returnInspection?: { odometer?: number; fuelLevel?: string; damageNote?: string; lateFee?: number; extraFees?: number; depositRefund?: number; at?: any } | null;
   rejectReason?: string;
   rejectedAt?: any;
@@ -85,8 +99,10 @@ interface Booking {
 const adminTabs = [
   { id: "cars", name: "Xe", icon: "car" },
   { id: "bookings", name: "Đơn đặt xe", icon: "calendar" },
+  { id: "payments", name: "Thanh toán", icon: "card" },
   { id: "users", name: "Người dùng", icon: "people" },
   { id: "reviews", name: "Đánh giá", icon: "star" },
+  { id: "support", name: "Hỗ trợ", icon: "chatbubbles" },
   { id: "reports", name: "Báo cáo", icon: "analytics" },
 ]
 
@@ -108,9 +124,35 @@ const USER_FILTERS = [
   { id: "all", label: "Tất cả" },
   { id: "active", label: "Hoạt động" },
   { id: "inactive", label: "Đã khoá" },
-  { id: "admin", label: "Quản trị viên" },
+  { id: "admin", label: USER_ROLE_LABELS.admin },
+  { id: "staff", label: USER_ROLE_LABELS.staff },
 ]
 
+// Vai trò hiển thị (khoá của USER_ROLE_LABELS)
+const getUserRole = (u: { isAdmin: boolean; role?: "staff" }) => (u.isAdmin ? "admin" : u.role === "staff" ? "staff" : "customer")
+
+// Thanh toán (G7): lọc theo trạng thái / phương thức (giá trị payment.method đang lưu)
+const PAYMENT_FILTERS = [
+  { id: "all", label: "Tất cả" },
+  ...["completed", "refunded", "pending", "failed"].map((id) => ({ id, label: PAYMENT_STATUS_LABELS[id] })),
+]
+const PAYMENT_METHOD_FILTERS = [
+  { id: "all", label: "Mọi phương thức" },
+  ...[PAYMENT_METHODS.CARD.label, PAYMENT_METHODS.MOMO.short, PAYMENT_METHODS.ZALOPAY.short, PAYMENT_METHODS.CASH.short].map(
+    (m) => ({ id: m, label: m }),
+  ),
+]
+const PAYMENT_LOGO_IDS: Record<string, "credit-card" | "momo" | "zalopay"> = {
+  [PAYMENT_METHODS.CARD.label]: "credit-card",
+  "Credit Card": "credit-card",
+  [PAYMENT_METHODS.MOMO.short]: "momo",
+  [PAYMENT_METHODS.ZALOPAY.short]: "zalopay",
+}
+// Nhãn trạng thái thanh toán; "unpaid" = đơn chưa có giao dịch
+const getPaymentLabel = (key?: string) => PAYMENT_STATUS_LABELS[normalizeStatus(key)] || (key === "unpaid" ? "Chưa thanh toán" : key || "Không rõ")
+
+// Phiếu hỗ trợ (G7)
+const TICKET_FILTERS = ["open", "resolved", "all"]
 // Đơn đã thanh toán được tính vào doanh thu
 const PAID_STATUSES = ["upcoming", "active", "completed"]
 
@@ -227,6 +269,7 @@ const getCarTone = (status?: string): Tone => {
 const emptyInspectionForm = {
   documentsChecked: false,
   depositCollected: false,
+  rentCollected: false, // đơn trả tiền mặt khi nhận xe (G7)
   conditionNote: "",
   odometer: "",
   fuelLevel: "",
@@ -271,6 +314,16 @@ export default function AdminScreen() {
   const { licenses, loading: licensesLoading } = useAllLicenses(canManage)
   const { reviews, loading: reviewsLoading } = useAllReviews(canManage)
   const [reviewFilter, setReviewFilter] = useState("all")
+  const { tickets, loading: ticketsLoading } = useAllTickets(canManage)
+  const [ticketFilter, setTicketFilter] = useState("open")
+  const [replyTicketId, setReplyTicketId] = useState<string | null>(null)
+  const [replyText, setReplyText] = useState("")
+  const [replying, setReplying] = useState(false)
+  const { carTypes } = useCarTypes()
+  const [newTypeName, setNewTypeName] = useState("")
+  const [addingType, setAddingType] = useState(false)
+  const [paymentFilter, setPaymentFilter] = useState("all")
+  const [paymentMethodFilter, setPaymentMethodFilter] = useState("all")
   const [deletingReviewId, setDeletingReviewId] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isSeeding, setIsSeeding] = useState(false)
@@ -438,13 +491,31 @@ export default function AdminScreen() {
 
   const isPaid = (booking: Booking) => PAID_STATUSES.includes(normalizeStatus(booking.status))
 
-  const getPaymentStatusKey = (booking: Booking): "paid" | "pending" | "refunded" | "failed" => {
+  // "pending" = tiền mặt chờ thu khi giao xe (G7); "unpaid" = chưa có giao dịch
+  const getPaymentStatusKey = (booking: Booking): "paid" | "pending" | "unpaid" | "refunded" | "failed" => {
     const paymentStatus = normalizeStatus(booking.payment?.status)
     if (paymentStatus === "refunded") return "refunded"
     if (paymentStatus === "failed") return "failed"
+    if (paymentStatus === "pending") return "pending"
     if (booking.payment || isPaid(booking)) return "paid"
-    return "pending"
+    return "unpaid"
   }
+
+  const getPaymentTone = (key?: string): Tone => {
+    const k = normalizeStatus(key)
+    if (k === "paid" || k === "completed") return "success"
+    if (k === "pending" || k === "unpaid") return "warning"
+    return "danger"
+  }
+
+  // ===== Thanh toán (U7.5) =====
+  const paymentRows = useMemo(() => listPayments(bookings as any), [bookings])
+  const paymentSummary = useMemo(() => summarizePayments(paymentRows), [paymentRows])
+  const filteredPayments = paymentRows.filter(
+    (r) =>
+      (paymentFilter === "all" || normalizeStatus(r.status) === paymentFilter) &&
+      (paymentMethodFilter === "all" || r.method === paymentMethodFilter),
+  )
 
   // ===== Số liệu thống kê =====
   const stats = useMemo(() => {
@@ -514,6 +585,7 @@ export default function AdminScreen() {
       if (userFilter === "active" && u.status !== "active") return false
       if (userFilter === "inactive" && u.status !== "inactive") return false
       if (userFilter === "admin" && !u.isAdmin) return false
+      if (userFilter === "staff" && getUserRole(u) !== "staff") return false
       if (!q) return true
       return (
         u.name.toLowerCase().includes(q) ||
@@ -839,6 +911,7 @@ export default function AdminScreen() {
           conditionNote: f.conditionNote,
           odometer: Number(f.odometer.trim()),
           fuelLevel: f.fuelLevel,
+          ...(f.rentCollected ? { rentCollected: true } : {}), // Firestore không nhận undefined
         })
         showAlert("Đã giao xe", "Đơn chuyển sang Đang thuê, xe chuyển sang Đang cho thuê.")
       } else {
@@ -861,6 +934,54 @@ export default function AdminScreen() {
       setInspectionSubmitting(false)
     }
   }
+
+  // ===== Loại xe (U7.2) =====
+  const handleAddCarType = async () => {
+    if (addingType) return
+    setAddingType(true)
+    try {
+      await addCarType(newTypeName)
+      setNewTypeName("")
+    } catch (error: any) {
+      showAlert("Không thể thêm loại xe", error?.message || "Vui lòng thử lại.")
+    } finally {
+      setAddingType(false)
+    }
+  }
+
+  const handleDeleteCarType = (type: CarType) => {
+    confirmDialog("Xoá loại xe", `Xoá loại xe "${type.name}"?`, "Xoá", async () => {
+      try {
+        await deleteCarType(type.id)
+      } catch (error: any) {
+        showAlert("Không thể xoá loại xe", error?.message || "Vui lòng thử lại.")
+      }
+    }, { destructive: true })
+  }
+
+  // ===== Phiếu hỗ trợ (U7.1) =====
+  const openReplyTicket = (ticket: SupportTicket) => {
+    setReplyText("")
+    setReplyTicketId(ticket.id)
+  }
+
+  const submitReplyTicket = async () => {
+    if (!replyTicketId || replying) return
+    setReplying(true)
+    try {
+      await replyTicket(replyTicketId, replyText)
+      setReplyTicketId(null)
+      showAlert("Đã gửi phản hồi", "Khách hàng đã được thông báo.")
+    } catch (error: any) {
+      console.error("Error replying ticket:", error)
+      showAlert("Không thể gửi phản hồi", error?.message || "Vui lòng thử lại.")
+    } finally {
+      setReplying(false)
+    }
+  }
+
+  const getTicketCustomerName = (ticket: SupportTicket) =>
+    usersById[ticket.userId]?.name || ticket.userEmail || "Khách hàng"
 
   // ===== Thao tác với người dùng =====
   // Gán / bỏ vai trò nhân viên (chỉ quản trị viên). U7.3 gọi từ modal chi tiết người dùng.
@@ -1078,6 +1199,68 @@ export default function AdminScreen() {
   const renderFieldError = (field: string) =>
     formErrors[field] ? <Text style={styles.fieldError}>{formErrors[field]}</Text> : null
 
+  const renderCarTypes = () => (
+    <View style={styles.typesCard}>
+      <Text style={styles.licensesOverline}>Danh mục</Text>
+      <Text style={styles.typesTitle}>Loại xe</Text>
+      {carTypes.length === 0 ? (
+        <Text style={styles.fieldHint}>Chưa có loại xe nào. Nạp xe mẫu hoặc thêm loại xe bên dưới.</Text>
+      ) : (
+        <View style={styles.choiceRow}>
+          {carTypes.map((type) => {
+            const count = cars.filter((c) => c.type === type.name).length
+            return (
+              <View key={type.id} style={styles.typeChip}>
+                <Text style={styles.choiceChipText}>{type.name}</Text>
+                <Text style={styles.typeCount}>{count} xe</Text>
+                <TouchableOpacity
+                  onPress={() => handleDeleteCarType(type)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Xoá loại xe ${type.name}`}
+                  hitSlop={8}
+                  activeOpacity={PRESS_OPACITY}
+                >
+                  <Ionicons name="close-circle" size={18} color={THEME_COLORS.textMuted} />
+                </TouchableOpacity>
+              </View>
+            )
+          })}
+        </View>
+      )}
+      <View style={styles.typeAddRow}>
+        <TextInput
+          style={[inputStyle("newType"), styles.flex1]}
+          placeholder="Tên loại xe mới, VD: Bán tải"
+          placeholderTextColor={THEME_COLORS.textMuted}
+          value={newTypeName}
+          onChangeText={setNewTypeName}
+          onSubmitEditing={handleAddCarType}
+          maxLength={30}
+          returnKeyType="done"
+          {...focusProps("newType")}
+        />
+        <TouchableOpacity
+          style={[styles.addButton, styles.typeAddButton, (!newTypeName.trim() || addingType) && styles.disabledButton]}
+          onPress={handleAddCarType}
+          disabled={!newTypeName.trim() || addingType}
+          activeOpacity={PRESS_OPACITY}
+        >
+          {addingType ? (
+            <ActivityIndicator size="small" color={THEME_COLORS.textInverse} />
+          ) : (
+            <Text style={styles.addButtonText}>Thêm</Text>
+          )}
+        </TouchableOpacity>
+      </View>
+    </View>
+  )
+
+  // Chip loại xe trong form: danh sách carTypes + loại cũ của xe đang sửa (nếu đã bị xoá khỏi danh sách)
+  const typeOptions = [
+    ...carTypes.map((t) => t.name),
+    ...(newCar.type && !carTypes.some((t) => t.name === newCar.type) ? [newCar.type] : []),
+  ]
+
   const renderCarsTab = () => (
     <View style={styles.tabContent}>
       <View style={styles.tabHeader}>
@@ -1108,6 +1291,8 @@ export default function AdminScreen() {
           <Ionicons name="arrow-forward" size={20} color={THEME_COLORS.primary} />
         )}
       </TouchableOpacity>
+
+      {renderCarTypes()}
 
       {showAddCarForm && (
         <View style={styles.addCarForm}>
@@ -1153,30 +1338,46 @@ export default function AdminScreen() {
             {renderFieldError("price")}
           </View>
 
-          <View style={styles.inputRow}>
-            <View style={[styles.inputGroup, styles.flex1]}>
-              <Text style={styles.inputLabel}>Loại xe</Text>
-              <TextInput
-                style={inputStyle("type")}
-                placeholder="VD: SUV, Sedan"
-                placeholderTextColor={THEME_COLORS.textMuted}
-                value={newCar.type}
-                onChangeText={(text) => updateField("type", text)}
-                {...focusProps("type")}
-              />
-            </View>
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>Loại xe</Text>
+            {typeOptions.length === 0 ? (
+              <Text style={styles.fieldHint}>Chưa có loại xe. Thêm loại xe ở khối "Loại xe" phía trên.</Text>
+            ) : (
+              <View style={styles.choiceRow}>
+                {typeOptions.map((name) => {
+                  const selected = newCar.type === name
+                  return (
+                    <TouchableOpacity
+                      key={name}
+                      style={[styles.choiceChip, selected && styles.choiceChipActive]}
+                      onPress={() => updateField("type", selected ? "" : name)}
+                      accessibilityRole="radio"
+                      accessibilityState={{ selected }}
+                      activeOpacity={PRESS_OPACITY}
+                    >
+                      <Ionicons
+                        name={selected ? "checkmark-circle" : "radio-button-off-outline"}
+                        size={17}
+                        color={selected ? THEME_COLORS.primary : THEME_COLORS.textMuted}
+                      />
+                      <Text style={[styles.choiceChipText, selected && styles.choiceChipTextActive]}>{name}</Text>
+                    </TouchableOpacity>
+                  )
+                })}
+              </View>
+            )}
+          </View>
 
-            <View style={[styles.inputGroup, styles.flex1]}>
-              <Text style={styles.inputLabel}>Nhiên liệu</Text>
-              <TextInput
-                style={inputStyle("fuel")}
-                placeholder="VD: Xăng, Dầu diesel"
-                placeholderTextColor={THEME_COLORS.textMuted}
-                value={newCar.fuel}
-                onChangeText={(text) => updateField("fuel", text)}
-                {...focusProps("fuel")}
-              />
-            </View>
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>Nhiên liệu</Text>
+            <TextInput
+              style={inputStyle("fuel")}
+              placeholder="VD: Xăng, Dầu diesel"
+              placeholderTextColor={THEME_COLORS.textMuted}
+              value={newCar.fuel}
+              onChangeText={(text) => updateField("fuel", text)}
+              {...focusProps("fuel")}
+            />
           </View>
 
           <View style={styles.inputRow}>
@@ -1449,7 +1650,7 @@ export default function AdminScreen() {
           const imageSource = getBookingImageSource(booking)
           const paymentKey = getPaymentStatusKey(booking)
           const status = normalizeStatus(booking.status)
-          const paymentTone: Tone = paymentKey === "paid" ? "success" : paymentKey === "pending" ? "warning" : "danger"
+          const paymentTone = getPaymentTone(paymentKey)
           return (
           <Animated.View
             key={booking.id}
@@ -1486,12 +1687,12 @@ export default function AdminScreen() {
             <View style={[styles.paymentStatus, { backgroundColor: TONES[paymentTone].bg }]}>
               <Ionicons
                 name={paymentKey === 'paid' ? 'checkmark-circle' :
-                      paymentKey === 'pending' ? 'time' : 'refresh-circle'}
+                      paymentKey === 'pending' || paymentKey === 'unpaid' ? 'time' : 'refresh-circle'}
                 size={16}
                 color={TONES[paymentTone].fg}
               />
               <Text style={[styles.paymentStatusText, { color: TONES[paymentTone].fg }]}>
-                {PAYMENT_STATUS_LABELS[paymentKey] ?? paymentKey}
+                {getPaymentLabel(paymentKey)}
                 {booking.payment?.method ? ` · ${booking.payment.method}` : ""}
               </Text>
             </View>
@@ -1699,7 +1900,7 @@ export default function AdminScreen() {
               <View style={[styles.userInfo, styles.flex1]}>
                 <Image source={{ uri: user.avatar }} style={styles.userAvatar} />
                 <View style={styles.flex1}>
-                  <Text style={styles.userName} numberOfLines={1}>{user.name}{user.isAdmin ? " · Quản trị viên" : ""}</Text>
+                  <Text style={styles.userName} numberOfLines={1}>{user.name}</Text>
                   <Text style={styles.userEmail} numberOfLines={1}>{user.email}</Text>
                 </View>
               </View>
@@ -1707,6 +1908,7 @@ export default function AdminScreen() {
             </View>
 
             <View style={styles.infoBlock}>
+              {renderInfoRow("Vai trò", USER_ROLE_LABELS[getUserRole(user)])}
               {renderInfoRow("Số điện thoại", user.phone || "Chưa có số điện thoại")}
               {renderInfoRow("Ngày tham gia", user.joinDate ? formatDate(user.joinDate) : "Chưa rõ ngày tham gia")}
               {renderInfoRow("Đơn đặt xe", `${bookingCountByUser[user.id] || 0} đơn`)}
@@ -1888,6 +2090,156 @@ export default function AdminScreen() {
     )
   };
 
+  // ===== Tab Thanh toán (U7.5): giao dịch suy từ bookings =====
+  const renderPaymentsTab = () => (
+    <View style={styles.tabContent}>
+      <Text style={[styles.tabTitle, styles.tabTitleSpacing]}>Quản lý thanh toán</Text>
+
+      <View style={styles.statsGrid}>
+        {renderStatCard("wallet-outline", "Đã thu", formatCurrency(paymentSummary.totalPaid), true)}
+        {renderStatCard("refresh-circle-outline", "Đã hoàn", formatCurrency(paymentSummary.totalRefunded), true)}
+        {renderStatCard("cash-outline", "Chờ thu tiền mặt", formatCurrency(paymentSummary.pendingCash), true)}
+        {renderStatCard("alert-circle-outline", "Giao dịch lỗi", paymentSummary.failedCount)}
+      </View>
+
+      <View style={styles.bookingsFilter}>
+        {renderFilterChips(PAYMENT_FILTERS, paymentFilter, setPaymentFilter)}
+        {renderFilterChips(PAYMENT_METHOD_FILTERS, paymentMethodFilter, setPaymentMethodFilter)}
+      </View>
+
+      <View style={styles.bookingsList}>
+        {!loaded.bookings
+          ? renderEmpty("hourglass-outline", "Đang tải giao dịch...")
+          : filteredPayments.length === 0
+            ? <EmptyState image={paymentRows.length === 0 ? "bookings" : "results"} size={140} title={paymentRows.length === 0 ? "Chưa có giao dịch nào." : "Không có giao dịch phù hợp."} />
+            : filteredPayments.map((row) => {
+                const status = normalizeStatus(row.status)
+                const logoId = PAYMENT_LOGO_IDS[row.method]
+                return (
+                  <TouchableOpacity
+                    key={row.bookingId}
+                    style={styles.bookingCard}
+                    onPress={() => setSelectedBookingId(row.bookingId)}
+                    accessibilityRole="button"
+                    activeOpacity={PRESS_OPACITY}
+                  >
+                    <View style={styles.bookingHeader}>
+                      {logoId ? (
+                        <PaymentLogo method={logoId} size={40} />
+                      ) : (
+                        <View style={styles.paymentIcon}>
+                          <Ionicons name="cash-outline" size={20} color={THEME_COLORS.primary} />
+                        </View>
+                      )}
+                      <View style={styles.bookingInfo}>
+                        <Text style={styles.bookingCarName} numberOfLines={1}>{row.carName || "Xe không rõ"}</Text>
+                        <Text style={styles.customerName} numberOfLines={1}>
+                          {usersById[row.userId]?.name || "Khách hàng không xác định"}
+                        </Text>
+                      </View>
+                      {renderBadge(getPaymentLabel(row.status), getPaymentTone(row.status))}
+                    </View>
+
+                    <View style={styles.infoBlock}>
+                      {renderInfoRow("Số tiền", formatCurrency(row.amount), styles.infoValuePrice)}
+                      {renderInfoRow("Phương thức", row.method || "Chưa rõ")}
+                      {renderInfoRow(
+                        "Thời gian",
+                        row.at ? formatDate(row.at, "datetime") : status === "pending" ? "Thu khi giao xe" : "Chưa rõ",
+                      )}
+                      {row.refundAmount > 0
+                        ? renderInfoRow(
+                            "Đã hoàn",
+                            `${formatCurrency(row.refundAmount)}${row.refundedAt ? ` · ${formatDate(row.refundedAt)}` : ""}`,
+                          )
+                        : null}
+                    </View>
+                  </TouchableOpacity>
+                )
+              })}
+      </View>
+    </View>
+  )
+
+  // ===== Tab Hỗ trợ (U7.1) =====
+  const renderSupportTab = () => {
+    const countOf = (id: string) => (id === "all" ? tickets.length : tickets.filter((t) => t.status === id).length)
+    const filters = TICKET_FILTERS.map((id) => ({
+      id,
+      label: `${id === "all" ? "Tất cả" : TICKET_STATUS_LABELS[id]} (${countOf(id)})`,
+    }))
+    const visible = ticketFilter === "all" ? tickets : tickets.filter((t) => t.status === ticketFilter)
+    return (
+      <View style={styles.tabContent}>
+        <Text style={[styles.tabTitle, styles.tabTitleSpacing]}>Yêu cầu hỗ trợ</Text>
+
+        <View style={styles.bookingsFilter}>{renderFilterChips(filters, ticketFilter, setTicketFilter)}</View>
+
+        <View style={styles.bookingsList}>
+          {ticketsLoading
+            ? renderEmpty("hourglass-outline", "Đang tải yêu cầu hỗ trợ...")
+            : visible.length === 0
+              ? renderEmpty(
+                  "chatbubbles-outline",
+                  tickets.length === 0
+                    ? "Chưa có yêu cầu hỗ trợ nào."
+                    : ticketFilter === "open"
+                      ? "Không còn yêu cầu nào đang chờ xử lý."
+                      : "Không có yêu cầu phù hợp.",
+                )
+              : visible.map((ticket) => {
+                  const name = getTicketCustomerName(ticket)
+                  const resolved = ticket.status === "resolved"
+                  const priority = ticket.priority || "medium"
+                  return (
+                    <View key={ticket.id} style={styles.bookingCard}>
+                      <View style={styles.reviewHeader}>
+                        <View style={styles.reviewAvatar}>
+                          <Text style={styles.reviewAvatarText}>{name.charAt(0).toUpperCase()}</Text>
+                        </View>
+                        <View style={styles.flex1}>
+                          <Text style={styles.bookingCarName} numberOfLines={1}>{name}</Text>
+                          <Text style={styles.bookingCode}>{formatAnyDate(ticket.createdAt, "datetime")}</Text>
+                        </View>
+                        {renderBadge(TICKET_STATUS_LABELS[ticket.status] || ticket.status, resolved ? "success" : "warning")}
+                      </View>
+
+                      <View style={styles.ticketSubjectRow}>
+                        <Text style={[styles.bookingCarName, styles.flex1]}>{ticket.subject}</Text>
+                        {renderBadge(
+                          `Ưu tiên ${(PRIORITY_LABELS[priority] || priority).toLowerCase()}`,
+                          priority === "high" ? "danger" : priority === "low" ? "neutral" : "primary",
+                        )}
+                      </View>
+                      <Text style={styles.reviewComment}>{ticket.message}</Text>
+
+                      {resolved && ticket.reply ? (
+                        <View style={styles.ticketReply}>
+                          <Text style={styles.licensesOverline}>
+                            Phản hồi của RENTO{ticket.repliedAt ? ` · ${formatAnyDate(ticket.repliedAt, "datetime")}` : ""}
+                          </Text>
+                          <Text style={styles.reviewComment}>{ticket.reply}</Text>
+                        </View>
+                      ) : (
+                        <View style={styles.cardActions}>
+                          <TouchableOpacity
+                            style={[styles.smallButton, styles.smallPrimaryButton]}
+                            onPress={() => openReplyTicket(ticket)}
+                            activeOpacity={PRESS_OPACITY}
+                          >
+                            <Ionicons name="chatbubble-ellipses-outline" size={16} color={THEME_COLORS.textInverse} />
+                            <Text style={styles.smallPrimaryText}>Trả lời</Text>
+                          </TouchableOpacity>
+                        </View>
+                      )}
+                    </View>
+                  )
+                })}
+        </View>
+      </View>
+    )
+  }
+
   const renderTabContent = () => {
     switch (activeTab) {
       case "cars":
@@ -1896,8 +2248,12 @@ export default function AdminScreen() {
         return renderBookingsTab()
       case "users":
         return renderUsersTab()
+      case "payments":
+        return renderPaymentsTab()
       case "reviews":
         return renderReviewsTab()
+      case "support":
+        return renderSupportTab()
       case "reports":
         return renderReportsTab()
       default:
@@ -1933,9 +2289,7 @@ export default function AdminScreen() {
     const payment = booking.payment
     const paymentKey = getPaymentStatusKey(booking)
     const paymentStatusLabel =
-      (payment?.status && PAYMENT_STATUS_LABELS[normalizeStatus(payment.status)]) ||
-      PAYMENT_STATUS_LABELS[paymentKey] ||
-      paymentKey
+      (payment?.status && PAYMENT_STATUS_LABELS[normalizeStatus(payment.status)]) || getPaymentLabel(paymentKey)
     const { handover, returnInspection: back } = booking
     const distance =
       handover?.odometer != null && back?.odometer != null ? Number(back.odometer) - Number(handover.odometer) : null
@@ -2000,7 +2354,10 @@ export default function AdminScreen() {
                 {payment ? (
                   <>
                     {renderDetailRow("Phương thức", payment.method || "")}
-                    {renderDetailRow("Số tiền đã trả", payment.amount != null ? formatCurrency(payment.amount) : "")}
+                    {renderDetailRow(
+                      paymentKey === "pending" ? "Số tiền cần thu" : "Số tiền đã trả",
+                      payment.amount != null ? formatCurrency(payment.amount) : "",
+                    )}
                     {renderDetailRow("Mã giao dịch", payment.transactionId || "")}
                     {renderDetailRow("Thời gian thanh toán", formatAnyDate(payment.paidAt, "datetime"))}
                     {payment.refundAmount
@@ -2026,6 +2383,7 @@ export default function AdminScreen() {
                       "Tiền cọc",
                       handover.depositCollected ? `Đã thu${booking.deposit ? ` ${formatCurrency(booking.deposit)}` : ""}` : "Chưa thu",
                     )}
+                    {handover.rentCollected ? renderDetailRow("Tiền thuê", `Đã thu tiền mặt ${formatCurrency(booking.price)}`) : null}
                     {renderDetailRow("Tình trạng xe", handover.conditionNote || "")}
                   </View>
                 </>
@@ -2118,7 +2476,7 @@ export default function AdminScreen() {
               <View style={styles.detailGroup}>
                 {renderDetailRow("Số điện thoại", user.phone)}
                 {renderDetailRow("Ngày tham gia", user.joinDate ? formatDate(user.joinDate) : "")}
-                {renderDetailRow("Vai trò", user.isAdmin ? "Quản trị viên" : "Khách hàng")}
+                {renderDetailRow("Vai trò", USER_ROLE_LABELS[getUserRole(user)])}
                 {renderDetailRow("Trạng thái", USER_STATUS_LABELS[user.status])}
                 {renderDetailRow("Số đơn đặt xe", String(userBookings.length))}
                 {renderDetailRow("Tổng chi tiêu", formatCurrency(spent))}
@@ -2152,6 +2510,17 @@ export default function AdminScreen() {
               )}
 
               <View style={styles.modalActions}>
+                {isAdmin && !user.isAdmin ? (
+                  <TouchableOpacity
+                    style={[styles.modalActionButton, styles.modalSecondaryButton]}
+                    onPress={() => handleSetStaff(user, user.role !== "staff")}
+                    activeOpacity={PRESS_OPACITY}
+                  >
+                    <Text style={styles.rejectCancelText}>
+                      {user.role === "staff" ? "Bỏ vai trò nhân viên" : "Gán vai trò nhân viên"}
+                    </Text>
+                  </TouchableOpacity>
+                ) : null}
                 <TouchableOpacity
                   style={[styles.modalActionButton, user.status === "active" ? styles.modalDangerButton : styles.modalPrimaryButton]}
                   onPress={() => handleToggleUserLock(user)}
@@ -2272,6 +2641,65 @@ export default function AdminScreen() {
     )
   }
 
+  // Bottom sheet trả lời phiếu hỗ trợ (U7.1)
+  const renderReplyTicketModal = () => {
+    const ticket = replyTicketId ? tickets.find((t) => t.id === replyTicketId) : null
+    if (!ticket) return null
+    const close = () => !replying && setReplyTicketId(null)
+    const canSubmit = replyText.trim().length > 0 && !replying
+    return (
+      <Modal visible transparent animationType="slide" onRequestClose={close}>
+        <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+          <View style={[styles.modalContent, styles.rejectModalContent]}>
+            {renderModalHeader("Trả lời yêu cầu hỗ trợ", close)}
+            <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+              <View style={styles.detailGroup}>
+                {renderDetailRow("Khách hàng", getTicketCustomerName(ticket))}
+                {renderDetailRow("Chủ đề", ticket.subject)}
+              </View>
+              <Text style={[styles.reviewComment, styles.ticketQuote]}>{ticket.message}</Text>
+              <Text style={styles.inputLabel}>Nội dung phản hồi</Text>
+              <TextInput
+                style={[styles.input, styles.textArea, focusedField === "ticketReply" && (styles.inputFocused as TextStyle)]}
+                value={replyText}
+                onChangeText={setReplyText}
+                placeholder="VD: RENTO đã kiểm tra và hoàn tiền cho bạn, vui lòng kiểm tra tài khoản trong 3–5 ngày làm việc..."
+                placeholderTextColor={THEME_COLORS.textMuted}
+                multiline
+                textAlignVertical="top"
+                autoFocus
+                {...focusProps("ticketReply")}
+              />
+              <Text style={styles.inspectionHint}>Khách hàng sẽ nhận được thông báo kèm nội dung phản hồi.</Text>
+              <View style={styles.rejectModalActions}>
+                <TouchableOpacity
+                  style={[styles.modalActionButton, styles.rejectCancelButton]}
+                  onPress={close}
+                  disabled={replying}
+                  activeOpacity={PRESS_OPACITY}
+                >
+                  <Text style={styles.rejectCancelText}>Quay lại</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.modalActionButton, styles.modalPrimaryButton, styles.flex1, !canSubmit && styles.disabledButton]}
+                  onPress={submitReplyTicket}
+                  disabled={!canSubmit}
+                  activeOpacity={PRESS_OPACITY}
+                >
+                  {replying ? (
+                    <ActivityIndicator size="small" color={THEME_COLORS.textInverse} />
+                  ) : (
+                    <Text style={styles.modalPrimaryText}>Gửi phản hồi</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+    )
+  }
+
   // Bottom sheet biên bản giao xe (Upcoming → Active) / nhận lại xe (Active → Completed)
   const renderInspectionModal = () => {
     if (!inspection || !inspectionBooking) return null
@@ -2285,11 +2713,13 @@ export default function AdminScreen() {
     const km = f.odometer === "" ? null : Number(f.odometer)
     const kmTooLow = !isHandover && km != null && handoverKm != null && km < handoverKm
     const totalFees = returnPreview ? returnPreview.lateFee + returnPreview.extraFees : 0
+    // Khách chọn trả tiền mặt khi nhận xe: phải thu tiền thuê trước khi giao (G7)
+    const cashDue = normalizeStatus(booking.payment?.status) === "pending"
     const ready = isHandover
-      ? f.documentsChecked && f.depositCollected && !!f.conditionNote.trim() && km != null && !!f.fuelLevel
+      ? f.documentsChecked && f.depositCollected && (!cashDue || f.rentCollected) && !!f.conditionNote.trim() && km != null && !!f.fuelLevel
       : km != null && !kmTooLow && !!f.fuelLevel
 
-    const checkRow = (field: "documentsChecked" | "depositCollected", title: string, caption: string) => (
+    const checkRow = (field: "documentsChecked" | "depositCollected" | "rentCollected", title: string, caption: string) => (
       <TouchableOpacity
         style={[styles.checkRow, f[field] && styles.checkRowActive]}
         onPress={() => updateInspection(field, !f[field])}
@@ -2330,9 +2760,12 @@ export default function AdminScreen() {
 
               {isHandover ? (
                 <>
-                  <Text style={styles.detailSection}>Giấy tờ & tiền cọc</Text>
+                  <Text style={styles.detailSection}>{cashDue ? "Giấy tờ, tiền thuê & tiền cọc" : "Giấy tờ & tiền cọc"}</Text>
                   <View style={styles.checkList}>
                     {checkRow("documentsChecked", "Đã kiểm tra giấy tờ", "CCCD và GPLX bản gốc khớp với hồ sơ đặt xe")}
+                    {cashDue
+                      ? checkRow("rentCollected", `Đã thu tiền thuê ${formatCurrency(booking.price)}`, "Khách chọn trả tiền mặt khi nhận xe")
+                      : null}
                     {checkRow("depositCollected", "Đã thu tiền cọc", deposit ? formatCurrency(deposit) : "Đơn không có tiền cọc")}
                   </View>
                 </>
@@ -2462,6 +2895,7 @@ export default function AdminScreen() {
             <Ionicons name="arrow-back" size={20} color={THEME_COLORS.textPrimary} />
           </TouchableOpacity>
           <Text style={styles.headerTitle} numberOfLines={1}>Trang quản trị</Text>
+          <View>{renderBadge(USER_ROLE_LABELS[isStaff ? "staff" : "admin"], isStaff ? "neutral" : "primary")}</View>
         </View>
 
         {/* Thanh chuyển tab dạng segmented control */}
@@ -2509,6 +2943,7 @@ export default function AdminScreen() {
       {renderUserDetailModal()}
       {renderRejectLicenseModal()}
       {renderRejectBookingModal()}
+      {renderReplyTicketModal()}
     </SafeAreaView>
   )
 }
@@ -2651,6 +3086,64 @@ const styles = StyleSheet.create({
   seedCaption: {
     ...TYPOGRAPHY.caption,
     marginTop: 2,
+  },
+
+  // ===== Loại xe (G7) =====
+  typesCard: {
+    ...UI.card,
+    padding: SPACE.lg,
+    marginBottom: SPACE.xl,
+  },
+  typesTitle: {
+    ...TYPOGRAPHY.h3,
+    marginTop: 2,
+    marginBottom: SPACE.md,
+  },
+  typeChip: {
+    ...UI.chip,
+    flexDirection: "row",
+    gap: SPACE.sm,
+  },
+  typeCount: {
+    ...TYPOGRAPHY.caption,
+    fontSize: 12,
+  },
+  typeAddRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SPACE.sm,
+    marginTop: SPACE.lg,
+  },
+  typeAddButton: {
+    alignSelf: "stretch", // cao bằng ô nhập bên cạnh
+    height: "auto",
+  },
+
+  // ===== Thanh toán / hỗ trợ (G7) =====
+  paymentIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: RADIUS.control,
+    backgroundColor: THEME_COLORS.primarySoft,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  ticketSubjectRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: SPACE.md,
+    marginTop: SPACE.md,
+  },
+  ticketReply: {
+    marginTop: SPACE.md,
+    padding: SPACE.md,
+    borderRadius: RADIUS.control,
+    backgroundColor: THEME_COLORS.surfaceMuted,
+    borderWidth: 1,
+    borderColor: THEME_COLORS.border,
+  },
+  ticketQuote: {
+    marginBottom: SPACE.lg,
   },
 
   // ===== Form thêm/sửa xe =====
@@ -3443,6 +3936,9 @@ const styles = StyleSheet.create({
   },
   rejectCancelText: {
     ...UI.secondaryButtonText,
+  },
+  modalSecondaryButton: {
+    ...UI.secondaryButton,
   },
 
   // ===== Biên bản giao / nhận lại xe =====

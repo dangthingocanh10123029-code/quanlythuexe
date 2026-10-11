@@ -7,7 +7,7 @@ import { Ionicons } from "@expo/vector-icons"
 import { router } from "expo-router"
 import { useUserBookings } from "../../hooks/useBookings"
 import { formatCurrency, formatDate } from "../../utils/helpers"
-import { BOOKING_TABS } from "../../utils/constants"
+import { BOOKING_TABS, PAYMENT_STATUS_LABELS } from "../../utils/constants"
 import type { Booking as BookingDoc } from "../../types/booking"
 import { useCars, getCarImage } from "../../hooks/useCars"
 import type { Car } from "../../types/car"
@@ -130,6 +130,12 @@ export default function BookingsScreen() {
           {item.payment && (normalizeStatus(item.payment.status) === "failed" ? (
             <Text style={[styles.paymentText, styles.paymentInfo, styles.dangerText]}>
               Giao dịch gần nhất thất bại, bạn có thể thanh toán lại
+            </Text>
+          ) : normalizeStatus(item.payment.status) === "pending" ? (
+            // Tiền mặt khi nhận xe: chưa trả tiền; đơn đã huỷ/từ chối thì không còn thu
+            <Text style={[styles.paymentText, styles.paymentInfo, canModify && styles.warningText]}>
+              Thanh toán khi nhận xe
+              {canModify ? ` · ${PAYMENT_STATUS_LABELS.pending} ${formatCurrency(item.payment.amount ?? item.price)}` : ""}
             </Text>
           ) : (
             <View style={styles.paymentInfo}>
@@ -410,6 +416,9 @@ const styles = StyleSheet.create({
   },
   successText: {
     color: THEME_COLORS.success,
+  },
+  warningText: {
+    color: THEME_COLORS.warning,
   },
   actions: {
     marginTop: SPACE.lg,

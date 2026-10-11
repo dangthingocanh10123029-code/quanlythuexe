@@ -17,7 +17,7 @@ import { router } from "expo-router"
 import PaymentLogo from "./ui/PaymentLogo"
 import DateTimeRangePicker from "./DateTimeRangePicker"
 import { calcBookingPrice, daysBetween, getBookingRange } from "../utils/booking"
-import { cancelBooking, previewRefund, rescheduleBooking, submitReview } from "../utils/bookingActions"
+import { cancelBooking, chooseCashPayment, previewRefund, rescheduleBooking, submitReview } from "../utils/bookingActions"
 import { PAYMENT_METHODS } from "../utils/constants"
 import { formatCurrency, formatDate } from "../utils/helpers"
 import { confirmDialog, showAlert } from "../utils/dialog"
@@ -64,9 +64,11 @@ export function PaymentMethodSheet({
   booking,
   onClose,
 }: {
-  booking: Pick<Booking, "id" | "carName" | "price"> | null
+  booking: Pick<Booking, "id" | "carName" | "price" | "deposit"> | null
   onClose: () => void
 }) {
+  const [savingCash, setSavingCash] = useState(false)
+
   const goToPayment = (route: PaymentRoute) => {
     if (!booking) return
     onClose()
@@ -74,6 +76,34 @@ export function PaymentMethodSheet({
       pathname: route,
       params: { amount: String(Math.round(Number(booking.price) || 0)), bookingId: booking.id },
     })
+  }
+
+  // Tiền mặt (G7): không mở màn thanh toán, đơn sang "Sắp nhận xe" và chờ thu tiền khi giao xe
+  const chooseCash = () => {
+    if (!booking || savingCash) return
+    const deposit = booking.deposit ? ` và tiền cọc ${formatCurrency(booking.deposit)}` : " và tiền cọc"
+    confirmDialog(
+      "Thanh toán khi nhận xe",
+      `Bạn sẽ trả tiền thuê ${formatCurrency(booking.price)}${deposit} bằng tiền mặt khi nhận ${booking.carName}.`,
+      "Đồng ý",
+      async () => {
+        try {
+          setSavingCash(true)
+          await chooseCashPayment(booking.id)
+          onClose()
+          showAlert(
+            "Đã chọn thanh toán khi nhận xe",
+            `Vui lòng chuẩn bị tiền thuê ${formatCurrency(booking.price)}${deposit} khi đến nhận xe.`,
+          )
+        } catch (error: any) {
+          console.error("Error choosing cash payment:", error)
+          showAlert("Không thể chọn thanh toán khi nhận xe", error?.message || "Vui lòng thử lại.")
+        } finally {
+          setSavingCash(false)
+        }
+      },
+      { cancelText: "Quay lại" },
+    )
   }
 
   return (
@@ -101,6 +131,23 @@ export function PaymentMethodSheet({
               <Ionicons name="chevron-forward" size={20} color={THEME_COLORS.textMuted} />
             </TouchableOpacity>
           ))}
+          <TouchableOpacity
+            style={[styles.paymentOption, savingCash && styles.disabledButton]}
+            onPress={chooseCash}
+            disabled={savingCash}
+            activeOpacity={PRESS_OPACITY}
+          >
+            <View style={styles.cashLogo}>
+              <Ionicons name="cash-outline" size={22} color={THEME_COLORS.textInverse} />
+            </View>
+            <View style={styles.paymentOptionInfo}>
+              <Text style={styles.paymentOptionName}>{PAYMENT_METHODS.CASH.label}</Text>
+              <Text style={styles.paymentOptionSubtitle}>
+                {savingCash ? "Đang xử lý..." : "Trả tiền thuê và tiền cọc khi nhận xe"}
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={THEME_COLORS.textMuted} />
+          </TouchableOpacity>
         </View>
       </View>
     </Modal>
@@ -179,7 +226,7 @@ export function RescheduleSheet({
       return
     }
     const message = paid
-      ? "Đơn đã thanh toán chỉ được dời thời gian nhận xe, giữ nguyên số giờ thuê và tổng tiền."
+      ? "Đơn đã chốt thanh toán chỉ được dời thời gian nhận xe, giữ nguyên số giờ thuê và tổng tiền."
       : `Tổng tiền dự kiến: ${formatCurrency(getPreviewPrice(booking))}.\n\nĐơn sẽ quay về trạng thái "Chờ xác nhận" để RENTO xác nhận lại lịch mới.`
     confirmDialog("Xác nhận đổi lịch", message, "Đồng ý", () => save(booking), { cancelText: "Quay lại" })
   }
@@ -211,7 +258,7 @@ export function RescheduleSheet({
               </View>
               {paid && (
                 <Text style={styles.lockedHint}>
-                  Đơn đã thanh toán giữ nguyên số giờ thuê và tổng tiền, bạn chỉ có thể dời thời gian nhận xe.
+                  Đơn đã chốt thanh toán (trả trước hoặc tiền mặt khi nhận xe) giữ nguyên số giờ thuê và tổng tiền, bạn chỉ có thể dời thời gian nhận xe.
                 </Text>
               )}
 
@@ -434,6 +481,15 @@ const styles = StyleSheet.create({
     padding: SPACE.lg,
     borderRadius: RADIUS.control,
     marginBottom: SPACE.md,
+  },
+  // Cùng khuôn với PaymentLogo size 40 (bo = 25% cạnh)
+  cashLogo: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    backgroundColor: PAYMENT_METHODS.CASH.color,
+    alignItems: "center",
+    justifyContent: "center",
   },
   paymentOptionInfo: {
     flex: 1,

@@ -1,7 +1,7 @@
 "use client"
 
 import { useRef, useState } from "react"
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Linking, Modal, type TextStyle } from "react-native"
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Linking, Modal, ActivityIndicator, type TextStyle } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 import { StatusBar } from "expo-status-bar"
 import { Ionicons } from "@expo/vector-icons"
@@ -9,8 +9,11 @@ import { router } from "expo-router"
 import { collection, addDoc, serverTimestamp } from "firebase/firestore"
 import { db } from "../../config/firebase"
 import { useAuth } from "../../hooks/useAuth"
+import { useMyTickets } from "../../hooks/useSupportTickets"
 import { showAlert } from "../../utils/dialog"
-import { HOTLINE, SUPPORT_EMAIL } from "../../utils/constants"
+import { toDate } from "../../utils/booking"
+import { formatDate } from "../../utils/helpers"
+import { HOTLINE, SUPPORT_EMAIL, TICKET_STATUS_LABELS, PRIORITY_LABELS } from "../../utils/constants"
 import { PRESS_OPACITY, RADIUS, SHADOWS, SPACE, THEME_COLORS, TYPOGRAPHY, UI } from "../../utils/theme"
 
 const BUG_REPORT_SUBJECT = "Báo lỗi ứng dụng"
@@ -45,7 +48,7 @@ const bookingGuideSteps = [
   {
     icon: "card",
     title: "Thanh toán",
-    description: "Mở đơn trong tab Chuyến đi, bấm \"Thanh toán\" và chọn Thẻ ngân hàng, MoMo hoặc ZaloPay. Khi thanh toán thành công, đơn chuyển sang trạng thái \"Sắp nhận xe\".",
+    description: "Mở đơn trong tab Chuyến đi, bấm \"Thanh toán\" và chọn Thẻ ngân hàng, MoMo, ZaloPay hoặc Tiền mặt khi nhận xe. Khi thanh toán thành công (hoặc chọn trả tiền mặt), đơn chuyển sang trạng thái \"Sắp nhận xe\".",
   },
   {
     icon: "calendar",
@@ -59,7 +62,7 @@ const faqData = [
     id: 1,
     question: "Làm sao để đặt xe trên RENTO?",
     answer:
-      "Bạn chọn xe ưng ý, chọn ngày nhận – trả xe và điểm nhận xe, sau đó bấm \"Gửi yêu cầu đặt xe\". Đơn hiện ngay trong tab Chuyến đi; khi RENTO xác nhận, bạn thanh toán qua MoMo, ZaloPay hoặc thẻ ngân hàng trong chi tiết đơn.",
+      "Bạn chọn xe ưng ý, chọn ngày nhận – trả xe và điểm nhận xe, sau đó bấm \"Gửi yêu cầu đặt xe\". Đơn hiện ngay trong tab Chuyến đi; khi RENTO xác nhận, bạn thanh toán qua MoMo, ZaloPay, thẻ ngân hàng trong chi tiết đơn hoặc chọn trả tiền mặt khi nhận xe.",
   },
   {
     id: 2,
@@ -128,14 +131,15 @@ const contactOptions = [
   },
 ]
 
-const PRIORITY_LABELS: Record<string, string> = {
-  low: "Thấp",
-  medium: "Trung bình",
-  high: "Cao",
+// Timestamp (serverTimestamp chưa ghi xong là null) → chuỗi ngày giờ
+const fmt = (value: any) => {
+  const d = toDate(value)
+  return d ? formatDate(d, "datetime") : ""
 }
 
 export default function SupportScreen() {
   const { user } = useAuth()
+  const { tickets, loading: ticketsLoading } = useMyTickets()
   const scrollRef = useRef<ScrollView>(null)
   const contactFormY = useRef(0)
   const [expandedFaq, setExpandedFaq] = useState<number | null>(null)
@@ -364,6 +368,51 @@ export default function SupportScreen() {
             </View>
           </View>
         )}
+
+        {/* Phiếu hỗ trợ đã gửi + phản hồi của RENTO (G7) */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Yêu cầu hỗ trợ của bạn</Text>
+          {ticketsLoading ? (
+            <ActivityIndicator color={THEME_COLORS.primary} />
+          ) : tickets.length === 0 ? (
+            <View style={styles.ticketEmpty}>
+              <Ionicons name="chatbox-ellipses-outline" size={28} color={THEME_COLORS.textMuted} />
+              <Text style={styles.ticketEmptyText}>
+                Bạn chưa gửi yêu cầu hỗ trợ nào. Bấm "Liên hệ" để gửi tin nhắn cho RENTO.
+              </Text>
+            </View>
+          ) : (
+            <View style={styles.ticketList}>
+              {tickets.map((ticket) => {
+                const resolved = ticket.status === "resolved"
+                return (
+                  <View key={ticket.id} style={styles.ticketCard}>
+                    <View style={styles.ticketHeader}>
+                      <Text style={styles.ticketSubject} numberOfLines={2}>{ticket.subject}</Text>
+                      <View style={[styles.ticketBadge, resolved && styles.ticketBadgeResolved]}>
+                        <Text style={[styles.ticketBadgeText, resolved && styles.ticketBadgeTextResolved]}>
+                          {TICKET_STATUS_LABELS[ticket.status] ?? ticket.status}
+                        </Text>
+                      </View>
+                    </View>
+                    {ticket.createdAt ? <Text style={styles.ticketTime}>{fmt(ticket.createdAt)}</Text> : null}
+                    <Text style={styles.ticketMessage}>{ticket.message}</Text>
+                    {ticket.reply ? (
+                      <View style={styles.replyBox}>
+                        <View style={styles.replyHeader}>
+                          <Ionicons name="chatbubble-ellipses-outline" size={16} color={THEME_COLORS.primary} />
+                          <Text style={styles.replyTitle}>Phản hồi từ RENTO</Text>
+                        </View>
+                        <Text style={styles.ticketMessage}>{ticket.reply}</Text>
+                        {ticket.repliedAt ? <Text style={styles.ticketTime}>{fmt(ticket.repliedAt)}</Text> : null}
+                      </View>
+                    ) : null}
+                  </View>
+                )
+              })}
+            </View>
+          )}
+        </View>
 
         {/* Contact Options */}
         <View style={styles.section}>
@@ -631,6 +680,76 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: {
     opacity: 0.6,
+  },
+  // Phiếu hỗ trợ của bạn
+  ticketEmpty: {
+    ...UI.card,
+    alignItems: "center",
+    gap: SPACE.sm,
+    padding: SPACE.xl,
+  },
+  ticketEmptyText: {
+    ...TYPOGRAPHY.caption,
+    textAlign: "center",
+  },
+  ticketList: {
+    gap: SPACE.md,
+  },
+  ticketCard: {
+    ...UI.card,
+    padding: SPACE.lg,
+  },
+  ticketHeader: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: SPACE.sm,
+  },
+  ticketSubject: {
+    ...TYPOGRAPHY.bodyStrong,
+    flex: 1,
+  },
+  ticketBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: RADIUS.pill,
+    backgroundColor: THEME_COLORS.warningSoft,
+  },
+  ticketBadgeResolved: {
+    backgroundColor: THEME_COLORS.successSoft,
+  },
+  ticketBadgeText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: THEME_COLORS.warning,
+  },
+  ticketBadgeTextResolved: {
+    color: THEME_COLORS.success,
+  },
+  ticketTime: {
+    ...TYPOGRAPHY.caption,
+    marginTop: SPACE.xs,
+  },
+  ticketMessage: {
+    ...TYPOGRAPHY.body,
+    fontSize: 14,
+    lineHeight: 20,
+    marginTop: SPACE.sm,
+  },
+  replyBox: {
+    marginTop: SPACE.md,
+    padding: SPACE.md,
+    borderRadius: RADIUS.control,
+    backgroundColor: THEME_COLORS.primarySoft,
+  },
+  replyHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  replyTitle: {
+    ...TYPOGRAPHY.bodyStrong,
+    fontSize: 14,
+    color: THEME_COLORS.primary,
   },
   // Kênh liên hệ
   contactOptions: {
