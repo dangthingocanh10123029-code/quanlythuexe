@@ -57,7 +57,7 @@ AsyncStorage: `rento:readNotificationIds` (thông báo demo đã đọc).
 - Tiền luôn qua `formatCurrency`, ngày qua `formatDate` — không dùng `$`, `toFixed(2)`, `toLocaleDateString`.
 - **Giá trị lưu Firestore / dùng để so sánh giữ tiếng Anh** (`status: "Pending" | "Upcoming" | "Active" | "Completed"`, user `status`, car `status: "Available"`); chỉ đổi nhãn hiển thị qua `getBookingStatusLabel` / các bảng `*_LABELS`.
 - Màn đặt xe ở `bookings.tsx` vẫn chấp nhận `payment.method` cũ ("GCash", "PayPal", "Credit Card") để hiển thị đơn cũ.
-- Tên thành viên trong `app/developers.tsx` giữ nguyên (ghi công tác giả gốc).
+- `app/developers.tsx` hiển thị nhóm phát triển: Ngọc Ánh, Đoan Trang (avatar chữ cái đầu, không có email).
 
 ## Hệ thống thiết kế ("Layered & Depth")
 Token gốc nằm trong `theme/` (`colors.ts`, `spacing.ts`, `typography.ts`, `shadows.ts`); `utils/theme.ts` là lớp re-export tương thích. Dùng token, không hard-code màu/bóng:
