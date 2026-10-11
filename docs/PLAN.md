@@ -262,9 +262,9 @@ Thứ tự bắt buộc: G0 → G1 → … → G6 → G8. G7 tuỳ chọn, làm 
 - [x] **L4.3** Doanh thu admin = tiền thuê đã thanh toán − hoàn tiền + phí phát sinh.
 
 **Codex**
-- [ ] **U4.1** Admin: bottom sheet "Biên bản giao xe" (checkbox, số km, mức xăng dạng chip ¼ ½ ¾ Đầy, ghi chú).
-- [ ] **U4.2** Admin: bottom sheet "Biên bản nhận lại xe" (km, xăng, hư hỏng, các dòng phí, tiền hoàn cọc tự tính).
-- [ ] **U4.3** Chi tiết đơn của khách: khối biên bản giao/nhận (chỉ xem).
+- [x] **U4.1** Admin: bottom sheet "Biên bản giao xe" (checkbox, số km, mức xăng dạng chip ¼ ½ ¾ Đầy, ghi chú).
+- [x] **U4.2** Admin: bottom sheet "Biên bản nhận lại xe" (km, xăng, hư hỏng, các dòng phí, tiền hoàn cọc tự tính).
+- [x] **U4.3** Chi tiết đơn của khách: khối biên bản giao/nhận (chỉ xem).
 
 **Ghi chú bàn giao G4** (Claude, L4):
 - `utils/bookingActions.ts`: `handOverBooking(id, { documentsChecked, depositCollected, conditionNote, odometer, fuelLevel })` → `Active`, xe `Rented`; `returnBooking(id, { odometer, fuelLevel, damageNote, extraFees })` → `Completed`, xe `Available` (+1 lượt đặt), xoá `bookedSlots`, trả `{ lateFee, extraFees, depositRefund }`; `previewReturn(booking, car, extraFees)` tính trước cho biên bản. Mức nhiên liệu `FUEL_LEVELS` (¼ ½ ¾ Đầy). Lỗi ném `Error` tiếng Việt (thiếu checklist, km nhỏ hơn lúc giao…).
@@ -279,10 +279,10 @@ Thứ tự bắt buộc: G0 → G1 → … → G6 → G8. G7 tuỳ chọn, làm 
 - [x] **L5.3** Gọi `notify` ở mọi sự kiện: đặt xe, xác nhận, từ chối, thanh toán thành công/thất bại, giao xe, hoàn tất, huỷ/hoàn tiền, GPLX duyệt/từ chối. `notifications.tsx` đọc Firestore qua `useNotifications` (bỏ dữ liệu mẫu và key AsyncStorage); đếm chưa đọc cho chuông Home; nhắc nhận xe khi có đơn `Upcoming` trong 24h tới (tính phía client).
 
 **Codex**
-- [ ] **U5.1** Bottom sheet "Đánh giá chuyến đi" (5 sao + nhận xét) mở từ chi tiết đơn và thẻ Lịch sử.
-- [ ] **U5.2** Car details: điểm trung bình + số đánh giá, danh sách đánh giá, trạng thái rỗng.
-- [ ] **U5.3** Màn Thông báo: icon theo loại, đã đọc/chưa đọc, bấm thì mở chi tiết đơn; chấm đỏ chuông Home; thẻ nhắc nhận xe trên Home.
-- [ ] **U5.4** Admin: mục "Đánh giá" — danh sách, lọc theo số sao, xoá.
+- [x] **U5.1** Bottom sheet "Đánh giá chuyến đi" (5 sao + nhận xét) mở từ chi tiết đơn và thẻ Lịch sử.
+- [x] **U5.2** Car details: điểm trung bình + số đánh giá, danh sách đánh giá, trạng thái rỗng.
+- [x] **U5.3** Màn Thông báo: icon theo loại, đã đọc/chưa đọc, bấm thì mở chi tiết đơn; chấm đỏ chuông Home; thẻ nhắc nhận xe trên Home.
+- [x] **U5.4** Admin: mục "Đánh giá" — danh sách, lọc theo số sao, xoá.
 
 **Ghi chú bàn giao G5** (Claude, L5):
 - `submitReview(bookingId, rating, comment)` (transaction: `reviews/{bookingId}` + cập nhật `cars.rating`, `reviewCount` + `booking.reviewed`). Chỉ đơn `Completed` của chính người dùng, chưa đánh giá; 1–5 sao; nhận xét ≤ 500 ký tự; tên hiển thị = `users.fullName`. Nút "Đánh giá" hiện khi `status === "Completed" && !booking.reviewed` (chi tiết đơn + thẻ Lịch sử).
@@ -291,6 +291,9 @@ Thứ tự bắt buộc: G0 → G1 → … → G6 → G8. G7 tuỳ chọn, làm 
 - Thông báo: `app/notifications.tsx` đọc Firestore qua `useNotifications()` (`notifications`, `unreadCount`, `markAsRead(id)`, `markAllAsRead()`); đã bỏ dữ liệu mẫu và key AsyncStorage `rento:readNotificationIds`. Bấm thông báo có `bookingId` → `/booking/[id]`. Icon/màu theo loại ở `TYPE_STYLE` (giao diện giữ như cũ, comment `ponytail:` → U5.3).
 - Trang chủ: `hasNotifications` = `unreadCount > 0` (chấm đỏ chuông); `pickupReminder` = đơn `Upcoming` nhận xe trong 24h tới (`findPickupReminder`) → U5.3 hiện thẻ nhắc.
 - Mọi sự kiện đã gọi `notify`: đặt xe, xác nhận, từ chối, thanh toán thành công/thất bại, giao xe, hoàn tất, huỷ/hoàn tiền, đổi lịch, GPLX duyệt/từ chối.
+
+**Bàn giao U4/U5** (Claude thay Codex): admin có bottom sheet biên bản giao/nhận xe và tab "Đánh giá"; `ReviewSheet({ booking, onClose })` trong `components/BookingSheets.tsx`; chi tiết đơn có khối biên bản + nút đánh giá; thẻ Lịch sử có nút đánh giá; chi tiết xe có tóm tắt điểm; Thông báo và thẻ nhắc nhận xe ở Home. Còn lại cho U8.1: admin header 5 tab có thể bị cắt chữ trên màn hẹp; `Alert.alert` một nút không hiện trên web; modal chi tiết đơn admin chưa hiện biên bản; thẻ chi nhánh ở chi tiết xe còn 5 sao cứng; dùng ảnh `assets/empty/*` cho trạng thái rỗng.
+**V4/V5** (Claude): tsc + 55 test sạch; rà diff không ghi Firestore mới, không hard-code màu.
 
 ### G6 — Tài khoản
 **Claude**
