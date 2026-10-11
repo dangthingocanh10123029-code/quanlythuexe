@@ -3,20 +3,20 @@
 import { useState, useEffect } from "react"
 import { collection, query, where, onSnapshot, doc, updateDoc, writeBatch } from "firebase/firestore"
 import { db } from "../config/firebase"
-import type { Notification } from "../types"
-import { useAuth } from "./useAuth"
+import type { Notification } from "../types/notification"
+import { useUid } from "./useUid"
 
 const createdAtMs = (value: any): number =>
   value?.toDate ? value.toDate().getTime() : value ? new Date(value).getTime() || 0 : 0
 
 export function useNotifications() {
-  const { user } = useAuth()
+  const uid = useUid()
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!user) {
+    if (!uid) {
       setNotifications([])
       setLoading(false)
       return
@@ -24,7 +24,7 @@ export function useNotifications() {
 
     const notificationsQuery = query(
       collection(db, "notifications"),
-      where("userId", "==", user.id),
+      where("userId", "==", uid),
     )
 
     const unsubscribe = onSnapshot(
@@ -42,13 +42,13 @@ export function useNotifications() {
       },
       (error) => {
         console.error("Error fetching notifications:", error)
-        setError("Failed to fetch notifications")
+        setError("Không tải được thông báo")
         setLoading(false)
       },
     )
 
     return unsubscribe
-  }, [user])
+  }, [uid])
 
   const unreadCount = notifications.filter((notification) => !notification.read).length
 

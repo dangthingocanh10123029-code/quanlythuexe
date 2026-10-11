@@ -1,16 +1,17 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, FlatList, Image, Alert, Modal, Platform } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 import { Ionicons } from "@expo/vector-icons"
 import { router } from "expo-router"
 import DateTimePicker from "@react-native-community/datetimepicker"
-import { db } from "../../config/firebase"
-import { collection, query, where, onSnapshot, doc, updateDoc } from "firebase/firestore"
-import { useAuth } from "../../hooks/useAuth"
+import { useUserBookings } from "../../hooks/useBookings"
 import { formatCurrency, formatDate } from "../../utils/helpers"
-import { getBookingStatusLabel, PAYMENT_METHODS } from "../../utils/constants"
+import { BOOKING_TABS, getBookingStatusLabel, PAYMENT_METHODS } from "../../utils/constants"
+import { calcBookingPrice } from "../../utils/booking"
+import { cancelBooking, previewRefund, rescheduleBooking } from "../../utils/bookingActions"
+import type { Booking as BookingDoc } from "../../types/booking"
 import { useCars, getCarImage } from "../../hooks/useCars"
 import type { Car } from "../../types/car"
 import PaymentLogo from "../../components/ui/PaymentLogo"
@@ -18,48 +19,14 @@ import { StatusBar } from "expo-status-bar"
 import type { ViewStyle } from "react-native"
 import { THEME_COLORS, RADIUS, SPACE, SHADOWS, TYPOGRAPHY, UI, PRESS_OPACITY } from "../../utils/theme"
 
-// Update the interfaces section
-interface AddOn {
-  id: string;
-  name: string;
-  price: number;
-  selected: boolean;
-}
-
-interface Payment {
-  // Đơn cũ có thể còn lưu 'GCash' | 'PayPal' | 'Credit Card'
-  method: 'MoMo' | 'ZaloPay' | 'Thẻ ngân hàng' | 'GCash' | 'PayPal' | 'Credit Card';
-  amount: number;
-  transactionId: string;
-  paidAt: Date;
-  status: 'Completed' | 'Failed';
-  email?: string; // Optional for ZaloPay
-  lastFourDigits?: string; // Optional for Credit Card
-}
-
-interface Booking {
-  id: string;
-  userId: string;
-  carId: string;
-  carName: string;
-  carImage: any;
-  duration: number;
-  location: string;
-  // Giá trị lưu Firestore: Pending | Upcoming | Active | Completed | Cancelled (dữ liệu cũ có thể viết thường)
-  status: string;
-  price: number;
-  selectedAddOns: AddOn[];
-  createdAt: Date;
-  pickupDate?: any; // Date hoặc Firestore Timestamp (thêm khi đổi lịch)
-  cancelledAt?: any;
-  payment?: Payment; // Make payment optional since it might not exist for new bookings
-}
+// Đơn cũ có thể còn carImage (chuỗi URL / data URI) và payment.method cũ ('GCash' | 'PayPal' | 'Credit Card')
+type Booking = BookingDoc & { carImage?: any }
 
 type TabKey = "upcoming" | "active" | "history"
 type PaymentRoute = "/credit-card" | "/momo" | "/zalopay"
 
 const TABS: { key: TabKey; label: string; emptyText: string }[] = [
-  { key: "upcoming", label: "Sắp tới", emptyText: "Không có chuyến nào đang chờ thanh toán hoặc chờ nhận xe" },
+  { key: "upcoming", label: "Sắp tới", emptyText: "Không có chuyến nào đang chờ xác nhận, chờ thanh toán hoặc chờ nhận xe" },
   { key: "active", label: "Đang thuê", emptyText: "Bạn không có chuyến nào đang thuê" },
   { key: "history", label: "Lịch sử", emptyText: "Chưa có chuyến nào hoàn thành hoặc đã huỷ" },
 ]
@@ -89,6 +56,7 @@ const getStatusTone = (status?: string): { bg: string; fg: string } => {
       return { bg: THEME_COLORS.successSoft, fg: THEME_COLORS.success }
     case "cancelled":
     case "canceled":
+    case "rejected":
       return { bg: THEME_COLORS.dangerSoft, fg: THEME_COLORS.danger }
     default:
       return { bg: THEME_COLORS.surfaceMuted, fg: THEME_COLORS.textSecondary }
@@ -110,27 +78,17 @@ const toDate = (value: any) => (value && typeof value.toDate === "function" ? va
 
 const normalizeStatus = (status?: string) => (status || "").toLowerCase()
 
-// Mỗi đơn thuộc đúng một tab
+// Mỗi đơn thuộc đúng một tab (BOOKING_TABS); trạng thái lạ xếp vào Sắp tới
 const getTabForStatus = (status?: string): TabKey => {
-  switch (normalizeStatus(status)) {
-    case "active":
-      return "active"
-    case "completed":
-    case "cancelled":
-    case "canceled":
-      return "history"
-    default:
-      // pending, upcoming, confirmed và các trạng thái chưa xác định
-      return "upcoming"
-  }
+  const key = normalizeStatus(status)
+  if ((BOOKING_TABS.active as readonly string[]).includes(key)) return "active"
+  if ((BOOKING_TABS.history as readonly string[]).includes(key)) return "history"
+  return "upcoming"
 }
 
-const isPendingStatus = (status?: string) => normalizeStatus(status) === "pending"
-const canModifyStatus = (status?: string) => ["pending", "upcoming"].includes(normalizeStatus(status))
-
-// Đơn đã thanh toán: có payment thành công hoặc đã chuyển sang Upcoming
-const isPaidBooking = (booking: Booking) =>
-  normalizeStatus(booking.payment?.status) === "completed" || normalizeStatus(booking.status) === "upcoming"
+// Đơn đã được RENTO xác nhận, chờ khách thanh toán (D2)
+const isAwaitingPayment = (status?: string) => normalizeStatus(status) === "confirmed"
+const canModifyStatus = (status?: string) => ["pending", "confirmed", "upcoming"].includes(normalizeStatus(status))
 
 // Ảnh theo xe trên Firestore; đơn cũ có thể còn carImage dạng chuỗi (URL / data URI)
 const resolveCarImage = (booking: Booking, cars: Car[]) => {
@@ -149,10 +107,8 @@ const startOfToday = () => {
 
 export default function BookingsScreen() {
   const [activeTab, setActiveTab] = useState<TabKey>("upcoming")
-  const { user } = useAuth()
   const { cars } = useCars()
-  const [bookings, setBookings] = useState<Booking[]>([])
-  const [loading, setLoading] = useState(true)
+  const { bookings } = useUserBookings() as { bookings: Booking[] }
 
   // Chọn phương thức thanh toán cho đơn Pending
   const [payingBooking, setPayingBooking] = useState<Booking | null>(null)
@@ -163,36 +119,6 @@ export default function BookingsScreen() {
   const [newDuration, setNewDuration] = useState(1)
   const [showDatePicker, setShowDatePicker] = useState(false)
   const [saving, setSaving] = useState(false)
-
-  useEffect(() => {
-    if (!user) return
-
-    const fetchBookings = () => {
-      const bookingsRef = collection(db, "bookings")
-      // Không dùng orderBy: where + orderBy cần composite index trên Firestore → sắp xếp phía client
-      const q = query(bookingsRef, where("userId", "==", user.id))
-
-      const unsubscribe = onSnapshot(q, (snapshot) => {
-        const bookingsData = snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        })) as Booking[]
-        const toTime = (value: any) =>
-          value?.toDate ? value.toDate().getTime() : value ? new Date(value).getTime() || 0 : 0
-        bookingsData.sort((a: any, b: any) => toTime(b.createdAt) - toTime(a.createdAt))
-        setBookings(bookingsData)
-        setLoading(false)
-      }, (error) => {
-        console.error("Error fetching bookings:", error)
-        Alert.alert("Lỗi", "Không thể tải danh sách chuyến đi")
-        setLoading(false)
-      })
-
-      return unsubscribe
-    }
-
-    return fetchBookings()
-  }, [user])
 
   const bookingsByTab: Record<TabKey, Booking[]> = {
     upcoming: bookings.filter(b => getTabForStatus(b.status) === "upcoming"),
@@ -215,7 +141,7 @@ export default function BookingsScreen() {
   // ===== Đổi lịch =====
   const openReschedule = (booking: Booking) => {
     if (!canModifyStatus(booking.status)) {
-      Alert.alert("Không thể đổi lịch", "Chỉ có thể đổi lịch chuyến đang chờ thanh toán hoặc chờ nhận xe.")
+      Alert.alert("Không thể đổi lịch", "Chỉ có thể đổi lịch chuyến chưa nhận xe.")
       return
     }
     const current = toDate(booking.pickupDate)
@@ -238,27 +164,30 @@ export default function BookingsScreen() {
     setNewPickupDate(selected)
   }
 
+  // Giá dự kiến sau đổi lịch (D7): đơn đã thanh toán giữ nguyên giá; đơn chưa thanh toán tính lại theo giá xe
+  // (rescheduleBooking tính lại chính xác khi lưu)
   const getReschedulePrice = (booking: Booking, days: number) => {
-    const oldDuration = Number(booking.duration) || 1
-    const oldPrice = Number(booking.price) || 0
-    if (days === oldDuration) return oldPrice
-    const pricePerDay = oldPrice / oldDuration
-    return Math.round(pricePerDay * days)
+    const car = cars.find(c => c.id === booking.carId)
+    if (normalizeStatus(booking.status) === "upcoming" || !car) return Number(booking.price) || 0
+    const base = { pricePerDay: car.pricePerDay, days, addOns: booking.selectedAddOns ?? [], pickupDate: newPickupDate }
+    const withPromo = calcBookingPrice({ ...base, promoCode: booking.promoCode, isFirstBooking: true })
+    return (withPromo.promoError ? calcBookingPrice(base) : withPromo).total
   }
 
-  const saveReschedule = async (booking: Booking, pickupDate: Date, duration: number, price: number) => {
+  const saveReschedule = async (booking: Booking, pickupDate: Date, duration: number) => {
     try {
       setSaving(true)
-      await updateDoc(doc(db, "bookings", booking.id), {
-        pickupDate,
-        duration,
-        price,
-      })
+      await rescheduleBooking(booking.id, pickupDate, new Date(pickupDate.getTime() + duration * 86_400_000))
       closeReschedule()
-      Alert.alert("Đổi lịch thành công", `Ngày nhận xe mới: ${formatDate(pickupDate)} • ${duration} ngày`)
-    } catch (error) {
+      Alert.alert(
+        "Đổi lịch thành công",
+        normalizeStatus(booking.status) === "upcoming"
+          ? `Ngày nhận xe mới: ${formatDate(pickupDate)}.`
+          : `Ngày nhận xe mới: ${formatDate(pickupDate)} • ${duration} ngày. Đơn đang chờ RENTO xác nhận lại.`,
+      )
+    } catch (error: any) {
       console.error("Error rescheduling booking:", error)
-      Alert.alert("Lỗi", "Không thể đổi lịch. Vui lòng thử lại.")
+      Alert.alert("Không thể đổi lịch", error?.message || "Vui lòng thử lại.")
     } finally {
       setSaving(false)
     }
@@ -273,55 +202,32 @@ export default function BookingsScreen() {
       return
     }
 
-    const oldPrice = Number(booking.price) || 0
-    const newPrice = getReschedulePrice(booking, newDuration)
-    const diff = newPrice - oldPrice
-
-    if (diff === 0) {
-      saveReschedule(booking, newPickupDate, newDuration, newPrice)
-      return
-    }
-
-    let message =
-      `Thời gian thuê thay đổi từ ${booking.duration} ngày thành ${newDuration} ngày.\n` +
-      `Tổng tiền mới: ${formatCurrency(newPrice)} (${diff > 0 ? "tăng" : "giảm"} ${formatCurrency(Math.abs(diff))}).`
-    if (isPaidBooking(booking)) {
-      message += diff > 0
-        ? `\n\nĐơn đã thanh toán: bạn cần trả thêm ${formatCurrency(diff)} khi nhận xe.`
-        : `\n\nĐơn đã thanh toán: ${formatCurrency(Math.abs(diff))} chênh lệch sẽ được hoàn về phương thức bạn đã dùng để thanh toán.`
-    } else {
-      message += "\n\nSố tiền thanh toán sẽ được cập nhật theo giá mới."
-    }
+    const paid = normalizeStatus(booking.status) === "upcoming"
+    const duration = paid ? Number(booking.duration) || 1 : newDuration
+    const message = paid
+      ? "Đơn đã thanh toán chỉ được dời ngày nhận xe, giữ nguyên số ngày thuê và tổng tiền."
+      : `Tổng tiền dự kiến: ${formatCurrency(getReschedulePrice(booking, duration))}.\n\nĐơn sẽ quay về trạng thái "Chờ xác nhận" để RENTO xác nhận lại lịch mới.`
 
     Alert.alert("Xác nhận đổi lịch", message, [
       { text: "Quay lại", style: "cancel" },
-      { text: "Đồng ý", onPress: () => saveReschedule(booking, newPickupDate, newDuration, newPrice) },
+      { text: "Đồng ý", onPress: () => saveReschedule(booking, newPickupDate, duration) },
     ])
   }
 
   // ===== Huỷ chuyến =====
   const handleCancel = (booking: Booking) => {
     if (!canModifyStatus(booking.status)) {
-      Alert.alert("Không thể huỷ", "Chỉ có thể huỷ chuyến đang chờ thanh toán hoặc chờ nhận xe.")
+      Alert.alert("Không thể huỷ", "Chỉ có thể huỷ chuyến chưa nhận xe.")
       return
     }
 
+    // Chính sách huỷ (D5): ≥ 24h trước giờ nhận xe hoàn 100%, < 24h hoàn 70%
+    const refund = previewRefund(booking)
     let message = `Bạn có chắc muốn huỷ chuyến ${booking.carName}?`
-    if (isPaidBooking(booking)) {
-      // Chính sách huỷ theo app/profile/support.tsx
+    if (refund.amount > 0) {
       message +=
-        "\n\nChính sách huỷ: huỷ trước giờ nhận xe từ 24 giờ trở lên được hoàn 100% tiền thuê; " +
-        "huỷ trong vòng 24 giờ trước giờ nhận xe sẽ mất phí 30% tiền thuê. " +
-        "Tiền hoàn sẽ về MoMo, ZaloPay hoặc tài khoản ngân hàng bạn đã dùng để thanh toán."
-      const pickup = toDate(booking.pickupDate)
-      const pickupDate = pickup ? new Date(pickup) : null
-      if (pickupDate && !isNaN(pickupDate.getTime())) {
-        const hoursLeft = (pickupDate.getTime() - Date.now()) / (1000 * 60 * 60)
-        const paid = Number(booking.payment?.amount ?? booking.price) || 0
-        message += hoursLeft >= 24
-          ? `\n\nDự kiến hoàn: ${formatCurrency(paid)} (100%).`
-          : `\n\nDự kiến hoàn: ${formatCurrency(Math.round(paid * 0.7))} (đã trừ phí 30%).`
-      }
+        `\n\nBạn sẽ được hoàn ${formatCurrency(refund.amount)} (${refund.percent}% số tiền đã thanh toán) ` +
+        "về MoMo, ZaloPay hoặc tài khoản ngân hàng bạn đã dùng để thanh toán."
     }
 
     Alert.alert("Huỷ chuyến", message, [
@@ -331,14 +237,11 @@ export default function BookingsScreen() {
         style: "destructive",
         onPress: async () => {
           try {
-            await updateDoc(doc(db, "bookings", booking.id), {
-              status: "Cancelled",
-              cancelledAt: new Date(),
-            })
+            await cancelBooking(booking.id, "user")
             Alert.alert("Đã huỷ chuyến", "Chuyến đi đã được chuyển vào mục Lịch sử.")
-          } catch (error) {
+          } catch (error: any) {
             console.error("Error cancelling booking:", error)
-            Alert.alert("Lỗi", "Không thể huỷ chuyến. Vui lòng thử lại.")
+            Alert.alert("Không thể huỷ chuyến", error?.message || "Vui lòng thử lại.")
           }
         },
       },
@@ -351,7 +254,7 @@ export default function BookingsScreen() {
   }
 
   const renderBookingCard = ({ item }: { item: Booking }) => {
-    const isPending = isPendingStatus(item.status)
+    const isPending = isAwaitingPayment(item.status)
     const canModify = canModifyStatus(item.status)
     const imageSource = resolveCarImage(item, cars)
     const pickupRaw = toDate(item.pickupDate)

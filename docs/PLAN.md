@@ -228,12 +228,12 @@ Thứ tự bắt buộc: G0 → G1 → … → G6 → G8. G7 tuỳ chọn, làm 
 
 ### G3 — Xác nhận đơn, thanh toán, huỷ & hoàn tiền, chi tiết đơn
 **Claude**
-- [ ] **L3.1** `canTransition` + nhãn mới; nhóm tab Chuyến đi và chip trạng thái admin theo bảng mục 4.
-- [ ] **L3.2** `confirmBooking` (kiểm tra lại trùng lịch + GPLX `verified`), `rejectBooking(reason)`; cả hai gửi thông báo.
-- [ ] **L3.3** `payBooking`: 3 màn thanh toán đọc lại đơn, chỉ cho trả khi `Confirmed` và `amount === price`; thành công → `Upcoming` → `router.replace("/payment-success?bookingId=…")`. `failPayment`: thẻ thử `4000 0000 0000 0002` hoặc nút "Huỷ giao dịch" ở MoMo/ZaloPay ghi `payment.status: "Failed"`, đơn giữ `Confirmed`.
-- [ ] **L3.4** `cancelBooking` theo D5: ghi `refundAmount`, `refundedAt`, `payment.status: "Refunded"`, `cancelledBy`; chặn huỷ khi `Active`.
-- [ ] **L3.5** `rescheduleBooking` theo D7 (tính lại bằng `calcBookingPrice`, chặn trùng).
-- [ ] **L3.6** `useUserBookings`, `useBooking(id)`; `profile/history.tsx` dùng chung hook.
+- [x] **L3.1** `canTransition` + nhãn mới; nhóm tab Chuyến đi và chip trạng thái admin theo bảng mục 4.
+- [x] **L3.2** `confirmBooking` (kiểm tra lại trùng lịch + GPLX `verified`), `rejectBooking(reason)`; cả hai gửi thông báo.
+- [x] **L3.3** `payBooking`: 3 màn thanh toán đọc lại đơn, chỉ cho trả khi `Confirmed` và `amount === price`; thành công → `Upcoming` → `router.replace("/payment-success?bookingId=…")`. `failPayment`: thẻ thử `4000 0000 0000 0002` hoặc nút "Huỷ giao dịch" ở MoMo/ZaloPay ghi `payment.status: "Failed"`, đơn giữ `Confirmed`.
+- [x] **L3.4** `cancelBooking` theo D5: ghi `refundAmount`, `refundedAt`, `payment.status: "Refunded"`, `cancelledBy`; chặn huỷ khi `Active`.
+- [x] **L3.5** `rescheduleBooking` theo D7 (tính lại bằng `calcBookingPrice`, chặn trùng).
+- [x] **L3.6** `useUserBookings`, `useBooking(id)`; `profile/history.tsx` dùng chung hook.
 
 **Codex**
 - [ ] **U3.1** Màn `app/booking/[id].tsx`: mã đơn, xe, timeline trạng thái, giờ nhận/trả, điểm nhận/trả, chi tiết giá (tạm tính, dịch vụ, giảm giá, VAT, tổng, cọc), thanh toán/hoàn tiền, nút theo trạng thái (Thanh toán · Đổi lịch · Huỷ chuyến · Đánh giá). Thẻ ở tab Chuyến đi bấm vào mở màn này.
@@ -242,7 +242,15 @@ Thứ tự bắt buộc: G0 → G1 → … → G6 → G8. G7 tuỳ chọn, làm 
 - [ ] **U3.4** Admin: nút Xác nhận / Từ chối (modal nhập lý do) trên thẻ và modal chi tiết đơn `Pending`; chip lọc trạng thái mới.
 - [ ] **U3.5** Hộp thoại huỷ hiện số tiền được hoàn; badge `Confirmed`/`Rejected`.
 
-**Ghi chú bàn giao G3:** _(…)_
+**Ghi chú bàn giao G3** (Claude, L3):
+- `hooks/useBookings.ts`: `useUserBookings()` → `{ bookings, loading }` (đơn của người đang đăng nhập, mới nhất trước); `useBooking(id)` → `{ booking, loading }` (realtime).
+- `utils/bookingActions.ts` (đều ném `Error` tiếng Việt, tự gửi thông báo): `confirmBooking(id)` (kiểm tra lại trùng lịch + GPLX `verified`), `rejectBooking(id, reason)`, `payBooking(id, method, amount, details?)` → mã giao dịch (chỉ đơn `Confirmed`, đúng số tiền), `failPayment(id, method, reason?)`, `previewRefund(booking, by?)` → `{ percent, amount }`, `cancelBooking(id, by: "user" | "admin")` → số tiền hoàn, `rescheduleBooking(id, pickupDate, returnDate?)` (D7: đơn `Upcoming` bỏ qua `returnDate`, giữ số giờ thuê).
+- Tab Chuyến đi: dùng `useUserBookings`; nhóm tab theo `BOOKING_TABS`; "Thanh toán ngay" chỉ cho đơn `Confirmed` (`isAwaitingPayment`); đổi lịch/huỷ cho `Pending | Confirmed | Upcoming`; huỷ hiện số tiền hoàn từ `previewRefund`; `getReschedulePrice` xem trước giá. Với đơn `Upcoming` cần **khoá bộ đếm số ngày** trong modal đổi lịch (chỉ đổi ngày). Thẻ đơn đang mở trang xe (`openCarDetails`) → U3.1 đổi sang `/booking/[id]`.
+- Màn thanh toán (`credit-card`, `momo`, `zalopay`): đã gọi `payBooking`; thành công → `router.replace("/payment-success?bookingId=…")`. State `paymentError: string | null` (U3.3 hiện trạng thái thất bại + nút thử lại). Thẻ `4000 0000 0000 0002` → `failPayment`. MoMo/ZaloPay có `handleCancelTransaction` (U3.3 thêm nút "Huỷ giao dịch"). Modal thành công cũ (`showSuccessModal`) không còn dùng → xoá JSX.
+- `app/payment-success.tsx` là màn tạm (comment `ponytail:`): `useBooking(bookingId).booking.payment` có `amount`, `method`, `transactionId`, `paidAt`.
+- Chi tiết đơn (U3.1, tạo `app/booking/[id].tsx`): `useBooking(id)`, `useCar(booking.carId)` + `getCarImage`, `getBookingRange(booking)` cho giờ nhận/trả, field giá `subtotal`, `addOnTotal`, `discount`, `promoCode`, `tax`, `price`, `deposit`; `payment.status` (`Completed` | `Failed` | `Refunded`), `payment.refundAmount`, `refundPercent`, `refundedAt`; `rejectReason`, `cancelledBy`, `returnLocation`. Nút: Thanh toán (`Confirmed`, chọn phương thức như `goToPayment` ở tab Chuyến đi), Đổi lịch, Huỷ chuyến (`previewRefund` + `cancelBooking`). Đánh giá làm ở G5. Sau khi tạo, Checkout nên `router.replace` sang `/booking/[id]` (`createBooking` trả về id; đang có comment `ponytail:` trong `app/checkout.tsx`).
+- Admin: `handleConfirmBooking(booking)`, `handleRejectBooking(bookingId, reason)` → `Promise<boolean>`, `canDecide(booking)` (đơn `Pending`); nút "Xác nhận" tạm trên thẻ đơn (comment `ponytail:`) → U3.4 làm lại + nút "Từ chối" mở modal lý do, thêm vào modal chi tiết đơn. Huỷ đơn chỉ khi `Pending | Confirmed | Upcoming`, hộp thoại hiện số tiền hoàn. `BOOKING_FILTERS` đã có `confirmed`, `rejected`.
+- Viết trước (chưa nối, dùng ở G4/G5): `handOverBooking`, `returnBooking`, `previewReturn`, `submitReview`, `deleteReview`, `hooks/useReviews.ts`, `findPickupReminder`, `bookingRevenue`; `useNotifications` dùng `useUid`.
 
 ### G4 — Giao xe / nhận lại xe
 **Claude**

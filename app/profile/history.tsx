@@ -1,14 +1,14 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useMemo, useState } from "react"
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, FlatList, Image, ActivityIndicator } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 import { StatusBar } from "expo-status-bar"
 import { Ionicons } from "@expo/vector-icons"
 import { router } from "expo-router"
-import { collection, query, where, onSnapshot } from "firebase/firestore"
-import { db } from "../../config/firebase"
-import { useAuth } from "../../hooks/useAuth"
+import { useUserBookings } from "../../hooks/useBookings"
+import { useUid } from "../../hooks/useUid"
+import { getBookingRange } from "../../utils/booking"
 import { useCars, getCarImage } from "../../hooks/useCars"
 import type { Car } from "../../types/car"
 import { formatCurrency, formatDate } from "../../utils/helpers"
@@ -28,15 +28,6 @@ interface RentalHistoryItem {
   location: string
 }
 
-// createdAt / pickupDate có thể là Firestore Timestamp, Date hoặc chuỗi
-const toDate = (value: any): Date | null => {
-  if (!value) return null
-  if (typeof value.toDate === "function") return value.toDate()
-  if (typeof value.seconds === "number") return new Date(value.seconds * 1000)
-  const d = value instanceof Date ? value : new Date(value)
-  return isNaN(d.getTime()) ? null : d
-}
-
 // Ảnh theo xe trên Firestore; đơn cũ có thể còn carImage dạng chuỗi (URL / data URI)
 const resolveCarImage = (cars: Car[], carId?: string, carImage?: any) => {
   const car = cars.find((c) => c.id === carId)
@@ -46,54 +37,29 @@ const resolveCarImage = (cars: Car[], carId?: string, carImage?: any) => {
 }
 
 export default function HistoryScreen() {
-  const { user } = useAuth()
+  const uid = useUid()
   const { cars } = useCars()
+  const { bookings, loading } = useUserBookings()
   const [filter, setFilter] = useState("all")
-  const [rentalHistory, setRentalHistory] = useState<RentalHistoryItem[]>([])
-  const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    if (!user) {
-      setRentalHistory([])
-      setLoading(false)
-      return
-    }
-
-    // Không dùng orderBy để khỏi cần composite index; sắp xếp phía client
-    const q = query(collection(db, "bookings"), where("userId", "==", user.id))
-    const unsubscribe = onSnapshot(
-      q,
-      (snapshot) => {
-        const items = snapshot.docs.map((docSnap) => {
-          const data: any = docSnap.data()
-          const days = Number(data.duration) || 1
-          const startDate = toDate(data.pickupDate) ?? toDate(data.createdAt)
-          const endDate = startDate ? new Date(startDate.getTime() + days * 24 * 60 * 60 * 1000) : null
-          return {
-            id: docSnap.id,
-            carId: data.carId,
-            carName: data.carName || "Xe thuê",
-            carImage: data.carImage,
-            startDate,
-            endDate,
-            days,
-            totalCost: Number(data.price) || 0,
-            status: data.status || "Pending",
-            location: data.location || "",
-          }
-        })
-        items.sort((a, b) => (b.startDate?.getTime() ?? 0) - (a.startDate?.getTime() ?? 0))
-        setRentalHistory(items)
-        setLoading(false)
-      },
-      (error) => {
-        console.error("Error fetching rental history:", error)
-        setLoading(false)
-      },
-    )
-
-    return unsubscribe
-  }, [user])
+  const rentalHistory: RentalHistoryItem[] = useMemo(() => {
+    const items = bookings.map((b: any) => {
+      const range = getBookingRange(b)
+      return {
+        id: b.id,
+        carId: b.carId,
+        carName: b.carName || "Xe thuê",
+        carImage: b.carImage,
+        startDate: range?.start ?? null,
+        endDate: range?.end ?? null,
+        days: Number(b.duration) || 1,
+        totalCost: Number(b.price) || 0,
+        status: b.status || "Pending",
+        location: b.location || "",
+      }
+    })
+    return items.sort((a, b) => (b.startDate?.getTime() ?? 0) - (a.startDate?.getTime() ?? 0))
+  }, [bookings])
 
   // Badge trạng thái: nền soft + chữ đậm cùng tông
   const getStatusTone = (status: string) => {
@@ -238,7 +204,7 @@ export default function HistoryScreen() {
                 <Ionicons name="car-outline" size={32} color={THEME_COLORS.textMuted} />
               </View>
               <Text style={styles.emptyText}>
-                {user ? "Chưa có chuyến thuê nào" : "Vui lòng đăng nhập để xem lịch sử thuê xe"}
+                {uid ? "Chưa có chuyến thuê nào" : "Vui lòng đăng nhập để xem lịch sử thuê xe"}
               </Text>
             </View>
           ) : (

@@ -5,8 +5,7 @@ import { View, Text, StyleSheet, TouchableOpacity, Image, Dimensions, Modal, Ale
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons'
 import { router, useLocalSearchParams } from 'expo-router'
-import { doc, updateDoc } from 'firebase/firestore'
-import { db } from '../config/firebase'
+import { failPayment, payBooking } from '../utils/bookingActions'
 import { formatCurrency, validatePhone } from '../utils/helpers'
 import { PAYMENT_METHODS } from '../utils/constants'
 import { PAYMENT_ASSETS } from '../data/assets'
@@ -38,6 +37,8 @@ export default function MomoPayment() {
   const walletPhone = "0901 234 567"
 
   const [isProcessing, setIsProcessing] = useState(false)
+  // Lỗi giao dịch gần nhất (null = chưa lỗi); đơn vẫn "Chờ thanh toán" nên có thể thử lại
+  const [paymentError, setPaymentError] = useState<string | null>(null)
   // Khoá đồng bộ để chặn bấm thanh toán 2 lần trước khi state kịp cập nhật
   const processingRef = useRef(false)
 
@@ -75,32 +76,30 @@ export default function MomoPayment() {
 
     processingRef.current = true
     setIsProcessing(true)
+    setPaymentError(null)
     try {
-      // Update the booking status and add payment details
-      await updateDoc(doc(db, "bookings", bookingId), {
-        status: "Upcoming",
-        payment: {
-          method: "MoMo",
-          amount: amount,
-          transactionId: `MOMO-${Math.random().toString(36).substr(2, 9)}`,
-          paidAt: new Date(),
-          status: "Completed"
-        }
-      })
-
-      // Chỉ báo thành công sau khi đã ghi dữ liệu xong; giữ khoá để không bấm lại được
-      setShowSuccessModal(true)
-      setTimeout(() => {
-        setShowSuccessModal(false)
-        router.replace("/(tabs)/bookings") // Use replace instead of push
-      }, 2000)
-    } catch (error) {
-      console.error("Error updating booking:", error)
+      await payBooking(bookingId, PAYMENT_METHODS.MOMO.short, amount)
+      // Thành công → màn thanh toán thành công (giữ khoá để không bấm lại được)
+      router.replace({ pathname: "/payment-success", params: { bookingId } })
+    } catch (error: any) {
+      console.error("Error paying booking:", error)
       processingRef.current = false
       setIsProcessing(false)
-      Alert.alert("Thanh toán thất bại", "Không thể cập nhật đơn đặt xe. Vui lòng kiểm tra kết nối mạng và thử lại.")
+      setPaymentError(error?.message || "Không thể thanh toán. Vui lòng kiểm tra kết nối mạng và thử lại.")
     }
   }
+
+  // Khách bấm "Huỷ giao dịch" → ghi giao dịch thất bại, đơn vẫn chờ thanh toán
+  const handleCancelTransaction = async () => {
+    if (!bookingId || processingRef.current) return
+    try {
+      await failPayment(bookingId, PAYMENT_METHODS.MOMO.short, "Bạn đã huỷ giao dịch")
+      setPaymentError("Giao dịch đã bị huỷ. Bạn có thể thanh toán lại bất cứ lúc nào.")
+    } catch (error: any) {
+      Alert.alert("Lỗi", error?.message || "Không thể huỷ giao dịch. Vui lòng thử lại.")
+    }
+  }
+
 
   // Chia sẻ thông tin thanh toán (nút chia sẻ trên header)
   const handleShare = async () => {

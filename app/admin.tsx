@@ -18,6 +18,7 @@ import { useAuth } from "../hooks/useAuth"
 import { useAllLicenses } from "../hooks/useLicense"
 import { seedCars, deleteCar } from "../utils/carActions"
 import { rejectLicense, verifyLicense } from "../utils/licenseActions"
+import { cancelBooking, confirmBooking, previewRefund, rejectBooking } from "../utils/bookingActions"
 import type { Car, CarStatus, Transmission } from "../types/car"
 import { THEME_COLORS, RADIUS, SPACE, SHADOWS, TYPOGRAPHY, UI, PRESS_OPACITY } from "../utils/theme"
 
@@ -76,10 +77,12 @@ const adminTabs = [
 const BOOKING_FILTERS = [
   { id: "all", label: "Tất cả" },
   { id: "pending", label: getBookingStatusLabel("pending") },
+  { id: "confirmed", label: getBookingStatusLabel("confirmed") },
   { id: "upcoming", label: getBookingStatusLabel("upcoming") },
   { id: "active", label: getBookingStatusLabel("active") },
   { id: "completed", label: getBookingStatusLabel("completed") },
   { id: "cancelled", label: getBookingStatusLabel("cancelled") },
+  { id: "rejected", label: getBookingStatusLabel("rejected") },
 ]
 
 const USER_FILTERS = [
@@ -188,9 +191,11 @@ type Tone = keyof typeof TONES
 const getBookingTone = (status?: string): Tone => {
   switch (normalizeStatus(status)) {
     case "cancelled":
+    case "rejected":
       return "danger"
     case "pending":
       return "warning"
+    case "confirmed":
     case "upcoming":
       return "primary"
     case "active":
@@ -703,26 +708,59 @@ export default function AdminScreen() {
   }
 
   // ===== Thao tác với đơn đặt xe =====
-  const canCancel = (booking: Booking) => ["pending", "upcoming", "active"].includes(normalizeStatus(booking.status))
+  // Đơn chưa giao xe mới huỷ được (D5); admin huỷ thì hoàn 100% nếu khách đã thanh toán
+  const canCancel = (booking: Booking) => ["pending", "confirmed", "upcoming"].includes(normalizeStatus(booking.status))
+  const canDecide = (booking: Booking) => normalizeStatus(booking.status) === "pending"
 
   const handleCancelBooking = (booking: Booking) => {
+    const refund = previewRefund(booking as any, "admin")
     confirmAction(
       "Huỷ đơn",
-      `Bạn có chắc muốn huỷ đơn ${booking.carName} của ${getCustomerName(booking)}?`,
+      `Bạn có chắc muốn huỷ đơn ${booking.carName} của ${getCustomerName(booking)}?` +
+        (refund.amount > 0 ? `\n\nKhách sẽ được hoàn ${formatCurrency(refund.amount)} (100%).` : ""),
       "Huỷ đơn",
       async () => {
         try {
-          await updateDoc(doc(db, "bookings", booking.id), {
-            status: "Cancelled",
-            cancelledAt: new Date(),
-          })
+          await cancelBooking(booking.id, "admin")
           Alert.alert("Thành công", "Đã huỷ đơn đặt xe.")
-        } catch (error) {
+        } catch (error: any) {
           console.error("Error cancelling booking:", error)
-          Alert.alert("Lỗi", "Không thể huỷ đơn. Vui lòng thử lại.")
+          Alert.alert("Không thể huỷ đơn", error?.message || "Vui lòng thử lại.")
         }
       }
     )
+  }
+
+  // Pending → Confirmed (kiểm tra lại trùng lịch + GPLX đã xác minh)
+  const handleConfirmBooking = (booking: Booking) => {
+    confirmAction(
+      "Xác nhận đơn",
+      `Xác nhận đơn ${booking.carName} của ${getCustomerName(booking)}? Khách sẽ được thông báo để thanh toán.`,
+      "Xác nhận",
+      async () => {
+        try {
+          await confirmBooking(booking.id)
+          Alert.alert("Thành công", "Đã xác nhận đơn. Đơn chuyển sang Chờ thanh toán.")
+        } catch (error: any) {
+          console.error("Error confirming booking:", error)
+          Alert.alert("Không thể xác nhận", error?.message || "Vui lòng thử lại.")
+        }
+      },
+      false
+    )
+  }
+
+  // Pending → Rejected; U3.4 gọi từ modal nhập lý do. Trả về true nếu thành công.
+  const handleRejectBooking = async (bookingId: string, reason: string) => {
+    try {
+      await rejectBooking(bookingId, reason)
+      Alert.alert("Đã từ chối đơn", "Khách đã được thông báo kèm lý do.")
+      return true
+    } catch (error: any) {
+      console.error("Error rejecting booking:", error)
+      Alert.alert("Không thể từ chối", error?.message || "Vui lòng thử lại.")
+      return false
+    }
   }
 
   // Upcoming -> Active (giao xe), Active -> Completed (nhận lại xe)
@@ -1353,6 +1391,17 @@ export default function AdminScreen() {
                 <Ionicons name="eye-outline" size={16} color={THEME_COLORS.textPrimary} />
                 <Text style={styles.smallSecondaryText}>Xem chi tiết</Text>
               </TouchableOpacity>
+              {/* ponytail: nút tạm của L3.2, U3.4 thêm "Từ chối" (handleRejectBooking) và làm lại giao diện */}
+              {canDecide(booking) && (
+                <TouchableOpacity
+                  style={[styles.smallButton, styles.smallPrimaryButton]}
+                  onPress={() => handleConfirmBooking(booking)}
+                  activeOpacity={PRESS_OPACITY}
+                >
+                  <Ionicons name="checkmark-circle-outline" size={16} color="#FFFFFF" />
+                  <Text style={styles.smallPrimaryText}>Xác nhận</Text>
+                </TouchableOpacity>
+              )}
               {(status === "upcoming" || status === "active") && (
                 <TouchableOpacity
                   style={[styles.smallButton, styles.smallPrimaryButton]}

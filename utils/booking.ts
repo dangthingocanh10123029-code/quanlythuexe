@@ -121,3 +121,47 @@ export function calcLateFee(returnDate: Date, actual: Date, pricePerDay: number)
 }
 
 export const calcDepositRefund = (deposit: number, fees: number) => Math.max(0, deposit - fees)
+
+// Quyết toán khi nhận lại xe (D4): phí trễ + phí phát sinh trừ vào tiền cọc
+export function calcReturnSettlement(input: {
+  deposit: number
+  pricePerDay: number
+  returnDate: Date // giờ trả theo đơn
+  actual: Date // giờ trả thực tế
+  extraFees?: number
+}) {
+  const lateFee = calcLateFee(input.returnDate, input.actual, input.pricePerDay)
+  const extraFees = Math.max(0, Math.round(input.extraFees ?? 0))
+  return { lateFee, extraFees, depositRefund: calcDepositRefund(input.deposit, lateFee + extraFees) }
+}
+
+type RevenueSource = {
+  payment?: { status?: string; amount?: number; refundAmount?: number } | null
+  returnInspection?: { lateFee?: number; extraFees?: number } | null
+}
+
+// Doanh thu một đơn (L4.3) = tiền thuê đã thanh toán − tiền hoàn + phí phát sinh khi trả xe
+export function bookingRevenue(b: RevenueSource) {
+  const status = lower(b.payment?.status)
+  const paid = status === "completed" || status === "refunded" ? Number(b.payment?.amount) || 0 : 0
+  const refund = status === "refunded" ? Number(b.payment?.refundAmount) || 0 : 0
+  const fees = (Number(b.returnInspection?.lateFee) || 0) + (Number(b.returnInspection?.extraFees) || 0)
+  return paid - refund + fees
+}
+
+// Điểm trung bình mới khi thêm (+) hoặc bớt (−) một đánh giá; làm tròn 1 chữ số thập phân
+export function applyRating(avg: number, count: number, rating: number, op: "add" | "remove") {
+  const total = avg * count + (op === "add" ? rating : -rating)
+  const nextCount = Math.max(0, count + (op === "add" ? 1 : -1))
+  return { rating: nextCount ? Math.round((total / nextCount) * 10) / 10 : 0, reviewCount: nextCount }
+}
+
+// Đơn "Sắp nhận xe" có giờ nhận trong 24 giờ tới (nhắc trên Trang chủ), gần nhất trước; null nếu không có
+export function findPickupReminder<T extends RangeSource & { status?: string }>(bookings: T[], now = new Date()): T | null {
+  const soon = bookings
+    .filter((b) => lower(b.status) === "upcoming")
+    .map((b) => ({ b, start: getBookingRange(b)?.start.getTime() ?? 0 }))
+    .filter(({ start }) => start >= now.getTime() && start - now.getTime() <= DAY)
+    .sort((x, y) => x.start - y.start)
+  return soon[0]?.b ?? null
+}

@@ -136,6 +136,9 @@ export const HIDDEN_CAR_STATUSES = ["Maintenance", "Inactive"]
 export const FUELS = ["Xăng", "Dầu diesel", "Điện", "Hybrid"] as const
 export const TRANSMISSIONS = ["Số tự động", "Số sàn"] as const
 
+// Mức nhiên liệu ghi trong biên bản giao / nhận xe
+export const FUEL_LEVELS = ["¼", "½", "¾", "Đầy"]
+
 // Hạng GPLX được thuê ô tô tự lái
 export const LICENSE_CLASSES = ["B1", "B2", "B", "C1", "C", "D"]
 

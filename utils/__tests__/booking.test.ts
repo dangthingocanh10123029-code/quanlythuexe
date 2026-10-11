@@ -1,5 +1,9 @@
 import { describe, expect, it } from "@jest/globals"
 import {
+  applyRating,
+  bookingRevenue,
+  calcReturnSettlement,
+  findPickupReminder,
   calcBookingPrice,
   calcDepositRefund,
   calcLateFee,
@@ -109,4 +113,51 @@ describe("calcLateFee / calcDepositRefund", () => {
     expect(calcDepositRefund(5_000_000, 1_200_000)).toBe(3_800_000)
     expect(calcDepositRefund(5_000_000, 9_000_000)).toBe(0)
   })
+})
+
+describe("calcReturnSettlement", () => {
+  it("trễ 2 giờ + phí phát sinh trừ vào cọc", () => {
+    expect(
+      calcReturnSettlement({
+        deposit: 5_000_000,
+        pricePerDay: 1_000_000,
+        returnDate: d("2026-10-12T09:00"),
+        actual: d("2026-10-12T10:30"),
+        extraFees: 300_000,
+      }),
+    ).toEqual({ lateFee: 200_000, extraFees: 300_000, depositRefund: 4_500_000 })
+  })
+})
+
+describe("bookingRevenue", () => {
+  it("đã thanh toán + phí phát sinh", () =>
+    expect(bookingRevenue({ payment: { status: "Completed", amount: 2_000_000 }, returnInspection: { lateFee: 100_000, extraFees: 50_000 } })).toBe(2_150_000))
+  it("đã hoàn tiền một phần", () =>
+    expect(bookingRevenue({ payment: { status: "Refunded", amount: 1_000_000, refundAmount: 700_000 } })).toBe(300_000))
+  it("thanh toán thất bại / chưa thanh toán → 0", () => {
+    expect(bookingRevenue({ payment: { status: "Failed", amount: 1_000_000 } })).toBe(0)
+    expect(bookingRevenue({})).toBe(0)
+  })
+})
+
+describe("applyRating", () => {
+  it("đánh giá đầu tiên", () => expect(applyRating(4.8, 0, 5, "add")).toEqual({ rating: 5, reviewCount: 1 }))
+  it("thêm vào trung bình", () => expect(applyRating(4, 2, 5, "add")).toEqual({ rating: 4.3, reviewCount: 3 }))
+  it("xoá đánh giá", () => expect(applyRating(4.5, 2, 5, "remove")).toEqual({ rating: 4, reviewCount: 1 }))
+  it("xoá đánh giá cuối", () => expect(applyRating(5, 1, 5, "remove")).toEqual({ rating: 0, reviewCount: 0 }))
+})
+
+describe("findPickupReminder", () => {
+  const now = d("2026-10-10T09:00")
+  it("chỉ đơn Upcoming trong 24h tới, gần nhất trước", () => {
+    const list = [
+      { id: "far", status: "Upcoming", pickupDate: d("2026-10-12T09:00") },
+      { id: "soon", status: "Upcoming", pickupDate: d("2026-10-10T20:00") },
+      { id: "sooner", status: "Upcoming", pickupDate: d("2026-10-10T12:00") },
+      { id: "unpaid", status: "Confirmed", pickupDate: d("2026-10-10T10:00") },
+      { id: "past", status: "Upcoming", pickupDate: d("2026-10-10T08:00") },
+    ]
+    expect(findPickupReminder(list, now)?.id).toBe("sooner")
+  })
+  it("không có → null", () => expect(findPickupReminder([], now)).toBeNull())
 })
