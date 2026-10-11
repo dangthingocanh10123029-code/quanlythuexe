@@ -1,0 +1,146 @@
+rules_version = '2';
+
+// Quy tắc bảo mật RENTO (docs/PLAN.md mục 4, L8.1).
+// Khách chỉ đọc/ghi dữ liệu của mình; `cars`, `reviews` đọc công khai; admin (users/{uid}.isAdmin) đọc/ghi tất cả.
+// Deploy: npx firebase-tools deploy --only firestore:rules
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return signedIn()
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('isAdmin', false) == true;
+    }
+
+    function isSelf(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+
+    // Các field được đổi trong lần ghi này
+    function changed() {
+      return request.resource.data.diff(resource.data).affectedKeys();
+    }
+
+    // ===== Người dùng =====
+    match /users/{uid} {
+      allow read: if isSelf(uid) || isAdmin();
+      // Đăng ký: không tự cấp quyền admin / khoá
+      allow create: if isSelf(uid) && request.resource.data.get('isAdmin', false) == false
+        && !request.resource.data.keys().hasAny(['role', 'disabled']);
+      // Tự sửa hồ sơ nhưng không đổi quyền / trạng thái khoá
+      allow update: if isAdmin()
+        || (isSelf(uid) && !changed().hasAny(['isAdmin', 'role', 'disabled', 'status', 'email']));
+      allow delete: if isAdmin();
+    }
+
+    // Giữ chỗ số điện thoại (chặn trùng SĐT)
+    match /phones/{phone} {
+      allow get: if signedIn();
+      allow list: if isAdmin();
+      allow create: if signedIn() && request.resource.data.uid == request.auth.uid;
+      allow update: if signedIn() && resource.data.uid == request.auth.uid && request.resource.data.uid == request.auth.uid;
+      allow delete: if isAdmin() || (signedIn() && resource.data.uid == request.auth.uid);
+    }
+
+    // ===== Xe =====
+    match /cars/{carId} {
+      allow read: if true;
+      allow create, delete: if isAdmin();
+      // Khách chỉ được cập nhật điểm đánh giá (submitReview chạy trong transaction cùng reviews/{bookingId})
+      allow update: if isAdmin()
+        || (signedIn() && changed().hasOnly(['rating', 'reviewCount'])
+            && request.resource.data.reviewCount >= 0 && request.resource.data.rating >= 0
+            && request.resource.data.rating <= 5);
+    }
+
+    // ===== Đơn đặt xe =====
+    match /bookings/{bookingId} {
+      allow read: if isAdmin() || (signedIn() && resource.data.userId == request.auth.uid);
+
+      // Khách tạo đơn của mình, luôn ở trạng thái chờ xác nhận
+      allow create: if signedIn()
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.status == 'Pending';
+
+      // Khách: thanh toán (Confirmed → Upcoming), ghi giao dịch thất bại, huỷ, đổi lịch, đánh dấu đã đánh giá.
+      // Không được tự xác nhận / giao xe / hoàn thành / đổi chủ đơn hay xe.
+      allow update: if isAdmin() || (
+        signedIn()
+        && resource.data.userId == request.auth.uid
+        && request.resource.data.userId == resource.data.userId
+        && request.resource.data.carId == resource.data.carId
+        && changed().hasOnly(['status', 'payment', 'pickupDate', 'returnDate', 'duration', 'subtotal',
+                              'addOnTotal', 'discount', 'promoCode', 'tax', 'price', 'confirmedAt',
+                              'cancelledAt', 'cancelledBy', 'reviewed'])
+        && (
+          request.resource.data.status == resource.data.status
+          // thanh toán
+          || (resource.data.status.lower() == 'confirmed' && request.resource.data.status == 'Upcoming')
+          // huỷ trước khi nhận xe
+          || (resource.data.status.lower() in ['pending', 'confirmed', 'upcoming']
+              && request.resource.data.status == 'Cancelled' && request.resource.data.cancelledBy == 'user')
+          // đổi lịch đơn chưa thanh toán → chờ xác nhận lại
+          || (resource.data.status.lower() == 'confirmed' && request.resource.data.status == 'Pending')
+        )
+        && (!changed().hasAny(['reviewed']) || resource.data.status.lower() == 'completed')
+      );
+      allow delete: if isAdmin();
+    }
+
+    // Khoảng ngày xe đang bị giữ (đọc công khai cho người đã đăng nhập để kiểm tra xe trống)
+    match /bookedSlots/{bookingId} {
+      allow read: if signedIn();
+      allow create, update: if isAdmin() || (
+        signedIn() && request.resource.data.userId == request.auth.uid
+        && getAfter(/databases/$(database)/documents/bookings/$(bookingId)).data.userId == request.auth.uid
+      );
+      allow delete: if isAdmin() || (signedIn() && resource.data.userId == request.auth.uid);
+    }
+
+    // ===== Đánh giá (mỗi đơn hoàn thành một đánh giá, id = bookingId) =====
+    match /reviews/{bookingId} {
+      allow read: if true;
+      allow create: if signedIn()
+        && request.resource.data.userId == request.auth.uid
+        && get(/databases/$(database)/documents/bookings/$(bookingId)).data.userId == request.auth.uid
+        && get(/databases/$(database)/documents/bookings/$(bookingId)).data.status.lower() == 'completed'
+        && request.resource.data.rating is int
+        && request.resource.data.rating >= 1 && request.resource.data.rating <= 5;
+      allow update: if false;
+      allow delete: if isAdmin();
+    }
+
+    // ===== GPLX =====
+    match /licenses/{uid} {
+      allow read: if isSelf(uid) || isAdmin();
+      // Khách gửi / gửi lại → luôn "pending" (không tự xác minh)
+      allow create, update: if isAdmin() || (isSelf(uid) && request.resource.data.status == 'pending');
+      allow delete: if isAdmin();
+    }
+
+    // ===== Thông báo trong app =====
+    match /notifications/{id} {
+      allow read: if isAdmin() || (signedIn() && resource.data.userId == request.auth.uid);
+      // Khách chỉ tự gửi cho mình (vd "Đã gửi yêu cầu đặt xe"); admin gửi cho bất kỳ ai
+      allow create: if isAdmin() || (signedIn() && request.resource.data.userId == request.auth.uid);
+      allow update: if signedIn() && resource.data.userId == request.auth.uid && changed().hasOnly(['read']);
+      allow delete: if isAdmin();
+    }
+
+    // ===== Xe yêu thích (id = `${uid}_${carId}`; doc cũ có id tự sinh) =====
+    match /likedCars/{id} {
+      allow read, delete: if signedIn() && resource.data.userId == request.auth.uid;
+      allow create, update: if signedIn() && request.resource.data.userId == request.auth.uid;
+    }
+
+    // ===== Phiếu hỗ trợ =====
+    match /supportTickets/{id} {
+      allow read: if isAdmin() || (signedIn() && resource.data.userId == request.auth.uid);
+      allow create: if signedIn() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isAdmin();
+    }
+  }
+}

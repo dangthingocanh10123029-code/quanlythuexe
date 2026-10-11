@@ -1,6 +1,6 @@
 import { initializeApp, getApps, getApp } from "firebase/app"
 import { getAuth } from "firebase/auth"
-import { getFirestore, collection, addDoc, deleteDoc, doc } from "firebase/firestore"
+import { getFirestore } from "firebase/firestore"
 
 const firebaseConfig = {
   apiKey: "AIzaSyDEEZskDHI4NvBKnmrO58IbnGLSSnUEYKw",
@@ -23,19 +23,5 @@ try {
 // Keep both auth and firestore exports
 export const auth = getAuth(app);
 export const db = getFirestore(app);
-
-// Add connection test helper
-export const testFirestoreConnection = async () => {
-  try {
-    const testRef = collection(db, "connectionTest");
-    const testDoc = await addDoc(testRef, { timestamp: new Date() });
-    await deleteDoc(doc(db, "connectionTest", testDoc.id));
-    return true;
-  } catch (error) {
-    console.error("Firestore connection test failed:", error);
-    return false;
-
-  }
-}
 
 export default app;

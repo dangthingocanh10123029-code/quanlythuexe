@@ -317,10 +317,12 @@ Thứ tự bắt buộc: G0 → G1 → … → G6 → G8. G7 tuỳ chọn, làm 
 
 ### G8 — Bảo mật & hoàn thiện
 **Claude**
-- [ ] **L8.1** `firestore.rules` + `firebase.json`: khách chỉ đọc/ghi dữ liệu của mình; `cars` đọc công khai, admin ghi; admin (`users/{uid}.isAdmin`) đọc/ghi tất cả. Người dùng deploy: `! npx firebase-tools deploy --only firestore:rules` (cần đăng nhập và có quyền project `car-rental-adv`).
+- [x] **L8.1** `firestore.rules` + `firebase.json`: khách chỉ đọc/ghi dữ liệu của mình; `cars` đọc công khai, admin ghi; admin (`users/{uid}.isAdmin`) đọc/ghi tất cả. Người dùng deploy: `! npx firebase-tools deploy --only firestore:rules` (cần đăng nhập và có quyền project `car-rental-adv`).
 - [ ] **L8.2** Dọn: `hooks/useBookings` theo field thật; `BOOKING_STATUS`/`PAYMENT_STATUS` cũ; `testFirestoreConnection`; asset không còn dùng (sau A7).
 - [ ] **L8.3** Test đủ cho `utils/booking.ts` (`npx jest --watchAll=false`).
 - [ ] **L8.4** `app.json` trỏ icon/splash mới (sau A1). Cập nhật `CLAUDE.md` (luồng mới; bỏ dòng "Không có git") và `README.md` (tạo admin, nạp xe mẫu, deploy rules, ảnh mới từ A8).
+
+**Ghi chú L8.1** (Claude): `firestore.rules` + `firebase.json` + `.firebaserc` (project `car-rental-adv`). Rà theo từng luồng ghi trong `utils/*Actions.ts`: khách tạo đơn chỉ ở `Pending`; khách chỉ được thanh toán (Confirmed → Upcoming), huỷ (`cancelledBy: "user"`), đổi lịch, đánh dấu đã đánh giá; admin ghi mọi thứ. `cars` đọc công khai, khách chỉ sửa được `rating`/`reviewCount` (submitReview) — điểm hạn chế đã biết. `reviews` tạo được khi đơn của mình đã `Completed`. `bookedSlots` đọc cho người đã đăng nhập. **Chưa chạy được trên emulator** (cần Java/đăng nhập) → người dùng deploy rồi chạy lại nghiệm thu mục 6.
 
 **Codex**
 - [ ] **U8.1** Rà toàn app: token thiết kế, lề, loading/rỗng/lỗi (dùng ảnh A5), chữ tiếng Việt, không tràn chữ ở màn 360 px.
