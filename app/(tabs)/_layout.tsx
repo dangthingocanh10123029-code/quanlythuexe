@@ -3,7 +3,7 @@ import { Ionicons } from "@expo/vector-icons"
 import { THEME_COLORS, RADIUS, SHADOWS, SPACE, layout } from "../../utils/theme"
 
 // Thanh tab nổi: nền trắng, viền mảnh, bo RADIUS.sheet, căn đều hai bên.
-// Chiều cao 72 + cách đáy 20 → nội dung các màn tab cần paddingBottom >= ~110.
+// Cao layout.tabBarHeight + cách đáy SPACE.lg → các màn tab chừa paddingBottom layout.tabBarClearance.
 export default function TabLayout() {
   return (
     <Tabs

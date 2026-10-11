@@ -11,7 +11,6 @@ import {
   FlatList,
   Dimensions,
   Modal,
-  Alert,
 } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 import { Ionicons } from "@expo/vector-icons"
@@ -21,10 +20,11 @@ import { useCars, getCarImage, useBusyCarIds } from "../../hooks/useCars"
 import { useLikedCarIds } from "../../hooks/useLikedCarIds"
 import { CITIES, FUELS, HIDDEN_CAR_STATUSES, TRANSMISSIONS } from "../../utils/constants"
 import { formatDate } from "../../utils/helpers"
+import { showAlert } from "../../utils/dialog"
 import { BRAND_ASSETS } from "../../data/assets"
 import { StatusBar } from "expo-status-bar"
 import { THEME_COLORS, RADIUS, SPACE, SHADOWS, TYPOGRAPHY, UI, PRESS_OPACITY, layout } from "../../utils/theme"
-import { BrandChip, CarCardCompact, CarCardSkeleton, FilterBottomSheet, SearchBar, SectionHeader } from "../../components"
+import { BrandChip, CarCardCompact, CarCardSkeleton, EmptyState, FilterBottomSheet, SearchBar, SectionHeader } from "../../components"
 
 const { width } = Dimensions.get("window")
 
@@ -95,7 +95,7 @@ export default function SearchScreen() {
   const [showFilterModal, setShowFilterModal] = useState(false)
   const searchInputRef = useRef<TextInput>(null)
   const params = useLocalSearchParams<SearchParams>()
-  const { cars: allCars, loading: carsLoading } = useCars()
+  const { cars: allCars, loading: carsLoading, error: carsError } = useCars()
   // Khoảng ngày nhận – trả đang lọc (null = không lọc theo ngày)
   const [dateRange, setDateRange] = useState<{ start: Date; end: Date } | null>(null)
   const busyCarIds = useBusyCarIds(dateRange?.start, dateRange?.end)
@@ -115,7 +115,7 @@ export default function SearchScreen() {
         setTimeout(() => setShowLikeModal(false), 2000)
       }
     } catch (error: any) {
-      Alert.alert("Không thể lưu xe yêu thích", error.message)
+      showAlert("Không thể lưu xe yêu thích", error.message)
     }
   }
 
@@ -348,24 +348,17 @@ export default function SearchScreen() {
               ))}
             </View>
           ) : filteredCars.length === 0 ? (
-            <View style={styles.emptyState}>
-              <View style={styles.emptyIcon}>
-                <Ionicons name="car-outline" size={32} color={THEME_COLORS.textMuted} />
-              </View>
-              <Text style={styles.emptyTitle}>
-                {hasSearchCriteria ? "Không tìm thấy xe phù hợp" : "Chưa có xe sẵn sàng"}
-              </Text>
-              <Text style={styles.emptySubtitle}>
-                {hasSearchCriteria
+            <EmptyState
+              image="results"
+              title={carsError ? "Không tải được danh sách xe" : hasSearchCriteria ? "Không tìm thấy xe phù hợp" : "Chưa có xe sẵn sàng"}
+              description={carsError
+                ? "Vui lòng kiểm tra kết nối mạng rồi thử lại."
+                : hasSearchCriteria
                   ? "Hãy thử đổi từ khoá hoặc bỏ bớt bộ lọc."
                   : "Danh sách xe đang được cập nhật. Bạn vui lòng quay lại sau."}
-              </Text>
-              {hasSearchCriteria ? (
-                <TouchableOpacity style={styles.emptyButton} onPress={clearAll} activeOpacity={PRESS_OPACITY}>
-                  <Text style={styles.emptyButtonText}>Xoá tìm kiếm và bộ lọc</Text>
-                </TouchableOpacity>
-              ) : null}
-            </View>
+              actionLabel={!carsError && hasSearchCriteria ? "Xoá tìm kiếm và bộ lọc" : undefined}
+              onAction={clearAll}
+            />
           ) : (
             <FlatList
               key={selectedBrand ? 'single' : 'double'}
@@ -619,38 +612,6 @@ const styles = StyleSheet.create({
   },
   filterTextActive: {
     ...UI.chipTextActive,
-  },
-  emptyState: {
-    alignItems: "center",
-    paddingVertical: SPACE.section,
-    paddingHorizontal: SPACE.screen,
-  },
-  emptyIcon: {
-    width: 64,
-    height: 64,
-    borderRadius: RADIUS.pill,
-    backgroundColor: THEME_COLORS.surfaceMuted,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: SPACE.lg,
-  },
-  emptyTitle: {
-    ...TYPOGRAPHY.h3,
-  },
-  emptySubtitle: {
-    ...TYPOGRAPHY.caption,
-    marginTop: SPACE.xs,
-    textAlign: "center",
-  },
-  emptyButton: {
-    ...UI.secondaryButton,
-    height: 44,
-    marginTop: SPACE.xl,
-    paddingHorizontal: SPACE.xl,
-  },
-  emptyButtonText: {
-    ...UI.secondaryButtonText,
-    fontSize: 14,
   },
   skeletonGrid: {
     flexDirection: "row",

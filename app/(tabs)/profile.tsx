@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Modal, Image } from "react-native"
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, Image } from "react-native"
 import { StatusBar } from "expo-status-bar"
 import { SafeAreaView } from "react-native-safe-area-context"
 import { Ionicons } from "@expo/vector-icons"
@@ -9,13 +9,10 @@ import { router } from "expo-router"
 import { signOut } from "firebase/auth"
 import { auth } from "../../config/firebase"
 import { useAuth } from "../../hooks/useAuth"
-import { updateProfile } from "firebase/auth"
-import { doc, updateDoc } from "firebase/firestore"
-import { db } from "../../config/firebase"
 import { useFocusEffect } from "expo-router";
 import { useCallback } from "react";
 import { formatDate } from "../../utils/helpers";
-import { PRESS_OPACITY, RADIUS, SHADOWS, SPACE, THEME_COLORS, TYPOGRAPHY, UI } from "../../utils/theme";
+import { PRESS_OPACITY, RADIUS, SHADOWS, SPACE, THEME_COLORS, TYPOGRAPHY, UI, layout } from "../../utils/theme";
 
 // createdAt có thể là Firestore Timestamp, Date, chuỗi hoặc số
 const formatMemberSince = (createdAt: any): string => {
@@ -139,7 +136,7 @@ export default function ProfileScreen() {
           <View style={styles.menuItemIconContainer}>
             <Ionicons name={item.icon as any} size={20} color={THEME_COLORS.textSecondary} />
           </View>
-          <Text style={styles.menuItemText}>{item.title}</Text>
+          <Text style={styles.menuItemText} numberOfLines={1}>{item.title}</Text>
         </View>
         <Ionicons name="chevron-forward" size={18} color={THEME_COLORS.textMuted} />
       </TouchableOpacity>
@@ -253,14 +250,14 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: SPACE.screen,
-    // chừa chỗ cho thanh tab nổi (cao 80 + cách đáy 20) + khoảng thở
-    paddingBottom: 80 + 20 + SPACE["2xl"],
+    // chừa chỗ cho thanh tab nổi
+    paddingBottom: layout.tabBarClearance,
   },
   header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingTop: SPACE.xl,
+    paddingTop: SPACE.lg,
     paddingBottom: SPACE["2xl"],
   },
   title: {
@@ -334,7 +331,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   menuSection: {
-    marginTop: SPACE["3xl"],
+    marginTop: SPACE.section,
   },
   sectionLabel: {
     ...TYPOGRAPHY.overline,
@@ -376,7 +373,7 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   actionContainer: {
-    marginTop: SPACE["3xl"],
+    marginTop: SPACE.section,
   },
   logoutButton: {
     flexDirection: "row",

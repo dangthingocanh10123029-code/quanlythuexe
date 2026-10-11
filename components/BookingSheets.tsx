@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react"
 import {
-  Alert,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -20,6 +19,7 @@ import { calcBookingPrice, toDate } from "../utils/booking"
 import { cancelBooking, previewRefund, rescheduleBooking, submitReview } from "../utils/bookingActions"
 import { PAYMENT_METHODS } from "../utils/constants"
 import { formatCurrency, formatDate } from "../utils/helpers"
+import { confirmDialog, showAlert } from "../utils/dialog"
 import type { Booking } from "../types/booking"
 import type { Car } from "../types/car"
 import { PRESS_OPACITY, RADIUS, SHADOWS, SPACE, THEME_COLORS, TYPOGRAPHY, UI } from "../utils/theme"
@@ -91,7 +91,7 @@ export function PaymentMethodSheet({
         <View style={styles.modalSheet}>
           <SheetHeader title="Chọn phương thức thanh toán" onClose={onClose} />
           {booking && (
-            <Text style={styles.modalSubtitle}>
+            <Text style={styles.modalSubtitle} numberOfLines={2}>
               {booking.carName} • {formatCurrency(booking.price)}
             </Text>
           )}
@@ -168,7 +168,7 @@ export function RescheduleSheet({
       setSaving(true)
       await rescheduleBooking(b.id, pickupDate, new Date(pickupDate.getTime() + days * DAY))
       close()
-      Alert.alert(
+      showAlert(
         "Đổi lịch thành công",
         paid
           ? `Ngày nhận xe mới: ${formatDate(pickupDate)}.`
@@ -176,7 +176,7 @@ export function RescheduleSheet({
       )
     } catch (error: any) {
       console.error("Error rescheduling booking:", error)
-      Alert.alert("Không thể đổi lịch", error?.message || "Vui lòng thử lại.")
+      showAlert("Không thể đổi lịch", error?.message || "Vui lòng thử lại.")
     } finally {
       setSaving(false)
     }
@@ -185,17 +185,14 @@ export function RescheduleSheet({
   const confirm = () => {
     if (!booking) return
     if (pickupDate < startOfToday()) {
-      Alert.alert("Ngày không hợp lệ", "Vui lòng chọn ngày nhận xe từ hôm nay trở đi.")
+      showAlert("Ngày không hợp lệ", "Vui lòng chọn ngày nhận xe từ hôm nay trở đi.")
       return
     }
     const days = paid ? Number(booking.duration) || MIN_DURATION : duration
     const message = paid
       ? "Đơn đã thanh toán chỉ được dời ngày nhận xe, giữ nguyên số ngày thuê và tổng tiền."
       : `Tổng tiền dự kiến: ${formatCurrency(getPreviewPrice(booking))}.\n\nĐơn sẽ quay về trạng thái "Chờ xác nhận" để RENTO xác nhận lại lịch mới.`
-    Alert.alert("Xác nhận đổi lịch", message, [
-      { text: "Quay lại", style: "cancel" },
-      { text: "Đồng ý", onPress: () => save(booking, days) },
-    ])
+    confirmDialog("Xác nhận đổi lịch", message, "Đồng ý", () => save(booking, days), { cancelText: "Quay lại" })
   }
 
   const previewPrice = booking ? getPreviewPrice(booking) : 0
@@ -306,7 +303,7 @@ export function ReviewSheet({
   const [comment, setComment] = useState("")
   const [focused, setFocused] = useState(false)
   const [saving, setSaving] = useState(false)
-  // Lỗi hiện ngay trong sheet (Alert không hiện trên web)
+  // Lỗi hiện ngay trong sheet, không đóng sheet
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -323,7 +320,7 @@ export function ReviewSheet({
       setError(null)
       await submitReview(booking.id, rating, comment)
       onClose()
-      Alert.alert("Cảm ơn bạn!", "Đánh giá của bạn đã được gửi.")
+      showAlert("Cảm ơn bạn!", "Đánh giá của bạn đã được gửi.")
     } catch (e: any) {
       console.error("Error submitting review:", e)
       setError(e?.message || "Không gửi được đánh giá. Vui lòng thử lại.")
@@ -411,22 +408,21 @@ export function confirmCancelBooking(booking: Booking) {
     message += "\n\nĐơn chưa thanh toán nên không phát sinh hoàn tiền."
   }
 
-  Alert.alert("Huỷ chuyến", message, [
-    { text: "Không", style: "cancel" },
-    {
-      text: "Huỷ chuyến",
-      style: "destructive",
-      onPress: async () => {
-        try {
-          await cancelBooking(booking.id, "user")
-          Alert.alert("Đã huỷ chuyến", "Chuyến đi đã được chuyển vào mục Lịch sử.")
-        } catch (error: any) {
-          console.error("Error cancelling booking:", error)
-          Alert.alert("Không thể huỷ chuyến", error?.message || "Vui lòng thử lại.")
-        }
-      },
+  confirmDialog(
+    "Huỷ chuyến",
+    message,
+    "Huỷ chuyến",
+    async () => {
+      try {
+        await cancelBooking(booking.id, "user")
+        showAlert("Đã huỷ chuyến", "Chuyến đi đã được chuyển vào mục Lịch sử.")
+      } catch (error: any) {
+        console.error("Error cancelling booking:", error)
+        showAlert("Không thể huỷ chuyến", error?.message || "Vui lòng thử lại.")
+      }
     },
-  ])
+    { destructive: true, cancelText: "Không" },
+  )
 }
 
 const styles = StyleSheet.create({

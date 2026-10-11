@@ -1,7 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, ActivityIndicator, Alert } from "react-native"
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, ActivityIndicator } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 import { Ionicons } from "@expo/vector-icons"
 import { router, useLocalSearchParams } from "expo-router"
@@ -10,11 +9,12 @@ import { useLikedCarIds } from "../../hooks/useLikedCarIds"
 import { useCarReviews } from "../../hooks/useReviews"
 import { formatCurrency, formatDate } from "../../utils/helpers"
 import { toDate } from "../../utils/booking"
+import { showAlert } from "../../utils/dialog"
 import { HOTLINE, CAR_STATUS_LABELS, HIDDEN_CAR_STATUSES } from "../../utils/constants"
 import { getBrandAsset } from "../../data/assets"
 import { StatusBar } from "expo-status-bar"
 import { THEME_COLORS, RADIUS, SPACE, TYPOGRAPHY, UI, PRESS_OPACITY } from "../../utils/theme"
-import { AppHeader, PrimaryButton, StatCard } from "../../components"
+import { AppHeader, EmptyState, PrimaryButton, StatCard } from "../../components"
 
 
 // Địa chỉ chi nhánh RENTO theo thành phố của xe
@@ -53,13 +53,23 @@ export default function CarDetailsScreen() {
 
   if (!car) {
     return (
-      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
-        {carLoading ? (
-          <ActivityIndicator color={THEME_COLORS.primary} />
-        ) : (
-          <Text style={styles.emptyText}>Không tìm thấy xe</Text>
-        )}
-      </View>
+      <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
+        <StatusBar style="dark" />
+        <AppHeader title="Chi tiết xe" onBack={() => router.back()} />
+        <View style={styles.center}>
+          {carLoading ? (
+            <ActivityIndicator size="large" color={THEME_COLORS.primary} />
+          ) : (
+            <EmptyState
+              image="results"
+              title="Không tìm thấy xe"
+              description="Xe không tồn tại hoặc đã bị gỡ khỏi danh sách."
+              actionLabel="Xem xe khác"
+              onAction={() => router.replace("/(tabs)/search")}
+            />
+          )}
+        </View>
+      </SafeAreaView>
     )
   }
 
@@ -89,7 +99,7 @@ export default function CarDetailsScreen() {
             accessibilityLabel={liked ? "Bỏ khỏi xe yêu thích" : "Thêm vào xe yêu thích"}
             accessibilityState={{ selected: liked }}
             style={[styles.favoriteHeaderButton, liked && styles.favoriteHeaderButtonActive]}
-            onPress={() => toggleLike(car.id).catch((e) => Alert.alert("Không thể lưu xe yêu thích", e.message))}
+            onPress={() => toggleLike(car.id).catch((e) => showAlert("Không thể lưu xe yêu thích", e.message))}
             activeOpacity={PRESS_OPACITY}
           >
             <Ionicons name={liked ? "heart" : "heart-outline"} size={24} color={liked ? THEME_COLORS.danger : THEME_COLORS.textPrimary} />
@@ -211,18 +221,11 @@ export default function CarDetailsScreen() {
               <Ionicons name="business-outline" size={22} color={THEME_COLORS.primary} />
             </View>
             <View style={styles.rentalDetails}>
-              <View style={styles.rentalNameRow}>
-                <Text style={styles.rentalName}>RENTO {car.location}</Text>
-                <View style={styles.ratingStars}>
-                  {[...Array(5)].map((_, index) => (
-                    <Ionicons key={index} name="star" size={12} color={THEME_COLORS.accent} />
-                  ))}
-                </View>
-              </View>
+              <Text style={styles.rentalName}>RENTO {car.location}</Text>
               <Text style={styles.rentalLocation}>{BRANCH_ADDRESSES[car.location] ?? car.location}</Text>
               <View style={styles.rentalMetaRow}>
                 <Ionicons name="time-outline" size={14} color={THEME_COLORS.textMuted} />
-                <Text style={styles.rentalMeta}>Thứ 2 - Chủ nhật: 08:00 - 20:30</Text>
+                <Text style={styles.rentalMeta}>Thứ 2 – Chủ nhật: 08:00 – 20:30</Text>
               </View>
               <View style={styles.rentalMetaRow}>
                 <Ionicons name="call-outline" size={14} color={THEME_COLORS.textMuted} />
@@ -247,15 +250,12 @@ export default function CarDetailsScreen() {
           {reviewLoading ? (
             <ActivityIndicator color={THEME_COLORS.primary} />
           ) : reviews.length === 0 ? (
-            <View style={styles.reviewEmpty}>
-              <View style={styles.reviewEmptyIcon}>
-                <Ionicons name="chatbubble-ellipses-outline" size={28} color={THEME_COLORS.textMuted} />
-              </View>
-              <Text style={styles.reviewEmptyTitle}>Chưa có đánh giá nào</Text>
-              <Text style={styles.reviewEmptyText}>
-                Khách hoàn thành chuyến đi với xe này có thể đánh giá trong mục Chuyến đi.
-              </Text>
-            </View>
+            <EmptyState
+              image="reviews"
+              size={160}
+              title="Chưa có đánh giá nào"
+              description="Khách hoàn thành chuyến đi với xe này có thể đánh giá trong mục Chuyến đi."
+            />
           ) : (
             reviews.map((review) => {
               const name = formatUserName(review.userName)
@@ -286,10 +286,10 @@ export default function CarDetailsScreen() {
       {/* Booking Section */}
       <SafeAreaView edges={["bottom"]} style={styles.bookingContainer}>
         <View style={styles.bookingInner}>
-          <View>
+          <View style={styles.priceBlock}>
             <Text style={styles.priceCaption}>Giá thuê</Text>
             <View style={styles.priceContainer}>
-              <Text style={styles.price}>{formatCurrency(car.pricePerDay)}</Text>
+              <Text style={styles.price} numberOfLines={1}>{formatCurrency(car.pricePerDay)}</Text>
               <Text style={styles.priceLabel}>/ngày</Text>
             </View>
           </View>
@@ -315,6 +315,12 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingBottom: SPACE.section,
+  },
+  center: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: SPACE.screen,
   },
   heroSection: {
     paddingHorizontal: SPACE.screen,
@@ -505,15 +511,9 @@ const styles = StyleSheet.create({
     flex: 1,
     marginLeft: SPACE.md,
   },
-  rentalNameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: SPACE.xs,
-  },
   rentalName: {
     ...TYPOGRAPHY.h3,
-    flex: 1,
+    marginBottom: SPACE.xs,
   },
   rentalLocation: {
     ...TYPOGRAPHY.body,
@@ -529,6 +529,7 @@ const styles = StyleSheet.create({
   rentalMeta: {
     ...TYPOGRAPHY.caption,
     marginLeft: 6,
+    flexShrink: 1,
   },
   bookingContainer: {
     backgroundColor: THEME_COLORS.surface,
@@ -541,6 +542,10 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: SPACE.screen,
     paddingVertical: SPACE.md,
+    gap: SPACE.md,
+  },
+  priceBlock: {
+    flexShrink: 1,
   },
   priceCaption: {
     ...TYPOGRAPHY.caption,
@@ -559,14 +564,10 @@ const styles = StyleSheet.create({
     marginLeft: SPACE.xs,
   },
   bookNowButton: {
-    minWidth: 158,
+    minWidth: 150,
   },
 
   // Review section styles
-  emptyText: {
-    ...TYPOGRAPHY.body,
-    color: THEME_COLORS.textMuted,
-  },
   reviewCard: {
     ...UI.card,
     padding: SPACE.lg,
@@ -606,10 +607,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginLeft: SPACE.sm,
   },
-  ratingStars: {
-    flexDirection: "row",
-    marginLeft: SPACE.sm,
-  },
   reviewComment: {
     ...TYPOGRAPHY.body,
   },
@@ -639,28 +636,5 @@ const styles = StyleSheet.create({
   },
   ratingCount: {
     ...TYPOGRAPHY.caption,
-  },
-  reviewEmpty: {
-    alignItems: "center",
-    paddingVertical: SPACE["2xl"],
-    paddingHorizontal: SPACE.lg,
-  },
-  reviewEmptyIcon: {
-    width: 64,
-    height: 64,
-    borderRadius: RADIUS.pill,
-    backgroundColor: THEME_COLORS.surfaceMuted,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: SPACE.md,
-  },
-  reviewEmptyTitle: {
-    ...TYPOGRAPHY.h3,
-    marginBottom: SPACE.xs,
-  },
-  reviewEmptyText: {
-    ...TYPOGRAPHY.body,
-    fontSize: 14,
-    textAlign: "center",
   },
 })

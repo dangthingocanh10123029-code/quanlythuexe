@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, FlatList, Image } from "react-native"
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, FlatList, Image, ActivityIndicator } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 import { Ionicons } from "@expo/vector-icons"
 import { router } from "expo-router"
@@ -12,19 +12,20 @@ import type { Booking as BookingDoc } from "../../types/booking"
 import { useCars, getCarImage } from "../../hooks/useCars"
 import type { Car } from "../../types/car"
 import BookingStatusBadge from "../../components/BookingStatusBadge"
+import EmptyState from "../../components/EmptyState"
 import { PaymentMethodSheet, RescheduleSheet, confirmCancelBooking } from "../../components/BookingSheets"
 import { StatusBar } from "expo-status-bar"
-import { THEME_COLORS, RADIUS, SPACE, SHADOWS, TYPOGRAPHY, UI, PRESS_OPACITY } from "../../utils/theme"
+import { THEME_COLORS, RADIUS, SPACE, SHADOWS, TYPOGRAPHY, UI, PRESS_OPACITY, layout } from "../../utils/theme"
 
 // Đơn cũ có thể còn carImage (chuỗi URL / data URI) và payment.method cũ ('GCash' | 'PayPal' | 'Credit Card')
 type Booking = BookingDoc & { carImage?: any }
 
 type TabKey = "upcoming" | "active" | "history"
 
-const TABS: { key: TabKey; label: string; emptyText: string }[] = [
-  { key: "upcoming", label: "Sắp tới", emptyText: "Không có chuyến nào đang chờ xác nhận, chờ thanh toán hoặc chờ nhận xe" },
-  { key: "active", label: "Đang thuê", emptyText: "Bạn không có chuyến nào đang thuê" },
-  { key: "history", label: "Lịch sử", emptyText: "Chưa có chuyến nào hoàn thành hoặc đã huỷ" },
+const TABS: { key: TabKey; label: string; emptyTitle: string; emptyText: string }[] = [
+  { key: "upcoming", label: "Sắp tới", emptyTitle: "Chưa có chuyến sắp tới", emptyText: "Không có chuyến nào đang chờ xác nhận, chờ thanh toán hoặc chờ nhận xe" },
+  { key: "active", label: "Đang thuê", emptyTitle: "Chưa có chuyến đang thuê", emptyText: "Bạn không có chuyến nào đang thuê" },
+  { key: "history", label: "Lịch sử", emptyTitle: "Lịch sử còn trống", emptyText: "Chưa có chuyến nào hoàn thành hoặc đã huỷ" },
 ]
 
 // Hiển thị phương thức thanh toán, hỗ trợ cả giá trị cũ (GCash/PayPal/Credit Card) của đơn cũ
@@ -66,7 +67,7 @@ const resolveCarImage = (booking: Booking, cars: Car[]) => {
 export default function BookingsScreen() {
   const [activeTab, setActiveTab] = useState<TabKey>("upcoming")
   const { cars } = useCars()
-  const { bookings } = useUserBookings() as { bookings: Booking[] }
+  const { bookings, loading } = useUserBookings() as { bookings: Booking[]; loading: boolean }
 
   // Bottom sheet thanh toán / đổi lịch (components/BookingSheets)
   const [payingBooking, setPayingBooking] = useState<Booking | null>(null)
@@ -106,7 +107,7 @@ export default function BookingsScreen() {
               {item.carName}
             </Text>
             <BookingStatusBadge status={item.status} style={styles.statusBadge} />
-            <Text style={styles.price}>{formatCurrency(item.price)}</Text>
+            <Text style={styles.price} numberOfLines={1}>{formatCurrency(item.price)}</Text>
           </View>
         </View>
 
@@ -167,7 +168,7 @@ export default function BookingsScreen() {
                 onPress={() => setPayingBooking(item)}
                 activeOpacity={PRESS_OPACITY}
               >
-                <Ionicons name="card-outline" size={18} color="#FFFFFF" />
+                <Ionicons name="card-outline" size={18} color={THEME_COLORS.textInverse} />
                 <Text style={styles.payNowButtonText}>Thanh toán ngay</Text>
               </TouchableOpacity>
             )}
@@ -199,22 +200,17 @@ export default function BookingsScreen() {
     )
   }
 
-  // Add this function to render empty state
   const renderEmptyState = () => (
-    <View style={styles.emptyState}>
-      <View style={styles.emptyIcon}>
-        <Ionicons name="car-outline" size={44} color={THEME_COLORS.primary} />
-      </View>
-      <Text style={styles.emptyTitle}>Bạn chưa có chuyến đi nào</Text>
-      <Text style={styles.emptyText}>Khám phá và đặt chiếc xe đầu tiên của bạn ngay nhé</Text>
-      <TouchableOpacity
-        style={styles.startButton}
-        onPress={() => router.push("/(tabs)/search")}
-        activeOpacity={PRESS_OPACITY}
-      >
-        <Text style={styles.startButtonText}>Thuê xe ngay</Text>
-      </TouchableOpacity>
-    </View>
+    <EmptyState
+      image="bookings"
+      size={200}
+      title="Bạn chưa có chuyến đi nào"
+      description="Khám phá và đặt chiếc xe đầu tiên của bạn ngay nhé"
+      actionLabel="Thuê xe ngay"
+      onAction={() => router.push("/(tabs)/search")}
+      primaryAction
+      style={styles.emptyState}
+    />
   )
 
   const currentTab = TABS.find(t => t.key === activeTab) ?? TABS[0]
@@ -226,7 +222,9 @@ export default function BookingsScreen() {
         <Text style={styles.title}>Chuyến đi của tôi</Text>
       </View>
 
-      {bookings.length === 0 ? (
+      {loading ? (
+        <ActivityIndicator size="large" color={THEME_COLORS.primary} style={styles.loading} />
+      ) : bookings.length === 0 ? (
         renderEmptyState()
       ) : (
         <>
@@ -240,7 +238,12 @@ export default function BookingsScreen() {
                   onPress={() => setActiveTab(tab.key)}
                   activeOpacity={PRESS_OPACITY}
                 >
-                  <Text style={[styles.tabText, selected && styles.activeTabText]} numberOfLines={1}>
+                  <Text
+                    style={[styles.tabText, selected && styles.activeTabText]}
+                    numberOfLines={1}
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.85}
+                  >
                     {tab.label} ({bookingsByTab[tab.key].length})
                   </Text>
                 </TouchableOpacity>
@@ -254,12 +257,7 @@ export default function BookingsScreen() {
             showsVerticalScrollIndicator={false}
           >
             {bookingsByTab[activeTab].length === 0 ? (
-              <View style={styles.tabEmpty}>
-                <View style={styles.tabEmptyIcon}>
-                  <Ionicons name="calendar-outline" size={32} color={THEME_COLORS.textSecondary} />
-                </View>
-                <Text style={styles.tabEmptyText}>{currentTab.emptyText}</Text>
-              </View>
+              <EmptyState image="bookings" size={160} title={currentTab.emptyTitle} description={currentTab.emptyText} />
             ) : (
               <FlatList
                 data={bookingsByTab[activeTab]}
@@ -284,8 +282,8 @@ export default function BookingsScreen() {
   )
 }
 
-// Thanh tab nổi: cao 72 + cách đáy 20 → chừa ~120px để thẻ cuối không bị che
-const TAB_BAR_CLEARANCE = 120
+// Chừa chỗ cho thanh tab nổi để thẻ cuối không bị che
+const TAB_BAR_CLEARANCE = layout.tabBarClearance
 
 const styles = StyleSheet.create({
   container: {
@@ -459,55 +457,13 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "600",
   },
+  loading: {
+    marginTop: SPACE.section,
+  },
   emptyState: {
     flex: 1,
     justifyContent: "center",
-    alignItems: "center",
-    paddingHorizontal: SPACE["4xl"],
-    paddingBottom: TAB_BAR_CLEARANCE,
-  },
-  emptyIcon: {
-    width: 96,
-    height: 96,
-    borderRadius: RADIUS.pill,
-    backgroundColor: THEME_COLORS.primarySoft,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: SPACE.xl,
-  },
-  emptyTitle: {
-    ...TYPOGRAPHY.h2,
-    marginBottom: SPACE.sm,
-    textAlign: "center",
-  },
-  emptyText: {
-    ...TYPOGRAPHY.body,
-    textAlign: "center",
-    marginBottom: SPACE.section,
-  },
-  startButton: {
-    ...UI.primaryButton,
-    alignSelf: "stretch",
-  },
-  startButtonText: {
-    ...UI.primaryButtonText,
-  },
-  tabEmpty: {
-    alignItems: "center",
-    paddingVertical: SPACE["4xl"],
     paddingHorizontal: SPACE.screen,
-  },
-  tabEmptyIcon: {
-    width: 72,
-    height: 72,
-    borderRadius: RADIUS.pill,
-    backgroundColor: THEME_COLORS.surfaceMuted,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: SPACE.lg,
-  },
-  tabEmptyText: {
-    ...TYPOGRAPHY.body,
-    textAlign: "center",
+    paddingBottom: TAB_BAR_CLEARANCE,
   },
 })

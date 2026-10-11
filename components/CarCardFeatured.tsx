@@ -53,7 +53,7 @@ export default function CarCardFeatured({ car, onPress, onFavoritePress, liked =
           {typeof car.rating === "number" ? (
             <View style={styles.rating}>
               <Ionicons name="star" size={15} color={THEME_COLORS.accent} />
-              <Text style={styles.ratingText}>{car.rating.toFixed(1)}</Text>
+              <Text style={styles.ratingText}>{car.rating.toFixed(1).replace(".", ",")}</Text>
             </View>
           ) : null}
         </View>

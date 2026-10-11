@@ -7,7 +7,7 @@ import {
   FlatList,
   TouchableOpacity,
   Image,
-  Alert,
+  ActivityIndicator,
 } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 import { Ionicons } from "@expo/vector-icons"
@@ -16,17 +16,19 @@ import { useCars, getCarImage } from "../hooks/useCars"
 import { useLikedCarIds } from "../hooks/useLikedCarIds"
 import type { Car } from "../types/car"
 import { formatCurrency } from "../utils/helpers"
+import { showAlert } from "../utils/dialog"
+import EmptyState from "../components/EmptyState"
 import { StatusBar } from "expo-status-bar"
 import { THEME_COLORS, RADIUS, SPACE, SHADOWS, TYPOGRAPHY, UI, PRESS_OPACITY } from "../utils/theme"
 
 export default function LikedCarsScreen() {
-  const { cars } = useCars()
+  const { cars, loading, error } = useCars()
   const { likedIds, toggleLike } = useLikedCarIds()
   // Bỏ qua các xe đã bị xoá khỏi Firestore
   const likedCars = cars.filter((car) => likedIds.includes(car.id))
 
   const handleUnlike = (carId: string) =>
-    toggleLike(carId).catch((error) => Alert.alert("Lỗi", error.message || "Không thể bỏ yêu thích xe này. Vui lòng thử lại."))
+    toggleLike(carId).catch((error) => showAlert("Lỗi", error.message || "Không thể bỏ yêu thích xe này. Vui lòng thử lại."))
 
   const renderCarItem = ({ item }: { item: Car }) => (
     <TouchableOpacity
@@ -54,7 +56,7 @@ export default function LikedCarsScreen() {
         </View>
         <View style={styles.metaRow}>
           <Ionicons name="location-outline" size={14} color={THEME_COLORS.textMuted} />
-          <Text style={styles.metaText}>{item.location}</Text>
+          <Text style={styles.metaText} numberOfLines={1}>{item.location}</Text>
         </View>
       </View>
     </TouchableOpacity>
@@ -71,7 +73,9 @@ export default function LikedCarsScreen() {
         <View style={styles.headerSpacer} />
       </View>
 
-      {likedCars.length > 0 ? (
+      {loading ? (
+        <ActivityIndicator size="large" color={THEME_COLORS.primary} style={styles.loading} />
+      ) : likedCars.length > 0 ? (
         <FlatList
           data={likedCars}
           renderItem={renderCarItem}
@@ -80,12 +84,17 @@ export default function LikedCarsScreen() {
           showsVerticalScrollIndicator={false}
         />
       ) : (
-        <View style={styles.emptyState}>
-          <View style={styles.emptyIcon}>
-            <Ionicons name="heart-outline" size={40} color={THEME_COLORS.primary} />
-          </View>
-          <Text style={styles.emptyText}>Bạn chưa có xe yêu thích nào</Text>
-        </View>
+        <EmptyState
+          image={error ? "results" : "liked"}
+          size={200}
+          title={error ? "Không tải được danh sách xe" : "Bạn chưa có xe yêu thích nào"}
+          description={error
+            ? "Vui lòng kiểm tra kết nối mạng rồi thử lại."
+            : "Bấm biểu tượng trái tim trên thẻ xe để lưu lại những chiếc bạn thích."}
+          actionLabel={error ? undefined : "Khám phá xe"}
+          onAction={() => router.push("/(tabs)/search")}
+          style={styles.emptyState}
+        />
       )}
     </SafeAreaView>
   )
@@ -154,6 +163,7 @@ const styles = StyleSheet.create({
   carPrice: {
     ...TYPOGRAPHY.price,
     fontSize: 15,
+    flexShrink: 0,
   },
   metaRow: {
     flexDirection: "row",
@@ -162,6 +172,7 @@ const styles = StyleSheet.create({
   },
   metaText: {
     ...TYPOGRAPHY.caption,
+    flexShrink: 1,
   },
   unlikeButton: {
     position: "absolute",
@@ -175,24 +186,13 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     ...SHADOWS.card,
   },
+  loading: {
+    marginTop: SPACE.section,
+  },
   emptyState: {
     flex: 1,
     justifyContent: "center",
-    alignItems: "center",
     paddingHorizontal: SPACE.screen,
     paddingBottom: SPACE.section,
-  },
-  emptyIcon: {
-    width: 88,
-    height: 88,
-    borderRadius: RADIUS.pill,
-    backgroundColor: THEME_COLORS.primarySoft,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: SPACE.lg,
-  },
-  emptyText: {
-    ...TYPOGRAPHY.body,
-    textAlign: "center",
   },
 })

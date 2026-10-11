@@ -91,10 +91,11 @@ const DummyMap = () => {
 
   const getMarkerColor = (type: Location['type']) => {
     switch (type) {
-      case 'premium': return '#10B981';
-      case 'airport': return '#3B82F6';
-      case 'hotel': return '#F59E0B';
-      default: return '#6B7280';
+      // Token dạng #RRGGBB: panel bên dưới nối thêm "1F" làm nền mờ
+      case 'premium': return THEME_COLORS.success;
+      case 'airport': return THEME_COLORS.primary;
+      case 'hotel': return THEME_COLORS.warning;
+      default: return THEME_COLORS.textSecondary;
     }
   };
 
@@ -144,7 +145,7 @@ const DummyMap = () => {
               )}
               activeOpacity={PRESS_OPACITY}
             >
-              <Ionicons name="car" size={15} color="#FFFFFF" />
+              <Ionicons name="car" size={15} color={THEME_COLORS.textInverse} />
             </TouchableOpacity>
           ))}
 
@@ -281,7 +282,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
-    borderColor: '#FFFFFF',
+    borderColor: THEME_COLORS.surface,
     transform: [{ translateX: -16 }, { translateY: -16 }],
     ...SHADOWS.card,
   },

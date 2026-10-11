@@ -37,7 +37,7 @@ export default function PrimaryButton({
       ) : (
         <View style={styles.content}>
           {iconPosition === "left" ? iconNode : null}
-          <Text style={styles.label}>{title}</Text>
+          <Text style={styles.label} numberOfLines={1}>{title}</Text>
           {iconPosition === "right" ? iconNode : null}
         </View>
       )}
@@ -54,6 +54,7 @@ const styles = StyleSheet.create({
     boxShadow: "none",
   },
   content: {
+    maxWidth: "100%",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
@@ -62,6 +63,7 @@ const styles = StyleSheet.create({
   label: {
     ...UI.primaryButtonText,
     textAlign: "center",
+    flexShrink: 1,
   },
 })
 

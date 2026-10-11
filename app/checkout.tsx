@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { type ViewStyle, View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, FlatList, Modal, Image, TextInput } from "react-native"
+import { type ViewStyle, View, Text, StyleSheet, ScrollView, TouchableOpacity, FlatList, Modal, Image, TextInput, ActivityIndicator } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 import { Ionicons } from "@expo/vector-icons"
 import { router, useLocalSearchParams } from "expo-router"
@@ -12,10 +12,11 @@ import { useLicense } from "../hooks/useLicense"
 import { calcBookingPrice, daysBetween } from "../utils/booking"
 import { createBooking, isFirstBooking } from "../utils/bookingActions"
 import { formatCurrency } from "../utils/helpers"
+import { confirmDialog } from "../utils/dialog"
 import { PICKUP_LOCATIONS, VAT_RATE } from "../utils/constants"
 import { StatusBar } from "expo-status-bar"
 import { THEME_COLORS, RADIUS, SPACE, SHADOWS, TYPOGRAPHY, UI, PRESS_OPACITY } from "../utils/theme"
-import { AppHeader, PrimaryButton, SearchBar } from "../components"
+import { AppHeader, EmptyState, PrimaryButton, SearchBar } from "../components"
 import DateTimeRangePicker from "../components/DateTimeRangePicker"
 
 
@@ -87,9 +88,23 @@ export default function CheckoutScreen() {
 
   if (!car) {
     return (
-      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
-        <Text style={styles.priceLabel}>{carLoading ? "Đang tải..." : "Không tìm thấy xe"}</Text>
-      </View>
+      <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
+        <StatusBar style="dark" />
+        <AppHeader title="Xác nhận đặt xe" onBack={() => router.back()} />
+        <View style={styles.center}>
+          {carLoading ? (
+            <ActivityIndicator size="large" color={THEME_COLORS.primary} />
+          ) : (
+            <EmptyState
+              image="results"
+              title="Không tìm thấy xe"
+              description="Xe không tồn tại hoặc đã bị gỡ khỏi danh sách."
+              actionLabel="Xem xe khác"
+              onAction={() => router.replace("/(tabs)/search")}
+            />
+          )}
+        </View>
+      </SafeAreaView>
     )
   }
 
@@ -119,10 +134,9 @@ export default function CheckoutScreen() {
   }
 
   const goToLicense = (message: string) =>
-    Alert.alert("Cần giấy phép lái xe", message, [
-      { text: "Để sau", style: "cancel" },
-      { text: "Cập nhật GPLX", onPress: () => router.push("/profile/license") },
-    ])
+    confirmDialog("Cần giấy phép lái xe", message, "Cập nhật GPLX", () => router.push("/profile/license"), {
+      cancelText: "Để sau",
+    })
 
   // Gửi yêu cầu đặt xe (đơn "Chờ xác nhận"); thanh toán sau khi RENTO xác nhận (D2)
   const handleConfirmBooking = async () => {
@@ -181,10 +195,10 @@ export default function CheckoutScreen() {
             </View>
             <View style={styles.carDetails}>
               <Text style={styles.carName} numberOfLines={1}>{car.name}</Text>
-              <Text style={styles.carBrand}>{car.brand}</Text>
+              <Text style={styles.carBrand} numberOfLines={1}>{car.brand}</Text>
               <View style={styles.carLocationRow}>
                 <Ionicons name="location-outline" size={14} color={THEME_COLORS.textMuted} />
-                <Text style={styles.carLocation}>{car.location}</Text>
+                <Text style={styles.carLocation} numberOfLines={1}>{car.location}</Text>
               </View>
             </View>
           </View>
@@ -455,6 +469,12 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
   },
+  center: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: SPACE.screen,
+  },
   contentInner: {
     paddingHorizontal: SPACE.screen,
     paddingTop: SPACE["2xl"],
@@ -510,6 +530,7 @@ const styles = StyleSheet.create({
   carLocation: {
     ...TYPOGRAPHY.caption,
     marginLeft: SPACE.xs,
+    flexShrink: 1,
   },
   cardDivider: {
     ...UI.divider,
@@ -626,9 +647,6 @@ const styles = StyleSheet.create({
   checkedBox: {
     backgroundColor: THEME_COLORS.primary,
     borderColor: THEME_COLORS.primary,
-  },
-  paymentMethods: {
-    gap: SPACE.sm,
   },
   priceRow: {
     flexDirection: "row",

@@ -8,6 +8,7 @@ import { toDate } from "../utils/booking"
 import { formatDate } from "../utils/helpers"
 import { Ionicons } from "@expo/vector-icons"
 import { router } from "expo-router"
+import EmptyState from "../components/EmptyState"
 import { THEME_COLORS, RADIUS, SPACE, TYPOGRAPHY, UI, PRESS_OPACITY } from "../utils/theme"
 
 // Thông báo chưa đọc: nền primarySubtle + viền primary rất nhẹ
@@ -48,8 +49,8 @@ export default function NotificationsScreen() {
       </View>
       <View style={styles.notificationContent}>
         <View style={styles.notificationHeader}>
-          <Text style={[styles.typeLabel, { color: item.color }]}>{item.label}</Text>
-          <Text style={styles.notificationTime}>{item.time}</Text>
+          <Text style={[styles.typeLabel, { color: item.color }]} numberOfLines={1}>{item.label}</Text>
+          <Text style={styles.notificationTime} numberOfLines={1}>{item.time}</Text>
         </View>
         <Text style={[styles.notificationTitle, !item.read && styles.unreadTitle]} numberOfLines={2}>
           {item.title}
@@ -69,21 +70,15 @@ export default function NotificationsScreen() {
   const renderEmpty = () => {
     if (loading) return <ActivityIndicator size="large" color={THEME_COLORS.primary} style={styles.loading} />
     return (
-      <View style={styles.emptyState}>
-        <View style={[styles.emptyIcon, error ? styles.emptyIconError : null]}>
-          <Ionicons
-            name={error ? "cloud-offline-outline" : "notifications-off-outline"}
-            size={32}
-            color={error ? THEME_COLORS.danger : THEME_COLORS.textMuted}
-          />
-        </View>
-        <Text style={styles.emptyTitle}>{error ? "Không tải được thông báo" : "Chưa có thông báo"}</Text>
-        <Text style={styles.emptyText}>
-          {error
-            ? "Vui lòng kiểm tra kết nối mạng rồi mở lại màn hình này."
-            : "Cập nhật về chuyến đi, thanh toán và GPLX của bạn sẽ hiển thị ở đây."}
-        </Text>
-      </View>
+      <EmptyState
+        image="notifications"
+        size={200}
+        title={error ? "Không tải được thông báo" : "Chưa có thông báo"}
+        description={error
+          ? "Vui lòng kiểm tra kết nối mạng rồi mở lại màn hình này."
+          : "Cập nhật về chuyến đi, thanh toán và GPLX của bạn sẽ hiển thị ở đây."}
+        style={styles.emptyState}
+      />
     )
   }
 
@@ -272,29 +267,6 @@ const styles = StyleSheet.create({
     marginTop: SPACE.section,
   },
   emptyState: {
-    alignItems: "center",
-    paddingTop: SPACE.section * 2,
-    paddingHorizontal: SPACE.lg,
-  },
-  emptyIcon: {
-    width: 72,
-    height: 72,
-    borderRadius: RADIUS.pill,
-    backgroundColor: THEME_COLORS.surfaceMuted,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: SPACE.lg,
-  },
-  emptyIconError: {
-    backgroundColor: THEME_COLORS.dangerSoft,
-  },
-  emptyTitle: {
-    ...TYPOGRAPHY.h2,
-    textAlign: "center",
-    marginBottom: SPACE.sm,
-  },
-  emptyText: {
-    ...TYPOGRAPHY.body,
-    textAlign: "center",
+    paddingTop: SPACE.section,
   },
 })

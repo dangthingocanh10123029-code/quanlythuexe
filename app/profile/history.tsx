@@ -14,6 +14,7 @@ import type { Car } from "../../types/car"
 import { formatCurrency, formatDate } from "../../utils/helpers"
 import BookingStatusBadge from "../../components/BookingStatusBadge"
 import { ReviewSheet } from "../../components/BookingSheets"
+import EmptyState from "../../components/EmptyState"
 import { PRESS_OPACITY, RADIUS, SPACE, THEME_COLORS, TYPOGRAPHY, UI } from "../../utils/theme"
 
 interface RentalHistoryItem {
@@ -116,7 +117,7 @@ export default function HistoryScreen() {
           </View>
 
           <View style={styles.bottomRow}>
-            <Text style={styles.totalCost}>{formatCurrency(item.totalCost)}</Text>
+            <Text style={styles.totalCost} numberOfLines={1}>{formatCurrency(item.totalCost)}</Text>
             {isStatus(item, "completed") ? (
               item.reviewed ? (
                 <View style={styles.reviewedTag}>
@@ -201,14 +202,13 @@ export default function HistoryScreen() {
           {loading ? (
             <ActivityIndicator size="large" color={THEME_COLORS.primary} style={{ marginTop: SPACE["4xl"] }} />
           ) : filteredHistory.length === 0 ? (
-            <View style={styles.emptyState}>
-              <View style={styles.emptyIcon}>
-                <Ionicons name="car-outline" size={32} color={THEME_COLORS.textMuted} />
-              </View>
-              <Text style={styles.emptyText}>
-                {uid ? "Chưa có chuyến thuê nào" : "Vui lòng đăng nhập để xem lịch sử thuê xe"}
-              </Text>
-            </View>
+            <EmptyState
+              image="bookings"
+              title={uid ? "Chưa có chuyến thuê nào" : "Vui lòng đăng nhập để xem lịch sử thuê xe"}
+              description={uid ? "Các chuyến bạn đã đặt sẽ hiển thị ở đây." : undefined}
+              actionLabel={uid ? "Thuê xe ngay" : "Đăng nhập"}
+              onAction={() => router.push(uid ? "/(tabs)/search" : "/login")}
+            />
           ) : (
             <FlatList
               data={filteredHistory}
@@ -368,8 +368,10 @@ const styles = StyleSheet.create({
   },
   bottomRow: {
     flexDirection: "row",
+    flexWrap: "wrap",
     justifyContent: "space-between",
     alignItems: "center",
+    gap: SPACE.sm,
   },
   totalCost: {
     ...TYPOGRAPHY.price,
@@ -404,23 +406,5 @@ const styles = StyleSheet.create({
     color: THEME_COLORS.success,
     fontSize: 12,
     fontWeight: "600",
-  },
-  emptyState: {
-    alignItems: "center",
-    paddingVertical: SPACE["4xl"],
-    gap: SPACE.md,
-  },
-  emptyIcon: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: THEME_COLORS.surfaceMuted,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  emptyText: {
-    ...TYPOGRAPHY.body,
-    fontSize: 14,
-    textAlign: "center",
   },
 })

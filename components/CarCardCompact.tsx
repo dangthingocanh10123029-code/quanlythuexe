@@ -70,7 +70,7 @@ export default function CarCardCompact({
           {typeof car.rating === "number" ? (
             <View style={styles.metaItem}>
               <Ionicons name="star" size={13} color={THEME_COLORS.accent} />
-              <Text style={styles.metaText}>{car.rating.toFixed(1)}</Text>
+              <Text style={styles.metaText}>{car.rating.toFixed(1).replace(".", ",")}</Text>
             </View>
           ) : null}
           {typeof car.seats === "number" ? (

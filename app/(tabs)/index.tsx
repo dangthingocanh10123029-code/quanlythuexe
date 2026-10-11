@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useMemo } from "react"
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Dimensions, FlatList, Alert } from "react-native"
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Dimensions, FlatList } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 import { Ionicons } from "@expo/vector-icons"
 import { router } from "expo-router"
@@ -14,29 +14,32 @@ import { useNotifications } from "../../hooks/useNotifications"
 import { useUserBookings } from "../../hooks/useBookings"
 import { findPickupReminder, getBookingRange } from "../../utils/booking"
 import { formatDate } from "../../utils/helpers"
+import { showAlert } from "../../utils/dialog"
 import { HIDDEN_CAR_STATUSES } from "../../utils/constants"
 import { BRAND_ASSETS, PROMO_ASSETS } from "../../data/assets"
 import { StatusBar } from "expo-status-bar"
 import { THEME_COLORS, RADIUS, SPACE, SHADOWS, TYPOGRAPHY, UI, PRESS_OPACITY, layout } from "../../utils/theme"
-import { CarCardCompact, CarCardFeatured, CarCardSkeleton, PromoModal, SearchBar, SectionHeader } from "../../components"
+import { CarCardCompact, CarCardFeatured, CarCardSkeleton, EmptyState, PromoModal, SearchBar, SectionHeader } from "../../components"
 import DateTimeRangePicker from "../../components/DateTimeRangePicker"
 
 
 const { width } = Dimensions.get("window")
+// Mỗi trang băng khuyến mãi rộng bằng màn trừ lề hai bên
+const COUPON_WIDTH = width - SPACE.screen * 2
 
 const coupons = [
   {
     id: 1,
     title: "FIRST20",
     description: "Giảm 20% cho chuyến thuê đầu tiên",
-    color: "#1054CF",
+    color: THEME_COLORS.primary,
     image: PROMO_ASSETS.firstRide
   },
   {
     id: 2,
     title: "WEEKEND50",
     description: "Giảm 50% khi thuê xe cuối tuần",
-    color: "#c2a300",
+    color: THEME_COLORS.accent,
     image: PROMO_ASSETS.weekend
   },
 ]
@@ -72,7 +75,7 @@ export default function HomeScreen() {
   const reminderStart = pickupReminder ? getBookingRange(pickupReminder)?.start ?? null : null
   const reminderHours = reminderStart ? Math.max(0, Math.ceil((reminderStart.getTime() - Date.now()) / 3_600_000)) : 0
   const [rentalRange, setRentalRange] = useState(createDefaultRange)
-  const { cars, loading: carsLoading } = useCars()
+  const { cars, loading: carsLoading, error: carsError } = useCars()
   const { likedIds, toggleLike } = useLikedCarIds()
 
   // Xe nổi bật: điểm đánh giá cao nhất trong các xe đang cho thuê
@@ -136,7 +139,7 @@ export default function HomeScreen() {
     <CarCardCompact
       car={{ ...item, image: getCarImage(item) }}
       liked={likedIds.includes(item.id)}
-      onFavoritePress={() => toggleLike(item.id).catch((e) => Alert.alert("Không thể lưu xe yêu thích", e.message))}
+      onFavoritePress={() => toggleLike(item.id).catch((e) => showAlert("Không thể lưu xe yêu thích", e.message))}
       onPress={() => router.push({ pathname: "/car-details/[id]", params: { id: item.id } })}
       style={styles.recentCarCard}
     />
@@ -147,7 +150,7 @@ export default function HomeScreen() {
       <CarCardFeatured
         car={{ ...item, image: getCarImage(item) }}
         liked={likedIds.includes(item.id)}
-        onFavoritePress={() => toggleLike(item.id).catch((e) => Alert.alert("Không thể lưu xe yêu thích", e.message))}
+        onFavoritePress={() => toggleLike(item.id).catch((e) => showAlert("Không thể lưu xe yêu thích", e.message))}
         onPress={() => router.push({ pathname: "/car-details/[id]", params: { id: item.id } })}
       />
     </View>
@@ -268,7 +271,7 @@ export default function HomeScreen() {
             style={styles.couponList}
             contentContainerStyle={styles.couponListContent}
             onMomentumScrollEnd={(event) => {
-              const index = Math.round(event.nativeEvent.contentOffset.x / (width - 40))
+              const index = Math.round(event.nativeEvent.contentOffset.x / COUPON_WIDTH)
               setCurrentCouponIndex(index)
             }}
             renderItem={({ item }) => (
@@ -372,13 +375,14 @@ export default function HomeScreen() {
         ) : visibleCars.length === 0 ? (
           <View style={styles.section}>
             <SectionHeader title="Danh sách xe" style={styles.sectionHeader} />
-            <View style={styles.emptyState}>
-              <View style={styles.emptyIcon}>
-                <Ionicons name="car-outline" size={32} color={THEME_COLORS.textMuted} />
-              </View>
-              <Text style={styles.emptyTitle}>Chưa có xe sẵn sàng</Text>
-              <Text style={styles.emptySubtitle}>Danh sách xe đang được cập nhật. Bạn vui lòng quay lại sau.</Text>
-            </View>
+            <EmptyState
+              image="results"
+              title={carsError ? "Không tải được danh sách xe" : "Chưa có xe sẵn sàng"}
+              description={carsError
+                ? "Vui lòng kiểm tra kết nối mạng rồi thử lại."
+                : "Danh sách xe đang được cập nhật. Bạn vui lòng quay lại sau."}
+              style={styles.emptyState}
+            />
           </View>
         ) : (
           <>
@@ -607,7 +611,7 @@ const styles = StyleSheet.create({
     paddingVertical: SPACE.sm,
   },
   couponSlide: {
-    width: width - 40,
+    width: COUPON_WIDTH,
   },
   couponCard: {
     height: 180,
@@ -722,26 +726,6 @@ const styles = StyleSheet.create({
   },
   emptyState: {
     ...UI.card,
-    alignItems: "center",
     marginHorizontal: SPACE.screen,
-    paddingHorizontal: SPACE.xl,
-    paddingVertical: SPACE.section,
-  },
-  emptyIcon: {
-    width: 64,
-    height: 64,
-    borderRadius: RADIUS.pill,
-    backgroundColor: THEME_COLORS.surfaceMuted,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: SPACE.lg,
-  },
-  emptyTitle: {
-    ...TYPOGRAPHY.h3,
-  },
-  emptySubtitle: {
-    ...TYPOGRAPHY.caption,
-    marginTop: SPACE.xs,
-    textAlign: "center",
   },
 })

@@ -13,7 +13,7 @@ import { previewRefund } from "../../utils/bookingActions"
 import { getBookingStatusLabel, PAYMENT_STATUS_LABELS, VAT_RATE } from "../../utils/constants"
 import { formatCurrency, formatDate } from "../../utils/helpers"
 import type { Booking, BookingPayment } from "../../types/booking"
-import { AppHeader, PrimaryButton } from "../../components"
+import { AppHeader, EmptyState, PrimaryButton } from "../../components"
 import BookingStatusBadge from "../../components/BookingStatusBadge"
 import { PaymentMethodSheet, RescheduleSheet, ReviewSheet, confirmCancelBooking } from "../../components/BookingSheets"
 import { PRESS_OPACITY, RADIUS, SPACE, THEME_COLORS, TYPOGRAPHY, UI } from "../../utils/theme"
@@ -69,20 +69,13 @@ export default function BookingDetailScreen() {
           {loading ? (
             <ActivityIndicator size="large" color={THEME_COLORS.primary} />
           ) : (
-            <>
-              <View style={styles.emptyIcon}>
-                <Ionicons name="document-text-outline" size={32} color={THEME_COLORS.textSecondary} />
-              </View>
-              <Text style={styles.emptyTitle}>Không tìm thấy chuyến đi</Text>
-              <Text style={styles.emptyText}>Chuyến đi không tồn tại hoặc bạn không có quyền xem.</Text>
-              <TouchableOpacity
-                style={styles.secondaryButton}
-                onPress={() => router.replace("/(tabs)/bookings")}
-                activeOpacity={PRESS_OPACITY}
-              >
-                <Text style={styles.secondaryButtonText}>Về Chuyến đi của tôi</Text>
-              </TouchableOpacity>
-            </>
+            <EmptyState
+              image="bookings"
+              title="Không tìm thấy chuyến đi"
+              description="Chuyến đi không tồn tại hoặc bạn không có quyền xem."
+              actionLabel="Về Chuyến đi của tôi"
+              onAction={() => router.replace("/(tabs)/bookings")}
+            />
           )}
         </View>
       </SafeAreaView>
@@ -294,7 +287,7 @@ export default function BookingDetailScreen() {
           </View>
           <View style={styles.carInfo}>
             <Text style={styles.carName} numberOfLines={2}>{booking.carName}</Text>
-            {car?.licensePlate ? <Text style={styles.carMeta}>{car.licensePlate}</Text> : null}
+            {car?.licensePlate ? <Text style={styles.carMeta} numberOfLines={1}>{car.licensePlate}</Text> : null}
             <BookingStatusBadge status={booking.status} style={styles.badge} />
           </View>
           {car ? <Ionicons name="chevron-forward" size={20} color={THEME_COLORS.textMuted} /> : null}
@@ -353,7 +346,7 @@ export default function BookingDetailScreen() {
           <View style={styles.divider} />
           <View style={styles.totalRow}>
             <Text style={styles.totalLabel}>Tổng cộng</Text>
-            <Text style={styles.totalValue}>{formatCurrency(booking.price)}</Text>
+            <Text style={styles.totalValue} numberOfLines={1}>{formatCurrency(booking.price)}</Text>
           </View>
           {booking.deposit ? (
             <>
@@ -437,32 +430,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: SPACE.screen,
-  },
-  emptyIcon: {
-    width: 72,
-    height: 72,
-    borderRadius: RADIUS.pill,
-    backgroundColor: THEME_COLORS.surfaceMuted,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: SPACE.lg,
-  },
-  emptyTitle: {
-    ...TYPOGRAPHY.h2,
-    textAlign: "center",
-    marginBottom: SPACE.sm,
-  },
-  emptyText: {
-    ...TYPOGRAPHY.body,
-    textAlign: "center",
-    marginBottom: SPACE["2xl"],
-  },
-  secondaryButton: {
-    ...UI.secondaryButton,
-    alignSelf: "stretch",
-  },
-  secondaryButtonText: {
-    ...UI.secondaryButtonText,
   },
   content: {
     flex: 1,
@@ -686,7 +653,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: SPACE.sm,
-    height: 44,
+    minHeight: 44,
+    paddingHorizontal: SPACE.md,
+    paddingVertical: SPACE.sm,
     borderRadius: RADIUS.control,
     backgroundColor: THEME_COLORS.successSoft,
   },
@@ -694,6 +663,8 @@ const styles = StyleSheet.create({
     color: THEME_COLORS.success,
     fontSize: 14,
     fontWeight: "600",
+    textAlign: "center",
+    flexShrink: 1,
   },
   footer: {
     backgroundColor: THEME_COLORS.surface,

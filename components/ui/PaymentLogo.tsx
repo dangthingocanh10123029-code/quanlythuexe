@@ -1,6 +1,7 @@
 import { View, Text, Image, StyleSheet, type ViewStyle } from "react-native"
 import { PAYMENT_METHODS } from "../../utils/constants"
 import { PAYMENT_ASSETS } from "../../data/assets"
+import { THEME_COLORS } from "../../utils/theme"
 
 type PaymentMethodId = "credit-card" | "momo" | "zalopay"
 
@@ -68,11 +69,11 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   momoText: {
-    color: "#fff",
+    color: THEME_COLORS.textInverse,
     fontWeight: "800",
   },
   zaloText: {
-    color: "#fff",
+    color: THEME_COLORS.textInverse,
     fontWeight: "800",
   },
   payText: {
