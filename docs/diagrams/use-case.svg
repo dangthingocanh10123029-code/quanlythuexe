@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1100" viewBox="0 0 1600 1100" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif">
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1180" viewBox="0 0 1600 1180" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif">
   <defs>
     <linearGradient id="primaryGrad" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" stop-color="#1A65E6" />
@@ -18,202 +18,219 @@
   </defs>
 
   <!-- Canvas Background -->
-  <rect width="1600" height="1100" fill="#FFFFFF" />
+  <rect width="1600" height="1180" fill="#FFFFFF" />
 
   <!-- Title Header -->
-  <g transform="translate(80, 40)">
-    <rect width="1440" height="70" rx="16" fill="url(#primaryGrad)" filter="url(#shadow)" />
-    <text x="720" y="44" font-size="24" font-weight="800" fill="#FFFFFF" text-anchor="middle" letter-spacing="1">SƠ ĐỒ USE CASE HỆ THỐNG RENTO</text>
-    <text x="720" y="62" font-size="14" font-weight="500" fill="#E0ECFF" text-anchor="middle">Phân rã chức năng theo 3 vai trò: Khách hàng · Quản trị viên · Hệ thống</text>
+  <g transform="translate(60, 35)">
+    <rect width="1480" height="70" rx="16" fill="url(#primaryGrad)" filter="url(#shadow)" />
+    <text x="740" y="44" font-size="24" font-weight="800" fill="#FFFFFF" text-anchor="middle" letter-spacing="1">SƠ ĐỒ USE CASE HỆ THỐNG RENTO</text>
+    <text x="740" y="62" font-size="13.5" font-weight="500" fill="#E0ECFF" text-anchor="middle">Phân rã chức năng theo 3 vai trò: Khách hàng · Quản trị viên &amp; Nhân viên (staff) · Hệ thống</text>
   </g>
 
-  <!-- Boundaries & Containers -->
-  <!-- Boundary System Box -->
-  <rect x="380" y="135" width="840" height="930" rx="24" fill="#F8FAFD" stroke="#DCE7F8" stroke-width="2" />
-  <rect x="400" y="150" width="800" height="36" rx="10" fill="#EBF3FF" />
-  <text x="800" y="174" font-size="15" font-weight="700" fill="#1054CF" text-anchor="middle" letter-spacing="1">RANH GIỚI HỆ THỐNG (RENTO APP &amp; FIRESTORE BACKEND)</text>
+  <!-- System Boundary Box -->
+  <rect x="360" y="130" width="880" height="840" rx="22" fill="#F8FAFD" stroke="#DCE7F8" stroke-width="2" />
+  <rect x="380" y="145" width="840" height="34" rx="9" fill="#EBF3FF" />
+  <text x="800" y="168" font-size="14.5" font-weight="700" fill="#1054CF" text-anchor="middle" letter-spacing="1">RANH GIỚI HỆ THỐNG (RENTO APP &amp; FIRESTORE BACKEND)</text>
 
   <!-- ACTOR 1: KHÁCH HÀNG (LEFT) -->
-  <g transform="translate(80, 360)">
-    <!-- Actor Box -->
-    <rect width="240" height="280" rx="20" fill="#FFFFFF" stroke="#1054CF" stroke-width="2" filter="url(#shadow)" />
-    <rect x="15" y="15" width="210" height="50" rx="12" fill="url(#primaryGrad)" />
-    <text x="120" y="46" font-size="18" font-weight="800" fill="#FFFFFF" text-anchor="middle">KHÁCH HÀNG</text>
-    <!-- Stick Figure / Icon -->
-    <circle cx="120" cy="115" r="24" fill="#EBF3FF" stroke="#1054CF" stroke-width="2.5" />
-    <path d="M85 185 C85 150, 155 150, 155 185" fill="#EBF3FF" stroke="#1054CF" stroke-width="2.5" />
-    <!-- Description -->
-    <text x="120" y="215" font-size="13" font-weight="600" fill="#334155" text-anchor="middle">Người dùng di động</text>
-    <text x="120" y="235" font-size="12" font-weight="normal" fill="#64748B" text-anchor="middle">Thuê xe tự lái</text>
-    <text x="120" y="255" font-size="12" font-weight="normal" fill="#64748B" text-anchor="middle">Hà Nội · TP.HCM · Đà Nẵng</text>
+  <g transform="translate(60, 360)">
+    <rect width="260" height="300" rx="20" fill="#FFFFFF" stroke="#1054CF" stroke-width="2" filter="url(#shadow)" />
+    <rect x="15" y="15" width="230" height="50" rx="12" fill="url(#primaryGrad)" />
+    <text x="130" y="46" font-size="18" font-weight="800" fill="#FFFFFF" text-anchor="middle">KHÁCH HÀNG</text>
+    <circle cx="130" cy="115" r="24" fill="#EBF3FF" stroke="#1054CF" stroke-width="2.5" />
+    <path d="M95 185 C95 150, 165 150, 165 185" fill="#EBF3FF" stroke="#1054CF" stroke-width="2.5" />
+    <text x="130" y="215" font-size="13" font-weight="700" fill="#334155" text-anchor="middle">Người dùng di động</text>
+    <text x="130" y="235" font-size="12" font-weight="500" fill="#64748B" text-anchor="middle">Thuê xe tự lái</text>
+    <text x="130" y="255" font-size="12" font-weight="500" fill="#64748B" text-anchor="middle">TP.HCM · Hà Nội · Đà Nẵng</text>
+    <text x="130" y="275" font-size="11" font-weight="600" fill="#1054CF" text-anchor="middle">Đăng nhập tài khoản / Khách</text>
   </g>
 
-  <!-- ACTOR 2: QUẢN TRỊ VIÊN (RIGHT) -->
-  <g transform="translate(1280, 360)">
-    <rect width="240" height="280" rx="20" fill="#FFFFFF" stroke="#0F2D6B" stroke-width="2" filter="url(#shadow)" />
-    <rect x="15" y="15" width="210" height="50" rx="12" fill="url(#darkBlueGrad)" />
-    <text x="120" y="46" font-size="17" font-weight="800" fill="#FFFFFF" text-anchor="middle">QUẢN TRỊ VIÊN</text>
-    <circle cx="120" cy="115" r="24" fill="#F0F4FA" stroke="#0F2D6B" stroke-width="2.5" />
-    <path d="M85 185 C85 150, 155 150, 155 185" fill="#F0F4FA" stroke="#0F2D6B" stroke-width="2.5" />
-    <!-- Crown / Admin Badge symbol -->
-    <path d="M110 82 L115 90 L120 80 L125 90 L130 82 L130 94 L110 94 Z" fill="#FFB700" />
-    <text x="120" y="215" font-size="13" font-weight="600" fill="#334155" text-anchor="middle">Admin / Điều hành</text>
-    <text x="120" y="235" font-size="12" font-weight="normal" fill="#64748B" text-anchor="middle">Quyền users.isAdmin = true</text>
-    <text x="120" y="255" font-size="12" font-weight="normal" fill="#64748B" text-anchor="middle">Quản lý đội xe &amp; duyệt đơn</text>
+  <!-- ACTOR 2: QUẢN TRỊ VIÊN & NHÂN VIÊN (RIGHT) -->
+  <g transform="translate(1280, 350)">
+    <rect width="260" height="320" rx="20" fill="#FFFFFF" stroke="#0F2D6B" stroke-width="2" filter="url(#shadow)" />
+    <rect x="15" y="15" width="230" height="50" rx="12" fill="url(#darkBlueGrad)" />
+    <text x="130" y="46" font-size="16.5" font-weight="800" fill="#FFFFFF" text-anchor="middle">QUẢN TRỊ VIÊN</text>
+    <circle cx="130" cy="115" r="24" fill="#F0F4FA" stroke="#0F2D6B" stroke-width="2.5" />
+    <path d="M95 185 C95 150, 165 150, 165 185" fill="#F0F4FA" stroke="#0F2D6B" stroke-width="2.5" />
+    <path d="M120 82 L125 90 L130 80 L135 90 L140 82 L140 94 L120 94 Z" fill="#FFB700" />
+    
+    <text x="130" y="212" font-size="13" font-weight="700" fill="#1E293B" text-anchor="middle">Admin &amp; Nhân viên (staff)</text>
+    <text x="130" y="230" font-size="11.5" font-weight="500" fill="#475569" text-anchor="middle">isAdmin=true: toàn quyền hệ thống</text>
+    
+    <rect x="15" y="244" width="230" height="60" rx="10" fill="#FFFBEB" stroke="#FDE68A" stroke-width="1" />
+    <text x="130" y="262" font-size="11.5" font-weight="800" fill="#B45309" text-anchor="middle">Ghi chú vai trò (G7):</text>
+    <text x="130" y="278" font-size="11" font-weight="700" fill="#92400E" text-anchor="middle">Nhân viên (staff): như quản trị</text>
+    <text x="130" y="294" font-size="11" font-weight="700" fill="#92400E" text-anchor="middle">trừ quản lý người dùng</text>
   </g>
 
   <!-- ACTOR 3: HỆ THỐNG TỰ ĐỘNG (BOTTOM CENTER) -->
-  <g transform="translate(660, 970)">
-    <rect width="280" height="80" rx="18" fill="#FFFFFF" stroke="#FFB700" stroke-width="2" filter="url(#shadow)" />
-    <rect x="10" y="10" width="260" height="60" rx="12" fill="#FFF9E6" />
-    <circle cx="42" cy="40" r="20" fill="url(#goldGrad)" />
-    <g transform="translate(28, 26) scale(1.1)">
+  <g transform="translate(660, 995)">
+    <rect width="280" height="76" rx="18" fill="#FFFFFF" stroke="#FFB700" stroke-width="2" filter="url(#shadow)" />
+    <rect x="8" y="8" width="264" height="60" rx="12" fill="#FFF9E6" />
+    <circle cx="42" cy="38" r="20" fill="url(#goldGrad)" />
+    <g transform="translate(30, 26) scale(1.05)">
       <circle cx="12" cy="12" r="5" fill="none" stroke="#FFFFFF" stroke-width="2.5" />
       <path d="M12 2v3m0 14v3M2 12h3m14 0h3m-3.5-6.5l-2.1 2.1m-9.8 9.8l-2.1 2.1m0-14l2.1 2.1m9.8 9.8l2.1 2.1" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" />
     </g>
-    <text x="150" y="35" font-size="15" font-weight="800" fill="#B45309">HỆ THỐNG RENTO</text>
-    <text x="150" y="55" font-size="12" font-weight="500" fill="#78350F">Backend &amp; Logic tự động</text>
+    <text x="150" y="34" font-size="15" font-weight="800" fill="#B45309">HỆ THỐNG RENTO</text>
+    <text x="150" y="53" font-size="11.5" font-weight="500" fill="#78350F">Backend &amp; Logic tự động</text>
   </g>
 
-  <!-- USE CASES IN CENTER COLUMN -->
-  <!-- Helper macro: 
-       User use-cases on left side of center: x = 420
-       Admin use-cases on right side of center: x = 820
-       System use-cases on bottom: x = 500..800
-  -->
-
   <!-- Lines connecting Khách to use cases -->
-  <g stroke="#1054CF" stroke-width="1.5" opacity="0.65">
-    <line x1="320" y1="400" x2="430" y2="235" />
-    <line x1="320" y1="420" x2="430" y2="305" />
-    <line x1="320" y1="440" x2="430" y2="375" />
-    <line x1="320" y1="470" x2="430" y2="445" />
-    <line x1="320" y1="500" x2="430" y2="515" />
-    <line x1="320" y1="530" x2="430" y2="585" />
-    <line x1="320" y1="560" x2="430" y2="655" />
-    <line x1="320" y1="580" x2="430" y2="725" />
-    <line x1="320" y1="600" x2="430" y2="795" />
+  <g stroke="#1054CF" stroke-width="1.4" opacity="0.6">
+    <line x1="320" y1="410" x2="390" y2="217" />
+    <line x1="320" y1="430" x2="390" y2="272" />
+    <line x1="320" y1="450" x2="390" y2="327" />
+    <line x1="320" y1="470" x2="390" y2="382" />
+    <line x1="320" y1="490" x2="390" y2="437" />
+    <line x1="320" y1="510" x2="390" y2="492" />
+    <line x1="320" y1="530" x2="390" y2="547" />
+    <line x1="320" y1="550" x2="390" y2="602" />
+    <line x1="320" y1="570" x2="390" y2="657" />
+    <line x1="320" y1="590" x2="390" y2="712" />
   </g>
 
   <!-- Lines connecting Admin to use cases -->
-  <g stroke="#0F2D6B" stroke-width="1.5" opacity="0.65">
-    <line x1="1280" y1="400" x2="1150" y2="235" />
-    <line x1="1280" y1="420" x2="1150" y2="305" />
-    <line x1="1280" y1="450" x2="1150" y2="375" />
-    <line x1="1280" y1="480" x2="1150" y2="445" />
-    <line x1="1280" y1="510" x2="1150" y2="515" />
-    <line x1="1280" y1="540" x2="1150" y2="585" />
-    <line x1="1280" y1="570" x2="1150" y2="655" />
-    <line x1="1280" y1="590" x2="1150" y2="725" />
-    <line x1="1280" y1="610" x2="1150" y2="795" />
+  <g stroke="#0F2D6B" stroke-width="1.4" opacity="0.6">
+    <line x1="1280" y1="390" x2="1190" y2="217" />
+    <line x1="1280" y1="410" x2="1190" y2="272" />
+    <line x1="1280" y1="430" x2="1190" y2="327" />
+    <line x1="1280" y1="450" x2="1190" y2="382" />
+    <line x1="1280" y1="470" x2="1190" y2="437" />
+    <line x1="1280" y1="490" x2="1190" y2="492" />
+    <line x1="1280" y1="510" x2="1190" y2="547" />
+    <line x1="1280" y1="530" x2="1190" y2="602" />
+    <line x1="1280" y1="550" x2="1190" y2="657" />
+    <line x1="1280" y1="570" x2="1190" y2="712" />
+    <line x1="1280" y1="590" x2="1190" y2="767" />
+    <line x1="1280" y1="610" x2="1190" y2="822" />
   </g>
 
   <!-- Lines connecting System to use cases -->
   <g stroke="#D97706" stroke-width="1.5" stroke-dasharray="5 4" opacity="0.8">
-    <line x1="760" y1="970" x2="600" y2="880" />
-    <line x1="800" y1="970" x2="800" y2="880" />
-    <line x1="840" y1="970" x2="1000" y2="880" />
+    <line x1="750" y1="995" x2="570" y2="925" />
+    <line x1="800" y1="995" x2="800" y2="925" />
+    <line x1="850" y1="995" x2="1030" y2="925" />
   </g>
 
-  <!-- KHÁCH HÀNG USE CASES (OVALS X = 430, W = 340, H = 50) -->
-  <g transform="translate(430, 210)">
-    <rect width="340" height="50" rx="25" fill="#FFFFFF" stroke="#1054CF" stroke-width="1.8" filter="url(#shadow)" />
-    <text x="170" y="31" font-size="14" font-weight="bold" fill="#1054CF" text-anchor="middle">UC01: Đăng ký, đăng nhập &amp; OTP</text>
+  <!-- ==================== KHÁCH HÀNG USE CASES (LEFT: x=390, w=390) ==================== -->
+  <g transform="translate(390, 195)">
+    <rect width="390" height="44" rx="22" fill="#FFFFFF" stroke="#1054CF" stroke-width="1.8" filter="url(#shadow)" />
+    <text x="195" y="27" font-size="13" font-weight="bold" fill="#1054CF" text-anchor="middle">UC01: Đăng ký, đăng nhập &amp; OTP (SĐT, CCCD)</text>
   </g>
-  <g transform="translate(430, 280)">
-    <rect width="340" height="50" rx="25" fill="#FFFFFF" stroke="#1054CF" stroke-width="1.8" filter="url(#shadow)" />
-    <text x="170" y="31" font-size="14" font-weight="bold" fill="#1054CF" text-anchor="middle">UC02: Tìm kiếm &amp; lọc xe theo ngày trống</text>
+  <g transform="translate(390, 250)">
+    <rect width="390" height="44" rx="22" fill="#FFFFFF" stroke="#1054CF" stroke-width="1.8" filter="url(#shadow)" />
+    <text x="195" y="27" font-size="13" font-weight="bold" fill="#1054CF" text-anchor="middle">UC02: Tìm kiếm &amp; lọc xe theo ngày trống</text>
   </g>
-  <g transform="translate(430, 350)">
-    <rect width="340" height="50" rx="25" fill="#FFFFFF" stroke="#1054CF" stroke-width="1.8" filter="url(#shadow)" />
-    <text x="170" y="31" font-size="14" font-weight="bold" fill="#1054CF" text-anchor="middle">UC03: Đặt xe &amp; áp mã giảm giá (FIRST20)</text>
+  <g transform="translate(390, 305)">
+    <rect width="390" height="44" rx="22" fill="#FFFFFF" stroke="#1054CF" stroke-width="1.8" filter="url(#shadow)" />
+    <text x="195" y="27" font-size="13" font-weight="bold" fill="#1054CF" text-anchor="middle">UC03: Đặt xe &amp; áp mã giảm giá (FIRST20)</text>
   </g>
-  <g transform="translate(430, 420)">
-    <rect width="340" height="50" rx="25" fill="#FFFFFF" stroke="#1054CF" stroke-width="1.8" filter="url(#shadow)" />
-    <text x="170" y="31" font-size="14" font-weight="bold" fill="#1054CF" text-anchor="middle">UC04: Gửi hồ sơ GPLX trực tuyến</text>
+  <g transform="translate(390, 360)">
+    <rect width="390" height="44" rx="22" fill="#FFFFFF" stroke="#1054CF" stroke-width="1.8" filter="url(#shadow)" />
+    <text x="195" y="27" font-size="13" font-weight="bold" fill="#1054CF" text-anchor="middle">UC04: Gửi hồ sơ GPLX trực tuyến (B1, B2, C)</text>
   </g>
-  <g transform="translate(430, 490)">
-    <rect width="340" height="50" rx="25" fill="#FFFFFF" stroke="#1054CF" stroke-width="1.8" filter="url(#shadow)" />
-    <text x="170" y="31" font-size="14" font-weight="bold" fill="#1054CF" text-anchor="middle">UC05: Thanh toán online (Thẻ / MoMo / ZaloPay)</text>
+  <g transform="translate(390, 415)">
+    <rect width="390" height="44" rx="22" fill="#FFFFFF" stroke="#1054CF" stroke-width="1.8" filter="url(#shadow)" />
+    <text x="195" y="27" font-size="13" font-weight="bold" fill="#1054CF" text-anchor="middle">UC05: Thanh toán online (Thẻ / MoMo / ZaloPay)</text>
   </g>
-  <g transform="translate(430, 560)">
-    <rect width="340" height="50" rx="25" fill="#FFFFFF" stroke="#1054CF" stroke-width="1.8" filter="url(#shadow)" />
-    <text x="170" y="31" font-size="14" font-weight="bold" fill="#1054CF" text-anchor="middle">UC06: Huỷ đơn (hoàn tiền) &amp; Đổi lịch thuê</text>
+  <g transform="translate(390, 470)">
+    <rect width="390" height="44" rx="22" fill="#EFF6FF" stroke="#2563EB" stroke-width="2" filter="url(#shadow)" />
+    <text x="195" y="27" font-size="13" font-weight="800" fill="#1E40AF" text-anchor="middle">UC06: Chọn trả tiền mặt khi nhận xe (G7)</text>
   </g>
-  <g transform="translate(430, 630)">
-    <rect width="340" height="50" rx="25" fill="#FFFFFF" stroke="#1054CF" stroke-width="1.8" filter="url(#shadow)" />
-    <text x="170" y="31" font-size="14" font-weight="bold" fill="#1054CF" text-anchor="middle">UC07: Đánh giá chuyến đi (sao &amp; nhận xét)</text>
+  <g transform="translate(390, 525)">
+    <rect width="390" height="44" rx="22" fill="#FFFFFF" stroke="#1054CF" stroke-width="1.8" filter="url(#shadow)" />
+    <text x="195" y="27" font-size="13" font-weight="bold" fill="#1054CF" text-anchor="middle">UC07: Huỷ đơn (hoàn tiền) &amp; Đổi lịch thuê</text>
   </g>
-  <g transform="translate(430, 700)">
-    <rect width="340" height="50" rx="25" fill="#FFFFFF" stroke="#1054CF" stroke-width="1.8" filter="url(#shadow)" />
-    <text x="170" y="31" font-size="14" font-weight="bold" fill="#1054CF" text-anchor="middle">UC08: Quản lý danh sách xe yêu thích</text>
+  <g transform="translate(390, 580)">
+    <rect width="390" height="44" rx="22" fill="#FFFFFF" stroke="#1054CF" stroke-width="1.8" filter="url(#shadow)" />
+    <text x="195" y="27" font-size="13" font-weight="bold" fill="#1054CF" text-anchor="middle">UC08: Đánh giá chuyến đi (sao &amp; nhận xét)</text>
   </g>
-  <g transform="translate(430, 770)">
-    <rect width="340" height="50" rx="25" fill="#FFFFFF" stroke="#1054CF" stroke-width="1.8" filter="url(#shadow)" />
-    <text x="170" y="31" font-size="14" font-weight="bold" fill="#1054CF" text-anchor="middle">UC09: Nhận thông báo &amp; gửi phiếu hỗ trợ</text>
+  <g transform="translate(390, 635)">
+    <rect width="390" height="44" rx="22" fill="#FFFFFF" stroke="#1054CF" stroke-width="1.8" filter="url(#shadow)" />
+    <text x="195" y="27" font-size="13" font-weight="bold" fill="#1054CF" text-anchor="middle">UC09: Quản lý danh sách xe yêu thích</text>
   </g>
-
-  <!-- QUẢN TRỊ VIÊN USE CASES (OVALS X = 810, W = 360, H = 50) -->
-  <g transform="translate(810, 210)">
-    <rect width="360" height="50" rx="25" fill="#FFFFFF" stroke="#0F2D6B" stroke-width="1.8" filter="url(#shadow)" />
-    <text x="180" y="31" font-size="14" font-weight="bold" fill="#0F2D6B" text-anchor="middle">UC10: Quản lý xe &amp; nạp dữ liệu xe mẫu</text>
-  </g>
-  <g transform="translate(810, 280)">
-    <rect width="360" height="50" rx="25" fill="#FFFFFF" stroke="#0F2D6B" stroke-width="1.8" filter="url(#shadow)" />
-    <text x="180" y="31" font-size="14" font-weight="bold" fill="#0F2D6B" text-anchor="middle">UC11: Duyệt / Từ chối GPLX người dùng</text>
-  </g>
-  <g transform="translate(810, 350)">
-    <rect width="360" height="50" rx="25" fill="#FFFFFF" stroke="#0F2D6B" stroke-width="1.8" filter="url(#shadow)" />
-    <text x="180" y="31" font-size="14" font-weight="bold" fill="#0F2D6B" text-anchor="middle">UC12: Xác nhận / Từ chối đơn đặt xe (Pending)</text>
-  </g>
-  <g transform="translate(810, 420)">
-    <rect width="360" height="50" rx="25" fill="#FFFFFF" stroke="#0F2D6B" stroke-width="1.8" filter="url(#shadow)" />
-    <text x="180" y="31" font-size="14" font-weight="bold" fill="#0F2D6B" text-anchor="middle">UC13: Lập biên bản giao xe &amp; thu cọc</text>
-  </g>
-  <g transform="translate(810, 490)">
-    <rect width="360" height="50" rx="25" fill="#FFFFFF" stroke="#0F2D6B" stroke-width="1.8" filter="url(#shadow)" />
-    <text x="180" y="31" font-size="14" font-weight="bold" fill="#0F2D6B" text-anchor="middle">UC14: Lập biên bản nhận lại xe &amp; hoàn cọc</text>
-  </g>
-  <g transform="translate(810, 560)">
-    <rect width="360" height="50" rx="25" fill="#FFFFFF" stroke="#0F2D6B" stroke-width="1.8" filter="url(#shadow)" />
-    <text x="180" y="31" font-size="14" font-weight="bold" fill="#0F2D6B" text-anchor="middle">UC15: Huỷ đơn bảo trợ &amp; hoàn tiền 100%</text>
-  </g>
-  <g transform="translate(810, 630)">
-    <rect width="360" height="50" rx="25" fill="#FFFFFF" stroke="#0F2D6B" stroke-width="1.8" filter="url(#shadow)" />
-    <text x="180" y="31" font-size="14" font-weight="bold" fill="#0F2D6B" text-anchor="middle">UC16: Quản lý &amp; khoá tài khoản người dùng</text>
-  </g>
-  <g transform="translate(810, 700)">
-    <rect width="360" height="50" rx="25" fill="#FFFFFF" stroke="#0F2D6B" stroke-width="1.8" filter="url(#shadow)" />
-    <text x="180" y="31" font-size="14" font-weight="bold" fill="#0F2D6B" text-anchor="middle">UC17: Kiểm duyệt &amp; xoá đánh giá vi phạm</text>
-  </g>
-  <g transform="translate(810, 770)">
-    <rect width="360" height="50" rx="25" fill="#FFFFFF" stroke="#0F2D6B" stroke-width="1.8" filter="url(#shadow)" />
-    <text x="180" y="31" font-size="14" font-weight="bold" fill="#0F2D6B" text-anchor="middle">UC18: Xem báo cáo doanh thu &amp; đơn thuê</text>
+  <g transform="translate(390, 690)">
+    <rect width="390" height="44" rx="22" fill="#FFFFFF" stroke="#1054CF" stroke-width="1.8" filter="url(#shadow)" />
+    <text x="195" y="27" font-size="13" font-weight="bold" fill="#1054CF" text-anchor="middle">UC10: Xem thông báo &amp; gửi phiếu hỗ trợ</text>
   </g>
 
-  <!-- HỆ THỐNG USE CASES (BOTTOM ROW) -->
-  <g transform="translate(430, 850)">
-    <rect width="240" height="48" rx="24" fill="#FFFFFF" stroke="#FFB700" stroke-width="1.8" filter="url(#shadow)" />
-    <text x="120" y="30" font-size="13" font-weight="bold" fill="#B45309" text-anchor="middle">UC19: Kiểm tra trùng lịch xe</text>
+  <!-- ==================== QUẢN TRỊ VIÊN & STAFF USE CASES (RIGHT: x=800, w=410) ==================== -->
+  <g transform="translate(800, 195)">
+    <rect width="410" height="44" rx="22" fill="#FFFFFF" stroke="#0F2D6B" stroke-width="1.8" filter="url(#shadow)" />
+    <text x="205" y="27" font-size="13" font-weight="bold" fill="#0F2D6B" text-anchor="middle">UC11: Quản lý xe &amp; nạp dữ liệu xe mẫu (seedCars)</text>
   </g>
-  <g transform="translate(690, 850)">
-    <rect width="240" height="48" rx="24" fill="#FFFFFF" stroke="#FFB700" stroke-width="1.8" filter="url(#shadow)" />
-    <text x="120" y="30" font-size="13" font-weight="bold" fill="#B45309" text-anchor="middle">UC20: Tự động tính giá &amp; hoàn tiền</text>
+  <g transform="translate(800, 250)">
+    <rect width="410" height="44" rx="22" fill="#EFF6FF" stroke="#1D4ED8" stroke-width="2" filter="url(#shadow)" />
+    <text x="205" y="27" font-size="13" font-weight="800" fill="#1E40AF" text-anchor="middle">UC12: Quản lý loại xe (carTypes CRUD - G7)</text>
   </g>
-  <g transform="translate(950, 850)">
-    <rect width="240" height="48" rx="24" fill="#FFFFFF" stroke="#FFB700" stroke-width="1.8" filter="url(#shadow)" />
-    <text x="120" y="30" font-size="13" font-weight="bold" fill="#B45309" text-anchor="middle">UC21: Gửi thông báo sự kiện</text>
+  <g transform="translate(800, 305)">
+    <rect width="410" height="44" rx="22" fill="#FFFFFF" stroke="#0F2D6B" stroke-width="1.8" filter="url(#shadow)" />
+    <text x="205" y="27" font-size="13" font-weight="bold" fill="#0F2D6B" text-anchor="middle">UC13: Duyệt / Từ chối GPLX người dùng</text>
+  </g>
+  <g transform="translate(800, 360)">
+    <rect width="410" height="44" rx="22" fill="#FFFFFF" stroke="#0F2D6B" stroke-width="1.8" filter="url(#shadow)" />
+    <text x="205" y="27" font-size="13" font-weight="bold" fill="#0F2D6B" text-anchor="middle">UC14: Xác nhận / Từ chối đơn đặt xe (Pending)</text>
+  </g>
+  <g transform="translate(800, 415)">
+    <rect width="410" height="44" rx="22" fill="#FFFFFF" stroke="#0F2D6B" stroke-width="1.8" filter="url(#shadow)" />
+    <text x="205" y="27" font-size="13" font-weight="bold" fill="#0F2D6B" text-anchor="middle">UC15: Lập biên bản giao xe (thu cọc &amp; thu tiền mặt)</text>
+  </g>
+  <g transform="translate(800, 470)">
+    <rect width="410" height="44" rx="22" fill="#FFFFFF" stroke="#0F2D6B" stroke-width="1.8" filter="url(#shadow)" />
+    <text x="205" y="27" font-size="13" font-weight="bold" fill="#0F2D6B" text-anchor="middle">UC16: Lập biên bản nhận lại xe &amp; quyết toán cọc</text>
+  </g>
+  <g transform="translate(800, 525)">
+    <rect width="410" height="44" rx="22" fill="#FFFFFF" stroke="#0F2D6B" stroke-width="1.8" filter="url(#shadow)" />
+    <text x="205" y="27" font-size="13" font-weight="bold" fill="#0F2D6B" text-anchor="middle">UC17: Huỷ đơn bảo trợ &amp; hoàn tiền 100%</text>
+  </g>
+  <g transform="translate(800, 580)">
+    <rect width="410" height="44" rx="22" fill="#EFF6FF" stroke="#1D4ED8" stroke-width="2" filter="url(#shadow)" />
+    <text x="205" y="27" font-size="13" font-weight="800" fill="#1E40AF" text-anchor="middle">UC18: Xem danh sách thanh toán &amp; tổng hoàn (G7)</text>
+  </g>
+  <g transform="translate(800, 635)">
+    <rect width="410" height="44" rx="22" fill="#EFF6FF" stroke="#1D4ED8" stroke-width="2" filter="url(#shadow)" />
+    <text x="205" y="27" font-size="13" font-weight="800" fill="#1E40AF" text-anchor="middle">UC19: Trả lời phiếu hỗ trợ &amp; gửi thông báo (G7)</text>
+  </g>
+  <g transform="translate(800, 690)">
+    <rect width="410" height="44" rx="22" fill="#EFF6FF" stroke="#1D4ED8" stroke-width="2" filter="url(#shadow)" />
+    <text x="205" y="27" font-size="13" font-weight="800" fill="#1E40AF" text-anchor="middle">UC20: Gán vai trò nhân viên &amp; khoá tài khoản (G7)</text>
+  </g>
+  <g transform="translate(800, 745)">
+    <rect width="410" height="44" rx="22" fill="#FFFFFF" stroke="#0F2D6B" stroke-width="1.8" filter="url(#shadow)" />
+    <text x="205" y="27" font-size="13" font-weight="bold" fill="#0F2D6B" text-anchor="middle">UC21: Kiểm duyệt &amp; xoá đánh giá vi phạm</text>
+  </g>
+  <g transform="translate(800, 800)">
+    <rect width="410" height="44" rx="22" fill="#FFFFFF" stroke="#0F2D6B" stroke-width="1.8" filter="url(#shadow)" />
+    <text x="205" y="27" font-size="13" font-weight="bold" fill="#0F2D6B" text-anchor="middle">UC22: Xem báo cáo doanh thu &amp; đơn thuê</text>
+  </g>
+
+  <!-- ==================== HỆ THỐNG USE CASES (BOTTOM ROW: y=880) ==================== -->
+  <g transform="translate(420, 880)">
+    <rect width="250" height="46" rx="23" fill="#FFFFFF" stroke="#FFB700" stroke-width="1.8" filter="url(#shadow)" />
+    <text x="125" y="28" font-size="12.5" font-weight="bold" fill="#B45309" text-anchor="middle">UC23: Kiểm tra trùng lịch xe</text>
+  </g>
+  <g transform="translate(685, 880)">
+    <rect width="250" height="46" rx="23" fill="#FFFFFF" stroke="#FFB700" stroke-width="1.8" filter="url(#shadow)" />
+    <text x="125" y="28" font-size="12.5" font-weight="bold" fill="#B45309" text-anchor="middle">UC24: Tự động tính giá &amp; hoàn tiền</text>
+  </g>
+  <g transform="translate(950, 880)">
+    <rect width="250" height="46" rx="23" fill="#FFFFFF" stroke="#FFB700" stroke-width="1.8" filter="url(#shadow)" />
+    <text x="125" y="28" font-size="12.5" font-weight="bold" fill="#B45309" text-anchor="middle">UC25: Gửi thông báo &amp; nhắc hẹn</text>
   </g>
 
   <!-- Legend at bottom -->
-  <g transform="translate(80, 1060)">
+  <g transform="translate(60, 1120)">
     <circle cx="10" cy="10" r="6" fill="#1054CF" />
     <text x="24" y="14" font-size="12" font-weight="600" fill="#334155">Use case Khách hàng</text>
 
     <circle cx="210" cy="10" r="6" fill="#0F2D6B" />
     <text x="224" y="14" font-size="12" font-weight="600" fill="#334155">Use case Quản trị viên</text>
 
-    <circle cx="410" cy="10" r="6" fill="#FFB700" />
-    <text x="424" y="14" font-size="12" font-weight="600" fill="#334155">Tác vụ tự động Hệ thống</text>
+    <rect x="420" y="3" width="14" height="14" rx="4" fill="#EFF6FF" stroke="#1D4ED8" stroke-width="1.5" />
+    <text x="444" y="14" font-size="12" font-weight="700" fill="#1E40AF">Tính năng mở rộng G7</text>
+
+    <circle cx="630" cy="10" r="6" fill="#FFB700" />
+    <text x="644" y="14" font-size="12" font-weight="600" fill="#334155">Tác vụ tự động Hệ thống</text>
   </g>
 </svg>
