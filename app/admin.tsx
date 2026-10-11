@@ -180,14 +180,12 @@ const chartConfig = {
   },
 }
 
-// Cặp màu nền soft + chữ đậm cho badge trạng thái
-// `info` (Đang thuê) không có trong utils/theme.ts nên định nghĩa cục bộ
+// Cặp màu nền soft + chữ đậm cho badge trạng thái (đơn: cùng tông với BookingStatusBadge)
 const TONES = {
   success: { bg: THEME_COLORS.successSoft, fg: THEME_COLORS.success },
   danger: { bg: THEME_COLORS.dangerSoft, fg: THEME_COLORS.danger },
   warning: { bg: THEME_COLORS.warningSoft, fg: THEME_COLORS.warning },
   primary: { bg: THEME_COLORS.primarySoft, fg: THEME_COLORS.primary },
-  info: { bg: "#ECFEFF", fg: "#0E7490" },
   neutral: { bg: THEME_COLORS.surfaceMuted, fg: THEME_COLORS.textSecondary },
 }
 type Tone = keyof typeof TONES
@@ -203,7 +201,6 @@ const getBookingTone = (status?: string): Tone => {
     case "upcoming":
       return "primary"
     case "active":
-      return "info"
     case "completed":
       return "success"
     default:
@@ -216,7 +213,7 @@ const getCarTone = (status?: string): Tone => {
     case "Available":
       return "success"
     case "Rented":
-      return "info"
+      return "primary"
     case "Maintenance":
       return "warning"
     default:

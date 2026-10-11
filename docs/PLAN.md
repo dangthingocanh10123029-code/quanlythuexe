@@ -329,12 +329,16 @@ Thứ tự bắt buộc: G0 → G1 → … → G6 → G8. G7 tuỳ chọn, làm 
 - [x] **L8.1** `firestore.rules` + `firebase.json`: khách chỉ đọc/ghi dữ liệu của mình; `cars` đọc công khai, admin ghi; admin (`users/{uid}.isAdmin`) đọc/ghi tất cả. Người dùng deploy: `! npx firebase-tools deploy --only firestore:rules` (cần đăng nhập và có quyền project `car-rental-adv`).
 - [x] **L8.2** Dọn: `hooks/useBookings` theo field thật; `BOOKING_STATUS`/`PAYMENT_STATUS` cũ; `testFirestoreConnection`; asset không còn dùng (sau A7).
 - [x] **L8.3** Test đủ cho `utils/booking.ts` (`npx jest --watchAll=false`).
-- [ ] **L8.4** `app.json` trỏ icon/splash mới (sau A1). Cập nhật `CLAUDE.md` (luồng mới; bỏ dòng "Không có git") và `README.md` (tạo admin, nạp xe mẫu, deploy rules, ảnh mới từ A8).
+- [x] **L8.4** `app.json` trỏ icon/splash mới (sau A1). Cập nhật `CLAUDE.md` (luồng mới; bỏ dòng "Không có git") và `README.md` (tạo admin, nạp xe mẫu, deploy rules, ảnh mới từ A8).
 
 **Ghi chú L8.1** (Claude): `firestore.rules` + `firebase.json` + `.firebaserc` (project `car-rental-adv`). Rà theo từng luồng ghi trong `utils/*Actions.ts`: khách tạo đơn chỉ ở `Pending`; khách chỉ được thanh toán (Confirmed → Upcoming), huỷ (`cancelledBy: "user"`), đổi lịch, đánh dấu đã đánh giá; admin ghi mọi thứ. `cars` đọc công khai, khách chỉ sửa được `rating`/`reviewCount` (submitReview) — điểm hạn chế đã biết. `reviews` tạo được khi đơn của mình đã `Completed`. `bookedSlots` đọc cho người đã đăng nhập. **Chưa chạy được trên emulator** (cần Java/đăng nhập) → người dùng deploy rồi chạy lại nghiệm thu mục 6.
 
 **Codex**
-- [ ] **U8.1** Rà toàn app: token thiết kế, lề, loading/rỗng/lỗi (dùng ảnh A5), chữ tiếng Việt, không tràn chữ ở màn 360 px.
+- [x] **U8.1** Rà toàn app: token thiết kế, lề, loading/rỗng/lỗi (dùng ảnh A5), chữ tiếng Việt, không tràn chữ ở màn 360 px.
+
+**Bàn giao U8.1** (Claude thay Codex, 2 agent chia nhóm file): `Alert.alert` → `showAlert` / `confirmDialog` (utils/dialog, chạy được trên web); `components/EmptyState.tsx` dùng ảnh A5; trạng thái đang tải/lỗi; bỏ hex cứng; chống tràn chữ 360px; admin tab cuộn ngang, modal chi tiết đơn có tiền hoàn + biên bản; đổi lịch (`DateTimeRangePicker` có `returnLocked`) và ngày sinh chạy trên web; FAQ Trợ giúp khớp nghiệp vụ.
+**V8** (Claude): tsc + 55 test sạch; không còn `Alert.alert`; `npx expo export -p web` thành công; tông badge admin đồng bộ với `BookingStatusBadge`. Chưa xem giao diện thật (360px, slide màn chào cao 220px) → làm khi chụp ảnh A8. Hộp thoại trên web hiện nút OK/Cancel của trình duyệt.
+L8.4 (Claude): `app.json` trỏ icon/splash mới, `CLAUDE.md`, `README.md` đã cập nhật (ảnh bìa README đổi sau A8).
 
 ### Track A — Hình ảnh (Antigravity, song song)
 Màu thương hiệu: primary `#1054CF`, secondary `#FFB700`, nền trắng. Không dùng logo/thương hiệu hãng không có trong đội xe (vd Tesla). Chữ trong ảnh viết tiếng Việt có dấu.
