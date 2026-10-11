@@ -1,19 +1,21 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { type ViewStyle, View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, FlatList, Modal, Image } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 import { Ionicons } from "@expo/vector-icons"
 import { router, useLocalSearchParams } from "expo-router"
 import { useCar, getCarImage } from "../hooks/useCars"
-import { db } from "../config/firebase"
-import { collection, addDoc } from "firebase/firestore"
 import { useAuth } from "../hooks/useAuth"
+import { useBusyCarIds } from "../hooks/useCars"
+import { useLicense } from "../hooks/useLicense"
+import { calcBookingPrice, daysBetween } from "../utils/booking"
+import { createBooking, isFirstBooking } from "../utils/bookingActions"
 import { formatCurrency } from "../utils/helpers"
-import { PICKUP_LOCATIONS, VAT_RATE, PAYMENT_METHODS } from "../utils/constants"
+import { PICKUP_LOCATIONS, VAT_RATE } from "../utils/constants"
 import { StatusBar } from "expo-status-bar"
 import { THEME_COLORS, RADIUS, SPACE, SHADOWS, TYPOGRAPHY, UI, PRESS_OPACITY } from "../utils/theme"
-import { AppHeader, PaymentMethodCard, PrimaryButton, SearchBar } from "../components"
+import { AppHeader, PrimaryButton, SearchBar } from "../components"
 
 
 // UI.input dùng cho View (ô chọn / khung tìm kiếm có icon)
@@ -26,16 +28,6 @@ const addOns = [
   { id: 4, name: "Bộ phát WiFi", price: 80000, selected: false },
 ]
 
-// Add payment methods constant at the top with other constants
-const paymentMethods: { id: PaymentMethod; name: string; subtitle: string }[] = [
-  { id: PAYMENT_METHODS.CARD.id, name: PAYMENT_METHODS.CARD.label, subtitle: 'Thẻ ATM / Visa / Mastercard' },
-  { id: PAYMENT_METHODS.MOMO.id, name: PAYMENT_METHODS.MOMO.label, subtitle: 'Thanh toán qua ví MoMo' },
-  { id: PAYMENT_METHODS.ZALOPAY.id, name: PAYMENT_METHODS.ZALOPAY.label, subtitle: 'Thanh toán qua ví ZaloPay' },
-]
-
-// Add type for payment routes
-type PaymentRoute = '/credit-card' | '/momo' | '/zalopay';
-
 // Danh sách điểm nhận xe
 const LOCATIONS = PICKUP_LOCATIONS
 
@@ -47,22 +39,38 @@ const DURATIONS = [
   { id: 4, days: 4, label: '4 ngày' },
 ]
 
-// Add this type for payment methods
-type PaymentMethod = 'momo' | 'zalopay' | 'credit-card';
+// Mặc định nhận xe 09:00 ngày mai
+const defaultPickup = () => {
+  const d = new Date()
+  d.setDate(d.getDate() + 1)
+  d.setHours(9, 0, 0, 0)
+  return d
+}
+
+const parseDateParam = (value?: string) => {
+  const d = value ? new Date(value) : null
+  return d && !isNaN(d.getTime()) ? d : null
+}
 
 export default function CheckoutScreen() {
-  const { carId } = useLocalSearchParams<{ carId: string }>()
+  // `pickup`, `return`: ISO string truyền từ bộ chọn ngày ở Home/Search → Chi tiết xe
+  const params = useLocalSearchParams<{ carId: string; pickup?: string; return?: string }>()
+  const { carId } = params
   const { car, loading: carLoading } = useCar(carId)
   const { user } = useAuth()
+  const { license } = useLicense()
+  const licenseOk = license?.status === "pending" || license?.status === "verified"
 
   const [selectedAddOns, setSelectedAddOns] = useState(addOns)
-  // Update payment state to use string IDs
-  const [selectedPayment, setSelectedPayment] = useState<string>('credit-card')
-  const [pickupDate, setPickupDate] = useState("25/12/2024")
-  const [dropoffDate, setDropoffDate] = useState("28/12/2024")
+  const [pickupAt, setPickupAt] = useState<Date>(() => parseDateParam(params.pickup) ?? defaultPickup())
+  const [returnAt, setReturnAt] = useState<Date>(
+    () => parseDateParam(params.return) ?? new Date((parseDateParam(params.pickup) ?? defaultPickup()).getTime() + 86_400_000),
+  )
   const [pickupLocation, setPickupLocation] = useState(LOCATIONS[0])
-  // Add state for rental duration
-  const [selectedDuration, setSelectedDuration] = useState(DURATIONS[0])
+  const [returnLocation, setReturnLocation] = useState(LOCATIONS[0])
+  const [promoCode, setPromoCode] = useState("")
+  const [firstBooking, setFirstBooking] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
 
   // Add these states
   const [showLocationModal, setShowLocationModal] = useState(false)
@@ -74,6 +82,14 @@ export default function CheckoutScreen() {
   const [errorMessage, setErrorMessage] = useState("")
   const [errorTitle, setErrorTitle] = useState("")
 
+  // Điều kiện mã FIRST20 / WELCOME25 (chỉ để xem trước giá; createBooking kiểm tra lại)
+  useEffect(() => {
+    if (user?.id) isFirstBooking(user.id).then(setFirstBooking).catch(() => setFirstBooking(false))
+  }, [user?.id])
+
+  // Xe đã bị giữ trong khoảng ngày đang chọn
+  const dateConflict = useBusyCarIds(pickupAt, returnAt).includes(carId)
+
   if (!car) {
     return (
       <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
@@ -82,12 +98,23 @@ export default function CheckoutScreen() {
     )
   }
 
-  // Update the price calculations
-  const basePrice = car.pricePerDay
-  const subtotal = basePrice * selectedDuration.days // Use selected duration
-  const addOnTotal = selectedAddOns.filter((addon) => addon.selected).reduce((sum, addon) => sum + addon.price, 0)
-  const tax = Math.round((subtotal + addOnTotal) * VAT_RATE)
-  const total = subtotal + addOnTotal + tax
+  const days = daysBetween(pickupAt, returnAt)
+  const chosenAddOns = selectedAddOns.filter((addon) => addon.selected)
+  // { subtotal, addOnTotal, discount, tax, total, promoError }
+  const price = calcBookingPrice({
+    pricePerDay: car.pricePerDay,
+    days,
+    addOns: chosenAddOns,
+    promoCode,
+    isFirstBooking: firstBooking,
+    pickupDate: pickupAt,
+  })
+  const { subtotal, tax, total } = price
+
+  // ponytail: chip 1–4 ngày tạm thời, U2.1 thay bằng bộ chọn ngày-giờ nhận/trả (setPickupAt, setReturnAt)
+  const selectedDuration = DURATIONS.find((d) => d.days === days) ?? { id: 0, days, label: `${days} ngày` }
+  const setSelectedDuration = (duration: { days: number }) =>
+    setReturnAt(new Date(pickupAt.getTime() + duration.days * 86_400_000))
 
   const toggleAddOn = (id: number) => {
     setSelectedAddOns((prev) =>
@@ -95,75 +122,49 @@ export default function CheckoutScreen() {
     )
   }
 
-  // Update handleConfirmBooking function
+  const showError = (title: string, message: string) => {
+    setErrorTitle(title)
+    setErrorMessage(message)
+    setShowErrorModal(true)
+  }
+
+  const goToLicense = (message: string) =>
+    Alert.alert("Cần giấy phép lái xe", message, [
+      { text: "Để sau", style: "cancel" },
+      { text: "Cập nhật GPLX", onPress: () => router.push("/profile/license") },
+    ])
+
+  // Gửi yêu cầu đặt xe (đơn "Chờ xác nhận"); thanh toán sau khi RENTO xác nhận (D2)
   const handleConfirmBooking = async () => {
     if (!user) {
-      setErrorTitle("Bạn chưa đăng nhập")
-      setErrorMessage("Vui lòng đăng nhập để đặt xe nhé.")
-      setShowErrorModal(true)
+      showError("Bạn chưa đăng nhập", "Vui lòng đăng nhập để đặt xe nhé.")
+      return
+    }
+    if (!licenseOk) {
+      goToLicense("Bạn cần gửi giấy phép lái xe (GPLX) trước khi đặt xe.")
       return
     }
 
-    if (!selectedPayment) {
-      setErrorTitle("Chưa chọn phương thức thanh toán")
-      setErrorMessage("Vui lòng chọn phương thức thanh toán để tiếp tục.")
-      setShowErrorModal(true)
-      return
-    }
-
-    if (!selectedDuration) {
-      setErrorTitle("Chưa chọn thời gian thuê")
-      setErrorMessage("Vui lòng chọn thời gian thuê xe.")
-      setShowErrorModal(true)
-      return
-    }
-
+    setSubmitting(true)
     try {
-      // Create booking data
-      const bookingData = {
-        userId: user.id,
-        carId: car.id,
-        carName: car.name,
-        duration: selectedDuration.days,
+      await createBooking({
+        uid: user.id,
+        car,
+        pickupDate: pickupAt,
+        returnDate: returnAt,
         location: pickupLocation,
-        status: "Pending",
-        price: total,
-        selectedAddOns: selectedAddOns.filter(addon => addon.selected),
-        createdAt: new Date(),
-      }
-
-      // Save booking to Firestore first
-      const bookingRef = await addDoc(collection(db, "bookings"), bookingData)
-
-      // Navigate with booking ID and amount
-      const navigateToPayment = (method: PaymentMethod) => {
-        router.push({
-          pathname: `/${method}`,
-          params: { 
-            amount: total.toString(),
-            bookingId: bookingRef.id
-          }
-        })
-      }
-
-      switch (selectedPayment) {
-        case 'momo':
-          navigateToPayment('momo')
-          break
-        case 'zalopay':
-          navigateToPayment('zalopay')
-          break
-        case 'credit-card':
-          navigateToPayment('credit-card')
-          break
-        default:
-          Alert.alert("Lỗi", "Phương thức thanh toán không hợp lệ")
-      }
-    } catch (error) {
+        returnLocation,
+        addOns: chosenAddOns,
+        promoCode,
+      })
+      // ponytail: G3 đổi sang router.replace tới /booking/[id] (màn chi tiết đơn)
+      router.replace("/(tabs)/bookings")
+    } catch (error: any) {
       console.error("Error creating booking:", error)
-      setErrorTitle("Đặt xe không thành công")
-      setErrorMessage("Không thể tạo đơn đặt xe. Vui lòng thử lại.")
-      setShowErrorModal(true)
+      if (error?.code === "license-required") goToLicense(error.message)
+      else showError("Đặt xe không thành công", error?.message || "Không thể tạo đơn đặt xe. Vui lòng thử lại.")
+    } finally {
+      setSubmitting(false)
     }
   }
 
@@ -281,23 +282,6 @@ export default function CheckoutScreen() {
           ))}
         </View>
 
-        {/* Payment Method */}
-        <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Phương thức thanh toán</Text>
-          <View style={styles.paymentMethods}>
-          {paymentMethods.map((method) => (
-            <PaymentMethodCard
-              key={method.id}
-              method={method.id}
-              title={method.name}
-              subtitle={method.subtitle}
-              selected={selectedPayment === method.id}
-              onPress={() => setSelectedPayment(method.id)}
-            />
-          ))}
-          </View>
-        </View>
-
         {/* Price Breakdown */}
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>Chi tiết giá</Text>
@@ -328,9 +312,10 @@ export default function CheckoutScreen() {
       <SafeAreaView edges={["bottom"]} style={styles.confirmContainer}>
         <View style={styles.confirmInner}>
           <PrimaryButton
-            title={`Tiếp tục thanh toán • ${formatCurrency(total)}`}
+            title={`Gửi yêu cầu đặt xe • ${formatCurrency(total)}`}
             onPress={handleConfirmBooking}
-            disabled={!selectedPayment || !selectedDuration}
+            disabled={dateConflict}
+            loading={submitting}
             icon="arrow-forward"
           />
         </View>

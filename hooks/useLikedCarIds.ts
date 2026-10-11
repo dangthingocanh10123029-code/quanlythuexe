@@ -1,16 +1,14 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { onAuthStateChanged } from "firebase/auth"
 import { collection, deleteDoc, doc, getDocs, onSnapshot, query, serverTimestamp, setDoc, where } from "firebase/firestore"
-import { auth, db } from "../config/firebase"
+import { db } from "../config/firebase"
+import { useUid } from "./useUid"
 
 // Id các xe người dùng đã thả tim. Doc `likedCars/${uid}_${carId}` nên không bị trùng.
 export function useLikedCarIds() {
-  const [uid, setUid] = useState<string | null>(auth.currentUser?.uid ?? null)
+  const uid = useUid()
   const [likedIds, setLikedIds] = useState<string[]>([])
-
-  useEffect(() => onAuthStateChanged(auth, (u) => setUid(u?.uid ?? null)), [])
 
   useEffect(() => {
     if (!uid) {

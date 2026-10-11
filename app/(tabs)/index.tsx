@@ -37,12 +37,13 @@ const coupons = [
 ]
 
 // Mở tab Xe kèm tham số. `ts` luôn mới để tab Xe nhận ra lần mở mới (kể cả khi bấm lại cùng một hãng)
-type CarsTabParams = { brand?: string; city?: string; focus?: "1"; openFilter?: "1" }
+// pickup/return: ISO string, tab Xe chỉ hiện xe còn trống trong khoảng này
+type CarsTabParams = { brand?: string; city?: string; focus?: "1"; openFilter?: "1"; pickup?: string; return?: string }
 const openCarsTab = (params: CarsTabParams = {}) => {
   router.push({
     pathname: "/(tabs)/search",
     // Luôn gửi đủ các khoá (rỗng nếu không dùng) để tham số cũ của tab không bị giữ lại
-    params: { brand: "", city: "", focus: "", openFilter: "", ...params, ts: Date.now().toString() },
+    params: { brand: "", city: "", focus: "", openFilter: "", pickup: "", return: "", ...params, ts: Date.now().toString() },
   })
 }
 

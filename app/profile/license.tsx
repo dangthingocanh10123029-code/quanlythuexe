@@ -7,56 +7,57 @@ import { StatusBar } from "expo-status-bar"
 import { Ionicons } from "@expo/vector-icons"
 import { router } from "expo-router"
 import * as ImagePicker from "expo-image-picker"
-import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore"
-import { db } from "../../config/firebase"
 import { useAuth } from "../../hooks/useAuth"
+import { useLicense } from "../../hooks/useLicense"
+import { validateLicense, type LicenseInput } from "../../utils/license"
+import { submitLicense } from "../../utils/licenseActions"
+import { LICENSE_STATUS_LABELS } from "../../utils/constants"
 import { PRESS_OPACITY, RADIUS, SPACE, THEME_COLORS, TYPOGRAPHY, UI } from "../../utils/theme"
 
 // Ảnh GPLX (base64) lưu ở collection riêng `licenses/{uid}` để không làm phình doc `users`
 const MAX_IMAGE_BYTES = 400 * 1024
 
+const EMPTY_FORM: LicenseInput = {
+  licenseNumber: "",
+  licenseClass: "",
+  expiryDate: "",
+  issuingAuthority: "",
+  frontImage: "",
+  backImage: "",
+}
+
+type LicenseErrors = Partial<Record<keyof LicenseInput, string>>
+
 export default function LicenseScreen() {
   const { user } = useAuth()
+  const { license } = useLicense()
   const [submitting, setSubmitting] = useState(false)
-  // true khi đã gửi ảnh và đang chờ duyệt; false khi có ảnh mới chưa gửi
-  const [submitted, setSubmitted] = useState(false)
-  const [licenseInfo, setLicenseInfo] = useState({
-    licenseNumber: "790123456789",
-    expiryDate: "15/12/2030",
-    issuingAuthority: "Sở GTVT TP. Hồ Chí Minh",
-    licenseClass: "B2",
-    frontImage:
-      "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDMwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIzMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjNDE2OWUxIi8+Cjx0ZXh0IHg9IjE1MCIgeT0iMTAwIiBmaWxsPSJ3aGl0ZSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iIGZvbnQtZmFtaWx5PSJzeXN0ZW0tdWkiIGZvbnQtc2l6ZT0iMTgiPk3hurd0IHRyxrDhu5tjIEdQTFg8L3RleHQ+Cjwvc3ZnPgo=",
-    backImage:
-      "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDMwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIzMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjYzJhMzAwIi8+Cjx0ZXh0IHg9IjE1MCIgeT0iMTAwIiBmaWxsPSJ3aGl0ZSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iIGZvbnQtZmFtaWx5PSJzeXN0ZW0tdWkiIGZvbnQtc2l6ZT0iMTgiPk3hurd0IHNhdSBHUExYPC90ZXh0Pgo8L3N2Zz4K",
-    verified: true,
-  })
+  const [form, setForm] = useState<LicenseInput>(EMPTY_FORM)
+  const [errors, setErrors] = useState<LicenseErrors>({})
+  // true khi người dùng đã sửa form mà chưa gửi
+  const [dirty, setDirty] = useState(false)
 
-  // Đọc GPLX đã gửi trước đó (nếu có)
+  // null = chưa gửi; "pending" | "verified" | "rejected"
+  const status = license?.status ?? null
+
+  // Nạp GPLX đã gửi vào form (không ghi đè khi đang sửa)
   useEffect(() => {
-    if (!user?.id) return
-    let cancelled = false
-    const loadLicense = async () => {
-      try {
-        const snap = await getDoc(doc(db, "licenses", user.id))
-        if (cancelled || !snap.exists()) return
-        const data = snap.data()
-        setLicenseInfo((prev) => ({
-          ...prev,
-          frontImage: data.frontImage || prev.frontImage,
-          backImage: data.backImage || prev.backImage,
-          verified: data.status === "verified",
-        }))
-        setSubmitted(data.status === "pending")
-      } catch (error) {
-        console.error("Error loading license:", error)
-      }
-    }
-    loadLicense()
-    return () => {
-      cancelled = true
-    }
-  }, [user?.id])
+    if (!license || dirty) return
+    setForm({
+      licenseNumber: license.licenseNumber || "",
+      licenseClass: license.licenseClass || "",
+      expiryDate: license.expiryDate || "",
+      issuingAuthority: license.issuingAuthority || "",
+      frontImage: license.frontImage || "",
+      backImage: license.backImage || "",
+    })
+  }, [license])
+
+  const updateForm = <K extends keyof LicenseInput>(field: K, value: LicenseInput[K]) => {
+    setForm((prev) => ({ ...prev, [field]: value }))
+    setErrors((prev) => ({ ...prev, [field]: undefined }))
+    setDirty(true)
+  }
 
   const pickImage = async (type: "front" | "back") => {
     try {
@@ -80,13 +81,7 @@ export default function LicenseScreen() {
           Alert.alert("Ảnh quá lớn", "Vui lòng chọn ảnh có dung lượng nhỏ hơn hoặc cắt sát mép GPLX.")
           return
         }
-        const imageData = `data:image/jpeg;base64,${base64}`
-        setLicenseInfo((prev) => ({
-          ...prev,
-          [type === "front" ? "frontImage" : "backImage"]: imageData,
-          verified: false,
-        }))
-        setSubmitted(false)
+        updateForm(type === "front" ? "frontImage" : "backImage", `data:image/jpeg;base64,${base64}`)
       }
     } catch (error) {
       console.error("Error picking license image:", error)
@@ -99,32 +94,25 @@ export default function LicenseScreen() {
       Alert.alert("Bạn chưa đăng nhập", "Vui lòng đăng nhập để gửi xác minh GPLX.")
       return
     }
+    const fieldErrors = validateLicense(form)
+    setErrors(fieldErrors)
+    const messages = Object.values(fieldErrors)
+    if (messages.length > 0) {
+      Alert.alert("Thông tin chưa hợp lệ", messages.join("\n"))
+      return
+    }
     setSubmitting(true)
     try {
-      await setDoc(
-        doc(db, "licenses", user.id),
-        {
-          userId: user.id,
-          licenseNumber: licenseInfo.licenseNumber,
-          licenseClass: licenseInfo.licenseClass,
-          expiryDate: licenseInfo.expiryDate,
-          issuingAuthority: licenseInfo.issuingAuthority,
-          frontImage: licenseInfo.frontImage,
-          backImage: licenseInfo.backImage,
-          status: "pending",
-          submittedAt: serverTimestamp(),
-        },
-        { merge: true },
-      )
-      setSubmitted(true)
+      await submitLicense(user.id, form)
+      setDirty(false)
       Alert.alert(
         "Đã gửi xác minh",
         "GPLX của bạn sẽ được xác minh trong vòng 24 giờ. Chúng tôi sẽ gửi thông báo cho bạn ngay khi hoàn tất.",
         [{ text: "OK" }],
       )
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error submitting license:", error)
-      Alert.alert("Gửi thất bại", "Không gửi được ảnh GPLX. Vui lòng kiểm tra kết nối mạng và thử lại.")
+      Alert.alert("Gửi thất bại", error?.message || "Không gửi được GPLX. Vui lòng kiểm tra kết nối mạng và thử lại.")
     } finally {
       setSubmitting(false)
     }
@@ -133,9 +121,14 @@ export default function LicenseScreen() {
   // Ảnh mặc định là SVG minh hoạ → coi như "chưa có ảnh" để hiện khung nét đứt
   const hasImage = (uri: string) => !!uri && !uri.startsWith("data:image/svg+xml")
 
-  const statusTone = licenseInfo.verified
-    ? { bg: THEME_COLORS.successSoft, fg: THEME_COLORS.success }
-    : { bg: THEME_COLORS.warningSoft, fg: THEME_COLORS.warning }
+  const statusTone =
+    status === "verified"
+      ? { bg: THEME_COLORS.successSoft, fg: THEME_COLORS.success }
+      : status === "rejected"
+        ? { bg: THEME_COLORS.dangerSoft, fg: THEME_COLORS.danger }
+        : { bg: THEME_COLORS.warningSoft, fg: THEME_COLORS.warning }
+  // Gửi được khi chưa gửi, bị từ chối, hoặc vừa sửa thông tin
+  const canSubmit = !status || status === "rejected" || dirty
 
   const renderImageSlot = (type: "front" | "back", label: string, uri: string) => (
     <View style={styles.imageCard}>
@@ -162,10 +155,11 @@ export default function LicenseScreen() {
   )
 
   const infoRows = [
-    { label: "Số GPLX", value: licenseInfo.licenseNumber },
-    { label: "Có giá trị đến", value: licenseInfo.expiryDate },
-    { label: "Nơi cấp", value: licenseInfo.issuingAuthority },
-    { label: "Hạng", value: licenseInfo.licenseClass },
+    // ponytail: hiển thị tạm, U2.3 thay bằng ô nhập (updateForm, errors[field])
+    { label: "Số GPLX", value: form.licenseNumber || "Chưa nhập" },
+    { label: "Có giá trị đến", value: form.expiryDate || "Chưa nhập" },
+    { label: "Nơi cấp", value: form.issuingAuthority || "Chưa nhập" },
+    { label: "Hạng", value: form.licenseClass || "Chưa chọn" },
   ]
 
   return (
@@ -185,22 +179,24 @@ export default function LicenseScreen() {
           <View style={styles.statusHeader}>
             <View style={[styles.statusIcon, { backgroundColor: statusTone.bg }]}>
               <Ionicons
-                name={licenseInfo.verified ? "checkmark-circle" : "time"}
+                name={status === "verified" ? "checkmark-circle" : status === "rejected" ? "close-circle" : "time"}
                 size={22}
                 color={statusTone.fg}
               />
             </View>
             <View style={[styles.statusBadge, { backgroundColor: statusTone.bg }]}>
               <Text style={[styles.statusText, { color: statusTone.fg }]}>
-                {licenseInfo.verified ? "Đã xác minh" : submitted ? "Đang chờ xác minh" : "Chưa gửi xác minh"}
+                {status ? LICENSE_STATUS_LABELS[status] : "Chưa gửi xác minh"}
               </Text>
             </View>
           </View>
-          {!licenseInfo.verified && (
+          {status !== "verified" && (
             <Text style={styles.statusDescription}>
-              {submitted
+              {status === "pending"
                 ? "GPLX của bạn đang được kiểm tra. Quá trình này thường mất 24–48 giờ."
-                : "Bạn đã cập nhật ảnh GPLX. Bấm \"Gửi xác minh\" để gửi ảnh cho RENTO kiểm tra."}
+                : status === "rejected"
+                  ? `Lý do: ${license?.rejectReason || "Thông tin chưa hợp lệ"}. Vui lòng cập nhật và gửi lại.`
+                  : "Nhập thông tin và tải ảnh GPLX rồi bấm \"Gửi xác minh\" để RENTO kiểm tra."}
             </Text>
           )}
         </View>
@@ -225,8 +221,8 @@ export default function LicenseScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Ảnh GPLX</Text>
           <View style={styles.imageContainer}>
-            {renderImageSlot("front", "Mặt trước", licenseInfo.frontImage)}
-            {renderImageSlot("back", "Mặt sau", licenseInfo.backImage)}
+            {renderImageSlot("front", "Mặt trước", form.frontImage || "")}
+            {renderImageSlot("back", "Mặt sau", form.backImage || "")}
           </View>
         </View>
 
@@ -248,7 +244,7 @@ export default function LicenseScreen() {
           </View>
         </View>
 
-        {!licenseInfo.verified && !submitted && (
+        {canSubmit && (
           <View style={styles.buttonContainer}>
             <TouchableOpacity
               style={[styles.verifyButton, submitting && styles.verifyButtonDisabled]}

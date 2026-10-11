@@ -1,0 +1,112 @@
+import { describe, expect, it } from "@jest/globals"
+import {
+  calcBookingPrice,
+  calcDepositRefund,
+  calcLateFee,
+  calcRefund,
+  canTransition,
+  daysBetween,
+  getBookingRange,
+  isCarFree,
+  rangesOverlap,
+} from "../booking"
+
+const d = (s: string) => new Date(s)
+const HOUR = 3_600_000
+
+describe("getBookingRange", () => {
+  it("dùng returnDate khi có", () => {
+    expect(getBookingRange({ pickupDate: d("2026-10-10T09:00"), returnDate: d("2026-10-12T09:00") })).toEqual({
+      start: d("2026-10-10T09:00"),
+      end: d("2026-10-12T09:00"),
+    })
+  })
+  it("đơn cũ: (pickupDate ?? createdAt) + duration", () => {
+    expect(getBookingRange({ createdAt: { seconds: d("2026-10-10T00:00").getTime() / 1000 }, duration: 3 })?.end).toEqual(
+      d("2026-10-13T00:00"),
+    )
+  })
+  it("không có ngày → null", () => expect(getBookingRange({})).toBeNull())
+})
+
+describe("daysBetween / rangesOverlap", () => {
+  it("làm tròn lên, tối thiểu 1", () => {
+    expect(daysBetween(d("2026-10-10T09:00"), d("2026-10-11T09:00"))).toBe(1)
+    expect(daysBetween(d("2026-10-10T09:00"), d("2026-10-11T10:00"))).toBe(2)
+    expect(daysBetween(d("2026-10-10T09:00"), d("2026-10-10T10:00"))).toBe(1)
+  })
+  it("khoảng nửa mở: trả lúc 9h, nhận lúc 9h không trùng", () => {
+    expect(rangesOverlap(d("2026-10-10"), d("2026-10-12"), d("2026-10-12"), d("2026-10-13"))).toBe(false)
+    expect(rangesOverlap(d("2026-10-10"), d("2026-10-12"), d("2026-10-11"), d("2026-10-13"))).toBe(true)
+  })
+})
+
+describe("isCarFree", () => {
+  const bookings = [
+    { id: "a", status: "Upcoming", pickupDate: d("2026-10-10"), returnDate: d("2026-10-12") },
+    { id: "b", status: "Cancelled", pickupDate: d("2026-10-20"), returnDate: d("2026-10-22") },
+    { id: "slot", pickupDate: d("2026-11-01"), returnDate: d("2026-11-03") }, // bookedSlots: không có status
+  ]
+  it("trùng đơn còn hiệu lực → bận", () => expect(isCarFree(bookings, d("2026-10-11"), d("2026-10-13"))).toBe(false))
+  it("bỏ qua đơn đã huỷ", () => expect(isCarFree(bookings, d("2026-10-20"), d("2026-10-21"))).toBe(true))
+  it("slot không status luôn giữ xe", () => expect(isCarFree(bookings, d("2026-11-02"), d("2026-11-04"))).toBe(false))
+  it("bỏ qua chính đơn đang đổi lịch", () => expect(isCarFree(bookings, d("2026-10-11"), d("2026-10-13"), "a")).toBe(true))
+})
+
+describe("calcBookingPrice", () => {
+  const base = { pricePerDay: 1_000_000, days: 2, addOns: [{ price: 100_000 }] }
+  it("không mã: tạm tính + dịch vụ + VAT 10%", () => {
+    expect(calcBookingPrice(base)).toEqual({ subtotal: 2_000_000, addOnTotal: 100_000, discount: 0, tax: 210_000, total: 2_310_000, promoError: undefined })
+  })
+  it("FIRST20 giảm trên tiền thuê, trước VAT", () => {
+    const p = calcBookingPrice({ ...base, promoCode: "first20", isFirstBooking: true })
+    expect(p.discount).toBe(400_000)
+    expect(p.tax).toBe(170_000)
+    expect(p.total).toBe(1_870_000)
+  })
+  it("FIRST20 khi đã có đơn → lỗi, không giảm", () => {
+    const p = calcBookingPrice({ ...base, promoCode: "FIRST20", isFirstBooking: false })
+    expect(p.discount).toBe(0)
+    expect(p.promoError).toBeTruthy()
+  })
+  it("WEEKEND50 chỉ khi nhận xe T7/CN", () => {
+    expect(calcBookingPrice({ ...base, promoCode: "WEEKEND50", pickupDate: d("2026-10-10T09:00") }).discount).toBe(1_000_000) // Thứ 7
+    expect(calcBookingPrice({ ...base, promoCode: "WEEKEND50", pickupDate: d("2026-10-12T09:00") }).promoError).toBeTruthy() // Thứ 2
+  })
+  it("mã không tồn tại", () => expect(calcBookingPrice({ ...base, promoCode: "ABC" }).promoError).toBe("Mã giảm giá không tồn tại."))
+})
+
+describe("canTransition", () => {
+  it.each([
+    ["Pending", "Confirmed", true],
+    ["Pending", "Rejected", true],
+    ["Confirmed", "Upcoming", true],
+    ["Confirmed", "Pending", true],
+    ["Upcoming", "Active", true],
+    ["Active", "Completed", true],
+    ["Active", "Cancelled", false],
+    ["Pending", "Upcoming", false],
+    ["Completed", "Cancelled", false],
+    ["pending", "CANCELLED", true],
+  ])("%s → %s = %s", (from, to, ok) => expect(canTransition(from, to)).toBe(ok))
+})
+
+describe("calcRefund", () => {
+  const now = d("2026-10-10T09:00")
+  const paid = { price: 1_000_000, payment: { status: "Completed", amount: 1_000_000 } }
+  it("chưa thanh toán → 0", () => expect(calcRefund({ price: 1_000_000, pickupDate: d("2026-10-20") }, now)).toEqual({ percent: 0, amount: 0 }))
+  it("≥ 24h → 100%", () => expect(calcRefund({ ...paid, pickupDate: new Date(now.getTime() + 24 * HOUR) }, now)).toEqual({ percent: 100, amount: 1_000_000 }))
+  it("< 24h → 70%", () => expect(calcRefund({ ...paid, pickupDate: new Date(now.getTime() + 23 * HOUR) }, now)).toEqual({ percent: 70, amount: 700_000 }))
+  it("admin huỷ → 100%", () => expect(calcRefund({ ...paid, pickupDate: new Date(now.getTime() + HOUR) }, now, true).percent).toBe(100))
+})
+
+describe("calcLateFee / calcDepositRefund", () => {
+  const due = d("2026-10-12T09:00")
+  it("đúng giờ → 0", () => expect(calcLateFee(due, d("2026-10-12T08:30"), 1_000_000)).toBe(0))
+  it("trễ 1 phút tính 1 giờ = 10%", () => expect(calcLateFee(due, d("2026-10-12T09:01"), 1_000_000)).toBe(100_000))
+  it("tối đa 1 ngày", () => expect(calcLateFee(due, d("2026-10-13T09:00"), 1_000_000)).toBe(1_000_000))
+  it("hoàn cọc không âm", () => {
+    expect(calcDepositRefund(5_000_000, 1_200_000)).toBe(3_800_000)
+    expect(calcDepositRefund(5_000_000, 9_000_000)).toBe(0)
+  })
+})

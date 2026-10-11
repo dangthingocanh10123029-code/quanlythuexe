@@ -17,7 +17,7 @@ import { SafeAreaView } from "react-native-safe-area-context"
 import { Ionicons } from "@expo/vector-icons"
 import { router, useLocalSearchParams } from "expo-router"
 import DummyMap from '../../components/DummyMap';
-import { useCars, getCarImage } from "../../hooks/useCars"
+import { useCars, getCarImage, useBusyCarIds } from "../../hooks/useCars"
 import { useLikedCarIds } from "../../hooks/useLikedCarIds"
 import { CITIES, FUELS, HIDDEN_CAR_STATUSES } from "../../utils/constants"
 import { BRAND_ASSETS } from "../../data/assets"
@@ -53,6 +53,7 @@ const PRICE_RANGES = [
 type CarFilters = {
   type: string | null
   fuel: string | null
+  transmission: string | null
   city: string | null
   minSeats: number | null
   priceRange: string | null
@@ -61,20 +62,28 @@ type CarFilters = {
 const EMPTY_FILTERS: CarFilters = {
   type: null,
   fuel: null,
+  transmission: null,
   city: null,
   minSeats: null,
   priceRange: null,
 }
 
 const countActiveFilters = (f: CarFilters) =>
-  [f.type, f.fuel, f.city, f.minSeats, f.priceRange].filter((v) => v !== null).length
+  [f.type, f.fuel, f.transmission, f.city, f.minSeats, f.priceRange].filter((v) => v !== null).length
 
 type SearchParams = {
   brand?: string
   city?: string
   focus?: string
   openFilter?: string
+  pickup?: string // ISO: chỉ hiện xe còn trống trong [pickup, return)
+  return?: string
   ts?: string
+}
+
+const parseDateParam = (value?: string) => {
+  const d = value ? new Date(value) : null
+  return d && !isNaN(d.getTime()) ? d : null
 }
 
 export default function SearchScreen() {
@@ -86,6 +95,9 @@ export default function SearchScreen() {
   const searchInputRef = useRef<TextInput>(null)
   const params = useLocalSearchParams<SearchParams>()
   const { cars: allCars, loading: carsLoading } = useCars()
+  // Khoảng ngày nhận – trả đang lọc (null = không lọc theo ngày)
+  const [dateRange, setDateRange] = useState<{ start: Date; end: Date } | null>(null)
+  const busyCarIds = useBusyCarIds(dateRange?.start, dateRange?.end)
   const { likedIds: likedCars, toggleLike } = useLikedCarIds()
   // Xe bảo dưỡng / tạm ngừng không hiện khi tìm
   const cars = useMemo(() => allCars.filter((car) => !HIDDEN_CAR_STATUSES.includes(car.status)), [allCars])
@@ -119,6 +131,9 @@ export default function SearchScreen() {
     setSearchQuery("")
     setSelectedBrand(matchedBrand)
     setFilters({ ...EMPTY_FILTERS, city: cityParam })
+    const start = parseDateParam(params.pickup)
+    const end = parseDateParam(params.return)
+    setDateRange(start && end && end > start ? { start, end } : null)
 
     if (params.openFilter === "1") {
       setDraftFilters({ ...EMPTY_FILTERS, city: cityParam })
@@ -129,7 +144,7 @@ export default function SearchScreen() {
       const timer = setTimeout(() => searchInputRef.current?.focus(), 300)
       return () => clearTimeout(timer)
     }
-  }, [params.ts, params.brand, params.city, params.focus, params.openFilter])
+  }, [params.ts, params.brand, params.city, params.focus, params.openFilter, params.pickup, params.return])
 
   const filteredCars = useMemo(() => {
     const searchLower = searchQuery.trim().toLowerCase()
@@ -151,14 +166,20 @@ export default function SearchScreen() {
 
       if (selectedBrand && car.brand !== selectedBrand) return false
       if (filters.type && car.type !== filters.type) return false
+      if (busyCarIds.includes(car.id)) return false
       if (filters.fuel && car.fuel !== filters.fuel) return false
+      if (filters.transmission && car.transmission !== filters.transmission) return false
       if (filters.city && car.location !== filters.city) return false
       if (filters.minSeats && car.seats < filters.minSeats) return false
       if (priceRange && (car.pricePerDay < priceRange.min || car.pricePerDay >= priceRange.max)) return false
 
       return true
     })
-  }, [cars, searchQuery, selectedBrand, filters])
+  }, [cars, searchQuery, selectedBrand, filters, busyCarIds])
+
+  // Mang khoảng ngày đang lọc sang Chi tiết xe → Checkout
+  const carDetailsParams = (id: string) =>
+    dateRange ? { id, pickup: dateRange.start.toISOString(), return: dateRange.end.toISOString() } : { id }
 
   const activeFilterCount = countActiveFilters(filters)
   const draftFilterCount = countActiveFilters(draftFilters)
@@ -182,6 +203,7 @@ export default function SearchScreen() {
     setSearchQuery("")
     setSelectedBrand(null)
     setFilters(EMPTY_FILTERS)
+    setDateRange(null)
   }
 
   const handleBrandSelect = (brandName: string) => {
@@ -217,7 +239,7 @@ export default function SearchScreen() {
       wide={!!selectedBrand}
       liked={likedCars.includes(item.id)}
       onFavoritePress={() => handleLike(item)}
-      onPress={() => router.push({ pathname: "/car-details/[id]", params: { id: item.id } })}
+      onPress={() => router.push({ pathname: "/car-details/[id]", params: carDetailsParams(item.id) })}
       style={getCardStyle()}
     />
   )

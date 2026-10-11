@@ -136,6 +136,15 @@ export const HIDDEN_CAR_STATUSES = ["Maintenance", "Inactive"]
 export const FUELS = ["Xăng", "Dầu diesel", "Điện", "Hybrid"] as const
 export const TRANSMISSIONS = ["Số tự động", "Số sàn"] as const
 
+// Hạng GPLX được thuê ô tô tự lái
+export const LICENSE_CLASSES = ["B1", "B2", "B", "C1", "C", "D"]
+
+export const LICENSE_STATUS_LABELS: Record<string, string> = {
+  pending: "Chờ duyệt",
+  verified: "Đã xác minh",
+  rejected: "Bị từ chối",
+}
+
 export const AMENITIES = [
   "Bluetooth",
   "Camera lùi",

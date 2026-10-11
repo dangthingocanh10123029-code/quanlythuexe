@@ -134,6 +134,7 @@ Lỗi nhỏ sửa kèm: `app/chats.tsx` rỗng (Expo Router cảnh báo), `liked
 - `licenses/{uid}` — field hiện có + `status: "pending" | "verified" | "rejected"`, `reviewedAt?`, `rejectReason?`
 - `users/{uid}` — thêm `phone`, `address`, `idNumber` (CCCD), `role?: "staff"` (G7); giữ `isAdmin`
 - `phones/{phone}` — `{ uid }`, giữ chỗ SĐT để chặn trùng (G6)
+- `bookedSlots/{bookingId}` — `{ carId, userId, pickupDate, returnDate }`: khoảng ngày xe đang bị giữ (đơn Pending | Confirmed | Upcoming | Active), mọi người dùng đọc được để kiểm tra xe trống mà không phải đọc `bookings` của người khác (cần cho rules G8). Tạo cùng đơn trong `createBooking` (batch); xoá khi huỷ / từ chối / hoàn thành; cập nhật khi đổi lịch. Đơn cũ trước G2 không có slot (chỉ admin kiểm tra lại khi Xác nhận).
 
 ### Hàm Claude cung cấp (Codex chỉ gọi, không viết lại)
 
@@ -201,11 +202,11 @@ Thứ tự bắt buộc: G0 → G1 → … → G6 → G8. G7 tuỳ chọn, làm 
 
 ### G2 — Đặt xe theo ngày, xe còn trống, mã giảm giá, GPLX
 **Claude**
-- [ ] **L2.1** `utils/booking.ts`: `getBookingRange`, `daysBetween`, `rangesOverlap`, `isCarFree`, `calcBookingPrice` (mã giảm áp trước VAT; `FIRST20`/`WELCOME25` chỉ cho người chưa có đơn đã thanh toán; `WEEKEND50` chỉ khi ngày nhận là T7/CN) + test.
-- [ ] **L2.2** `createBooking`: đọc đơn của xe, chặn trùng, ghi field mới, `status: "Pending"`, thông báo "Đã gửi yêu cầu đặt xe". Checkout dùng hàm này; sau khi tạo về chi tiết đơn, **không** sang màn thanh toán nữa (D2).
-- [ ] **L2.3** Bắt buộc GPLX: checkout yêu cầu `licenses/{uid}.status` là `pending` hoặc `verified`, nếu không thì chuyển `/profile/license`.
-- [ ] **L2.4** Tìm theo ngày: Home/Search truyền `pickup`, `return` qua params; lọc xe trống bằng một query `bookings where status in [...]` rồi lọc phía client; thêm lọc hộp số.
-- [ ] **L2.5** GPLX: sửa mặc định `verified: true`; lưu các trường nhập (kiểm tra số GPLX 12 chữ số, hạng, ngày hết hạn > hôm nay); `useLicense()`; `verifyLicense`/`rejectLicense` + thông báo.
+- [x] **L2.1** `utils/booking.ts`: `getBookingRange`, `daysBetween`, `rangesOverlap`, `isCarFree`, `calcBookingPrice` (mã giảm áp trước VAT; `FIRST20`/`WELCOME25` chỉ cho người chưa có đơn đã thanh toán; `WEEKEND50` chỉ khi ngày nhận là T7/CN) + test.
+- [x] **L2.2** `createBooking`: đọc đơn của xe, chặn trùng, ghi field mới, `status: "Pending"`, thông báo "Đã gửi yêu cầu đặt xe". Checkout dùng hàm này; sau khi tạo về chi tiết đơn, **không** sang màn thanh toán nữa (D2).
+- [x] **L2.3** Bắt buộc GPLX: checkout yêu cầu `licenses/{uid}.status` là `pending` hoặc `verified`, nếu không thì chuyển `/profile/license`.
+- [x] **L2.4** Tìm theo ngày: Home/Search truyền `pickup`, `return` qua params; lọc xe trống bằng một query `bookings where status in [...]` rồi lọc phía client; thêm lọc hộp số.
+- [x] **L2.5** GPLX: sửa mặc định `verified: true`; lưu các trường nhập (kiểm tra số GPLX 12 chữ số, hạng, ngày hết hạn > hôm nay); `useLicense()`; `verifyLicense`/`rejectLicense` + thông báo.
 
 **Codex**
 - [ ] **U2.1** Checkout: chọn ngày-giờ nhận và ngày-giờ trả (`@react-native-community/datetimepicker` đã cài) thay chip 1–4 ngày; điểm trả xe (mặc định = điểm nhận); ô mã giảm giá + dòng "Giảm giá"; dòng "Tiền cọc (trả khi nhận xe)"; hiện lỗi trùng lịch.
@@ -213,7 +214,14 @@ Thứ tự bắt buộc: G0 → G1 → … → G6 → G8. G7 tuỳ chọn, làm 
 - [ ] **U2.3** Màn GPLX: form nhập 4 trường + ảnh trước/sau; trạng thái Chờ duyệt / Đã xác minh / Bị từ chối (kèm lý do, nút gửi lại).
 - [ ] **U2.4** Admin: mục "GPLX chờ duyệt" (tab mới hoặc trong Người dùng) — xem ảnh, Duyệt / Từ chối (nhập lý do).
 
-**Ghi chú bàn giao G2:** _(…)_
+**Ghi chú bàn giao G2** (Claude, L2):
+- `utils/booking.ts` (hàm thuần, 32 test): `calcBookingPrice({ pricePerDay, days, addOns, promoCode, isFirstBooking, pickupDate })` → `{ subtotal, addOnTotal, discount, tax, total, promoError? }` (mã sai/không đủ điều kiện → `discount = 0` và `promoError` tiếng Việt; giảm giá chỉ trên tiền thuê, trước VAT); `daysBetween(start, end)` (làm tròn lên theo 24h, tối thiểu 1); `getBookingRange(b)`, `isCarFree(...)`, `toDate(v)`.
+- `utils/bookingActions.ts`: `createBooking({ uid, car, pickupDate, returnDate, location, returnLocation, addOns, promoCode })` → id đơn `Pending` + slot `bookedSlots` + thông báo "Đã gửi yêu cầu đặt xe". Ném `Error` tiếng Việt (giờ nhận đã qua, trả ≤ nhận, xe tạm ngừng, mã giảm giá, trùng lịch); thiếu GPLX → `error.code === "license-required"`. `isFirstBooking(uid)`.
+- `hooks/useCars.ts`: `useBusyCarIds(start, end)` → `string[]` id xe bị giữ trong khoảng (không truyền ngày → `[]`).
+- Checkout (`app/checkout.tsx`) đã nối: state `pickupAt`/`setPickupAt`, `returnAt`/`setReturnAt`, `pickupLocation`, `returnLocation`/`setReturnLocation` (chưa có UI), `promoCode`/`setPromoCode` (chưa có UI), `price` (đủ `discount`, `promoError`), `days`, `dateConflict` (xe bận → nút bị khoá, cần hiện lỗi), `submitting`, `car.deposit`. Chip 1–4 ngày là tạm (comment `ponytail:`) — U2.1 thay bằng chọn ngày-giờ. **`@react-native-community/datetimepicker` không chạy trên web** → cần phương án dự phòng trên web (vd chip ngày 14 ngày tới + chip giờ). Đã bỏ khối "Phương thức thanh toán" (D2: thanh toán sau khi admin xác nhận). Tạo đơn xong tạm về tab Chuyến đi (G3 đổi sang `/booking/[id]`). Chưa có GPLX → hộp thoại mở `/profile/license`.
+- Search: nhận params `pickup`, `return` (ISO) → state `dateRange` / `setDateRange(null)` để xoá; xe bận đã bị lọc; `filters.transmission` đã lọc (cần chip trong bộ lọc theo `TRANSMISSIONS`); `clearAll` xoá cả khoảng ngày; bấm xe mang `pickup`/`return` sang Chi tiết xe → Checkout. Home: `openCarsTab({ pickup: iso, return: iso })` cho thanh "Nhận xe – Trả xe".
+- GPLX (`app/profile/license.tsx`): bỏ dữ liệu mẫu và mặc định "Đã xác minh". State `form: LicenseInput`, `updateForm(field, value)`, `errors[field]`, `status` (`null` | `pending` | `verified` | `rejected`), `license.rejectReason`, `canSubmit`, `handleVerifyLicense` (kiểm tra bằng `validateLicense`: số 12 chữ số, hạng trong `LICENSE_CLASSES`, hết hạn `dd/mm/yyyy` > hôm nay, đủ 2 ảnh). Các dòng thông tin đang chỉ hiển thị (comment `ponytail:`) — U2.3 đổi thành ô nhập. Nhãn `LICENSE_STATUS_LABELS`.
+- Admin GPLX: `useAllLicenses(isAdmin)` (hooks/useLicense) → `{ licenses, loading }` (mỗi phần tử có `userId`, ảnh base64, `status`); `verifyLicense(uid)`, `rejectLicense(uid, reason)` trong `utils/licenseActions.ts` (gửi thông báo, ném `Error` nếu thiếu lý do). Tên khách lấy từ `usersById` có sẵn.
 
 ### G3 — Xác nhận đơn, thanh toán, huỷ & hoàn tiền, chi tiết đơn
 **Claude**

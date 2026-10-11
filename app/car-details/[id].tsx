@@ -50,7 +50,8 @@ const formatUserName = (email: string) => {
 };
 
 export default function CarDetailsScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>()
+  // pickup/return (ISO) từ bộ lọc ngày ở Search, chuyển tiếp sang Checkout
+  const { id, pickup, return: returnAt } = useLocalSearchParams<{ id: string; pickup?: string; return?: string }>()
   const { car, loading: carLoading } = useCar(id)
   const { likedIds, toggleLike } = useLikedCarIds()
 
@@ -404,7 +405,7 @@ export default function CarDetailsScreen() {
             disabled={bookingLocked}
             onPress={() => router.push({
               pathname: "/checkout",
-              params: { carId: id }
+              params: pickup && returnAt ? { carId: id, pickup, return: returnAt } : { carId: id }
             })}
             style={styles.bookNowButton}
           />

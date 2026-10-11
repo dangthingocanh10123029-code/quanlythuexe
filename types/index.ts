@@ -46,15 +46,21 @@ export interface UserProfile extends User {
   preferences?: UserPreferences
 }
 
+export type LicenseStatus = "pending" | "verified" | "rejected"
+
+// Doc `licenses/{uid}` (ảnh base64 tách khỏi `users`)
 export interface DriverLicense {
-  licenseNumber: string
-  expiryDate: string
+  userId: string
+  licenseNumber: string // 12 chữ số
+  expiryDate: string // dd/mm/yyyy
   issuingAuthority: string
   licenseClass: string
   frontImage: string
   backImage: string
-  verified: boolean
-  verifiedAt?: Date
+  status: LicenseStatus
+  submittedAt?: any
+  reviewedAt?: any
+  rejectReason?: string
 }
 
 export interface PaymentMethod {

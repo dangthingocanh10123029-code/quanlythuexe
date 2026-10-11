@@ -1,11 +1,12 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import type { ImageSourcePropType } from "react-native"
 import { collection, doc, onSnapshot } from "firebase/firestore"
 import { db } from "../config/firebase"
 import { CAR_IMAGES } from "../data/assets"
 import type { Car } from "../types/car"
+import { isCarFree } from "../utils/booking"
 
 const toMillis = (v: any): number => (v?.toDate ? v.toDate().getTime() : v ? new Date(v).getTime() || 0 : 0)
 
@@ -91,4 +92,27 @@ export function useCar(id?: string) {
   }, [id])
 
   return { car, loading }
+}
+
+// Id các xe bị giữ trong khoảng [start, end) (đọc `bookedSlots`, xem utils/bookingActions).
+// Không truyền ngày → [] (không lọc).
+export function useBusyCarIds(start?: Date | null, end?: Date | null) {
+  const [slots, setSlots] = useState<{ id: string; carId: string; pickupDate: any; returnDate: any }[]>([])
+  const active = !!start && !!end
+
+  useEffect(() => {
+    if (!active) return
+    return onSnapshot(
+      collection(db, "bookedSlots"),
+      (snap) => setSlots(snap.docs.map((d) => ({ id: d.id, ...(d.data() as any) }))),
+      (err) => console.error("Error fetching booked slots:", err),
+    )
+  }, [active])
+
+  return useMemo(() => {
+    if (!start || !end) return []
+    const busy = new Set<string>()
+    for (const slot of slots) if (!isCarFree([slot], start, end)) busy.add(slot.carId)
+    return [...busy]
+  }, [slots, start?.getTime(), end?.getTime()])
 }
