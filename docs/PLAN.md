@@ -236,11 +236,11 @@ Thứ tự bắt buộc: G0 → G1 → … → G6 → G8. G7 tuỳ chọn, làm 
 - [x] **L3.6** `useUserBookings`, `useBooking(id)`; `profile/history.tsx` dùng chung hook.
 
 **Codex**
-- [ ] **U3.1** Màn `app/booking/[id].tsx`: mã đơn, xe, timeline trạng thái, giờ nhận/trả, điểm nhận/trả, chi tiết giá (tạm tính, dịch vụ, giảm giá, VAT, tổng, cọc), thanh toán/hoàn tiền, nút theo trạng thái (Thanh toán · Đổi lịch · Huỷ chuyến · Đánh giá). Thẻ ở tab Chuyến đi bấm vào mở màn này.
-- [ ] **U3.2** Màn `app/payment-success.tsx`: biểu tượng thành công, số tiền, phương thức, mã giao dịch, nút "Xem chuyến đi".
-- [ ] **U3.3** Màn thanh toán: trạng thái thất bại + nút thử lại; nút "Huỷ giao dịch" ở MoMo/ZaloPay.
-- [ ] **U3.4** Admin: nút Xác nhận / Từ chối (modal nhập lý do) trên thẻ và modal chi tiết đơn `Pending`; chip lọc trạng thái mới.
-- [ ] **U3.5** Hộp thoại huỷ hiện số tiền được hoàn; badge `Confirmed`/`Rejected`.
+- [x] **U3.1** Màn `app/booking/[id].tsx`: mã đơn, xe, timeline trạng thái, giờ nhận/trả, điểm nhận/trả, chi tiết giá (tạm tính, dịch vụ, giảm giá, VAT, tổng, cọc), thanh toán/hoàn tiền, nút theo trạng thái (Thanh toán · Đổi lịch · Huỷ chuyến · Đánh giá). Thẻ ở tab Chuyến đi bấm vào mở màn này.
+- [x] **U3.2** Màn `app/payment-success.tsx`: biểu tượng thành công, số tiền, phương thức, mã giao dịch, nút "Xem chuyến đi".
+- [x] **U3.3** Màn thanh toán: trạng thái thất bại + nút thử lại; nút "Huỷ giao dịch" ở MoMo/ZaloPay.
+- [x] **U3.4** Admin: nút Xác nhận / Từ chối (modal nhập lý do) trên thẻ và modal chi tiết đơn `Pending`; chip lọc trạng thái mới.
+- [x] **U3.5** Hộp thoại huỷ hiện số tiền được hoàn; badge `Confirmed`/`Rejected`.
 
 **Ghi chú bàn giao G3** (Claude, L3):
 - `hooks/useBookings.ts`: `useUserBookings()` → `{ bookings, loading }` (đơn của người đang đăng nhập, mới nhất trước); `useBooking(id)` → `{ booking, loading }` (realtime).
@@ -251,6 +251,9 @@ Thứ tự bắt buộc: G0 → G1 → … → G6 → G8. G7 tuỳ chọn, làm 
 - Chi tiết đơn (U3.1, tạo `app/booking/[id].tsx`): `useBooking(id)`, `useCar(booking.carId)` + `getCarImage`, `getBookingRange(booking)` cho giờ nhận/trả, field giá `subtotal`, `addOnTotal`, `discount`, `promoCode`, `tax`, `price`, `deposit`; `payment.status` (`Completed` | `Failed` | `Refunded`), `payment.refundAmount`, `refundPercent`, `refundedAt`; `rejectReason`, `cancelledBy`, `returnLocation`. Nút: Thanh toán (`Confirmed`, chọn phương thức như `goToPayment` ở tab Chuyến đi), Đổi lịch, Huỷ chuyến (`previewRefund` + `cancelBooking`). Đánh giá làm ở G5. Sau khi tạo, Checkout nên `router.replace` sang `/booking/[id]` (`createBooking` trả về id; đang có comment `ponytail:` trong `app/checkout.tsx`).
 - Admin: `handleConfirmBooking(booking)`, `handleRejectBooking(bookingId, reason)` → `Promise<boolean>`, `canDecide(booking)` (đơn `Pending`); nút "Xác nhận" tạm trên thẻ đơn (comment `ponytail:`) → U3.4 làm lại + nút "Từ chối" mở modal lý do, thêm vào modal chi tiết đơn. Huỷ đơn chỉ khi `Pending | Confirmed | Upcoming`, hộp thoại hiện số tiền hoàn. `BOOKING_FILTERS` đã có `confirmed`, `rejected`.
 - Viết trước (chưa nối, dùng ở G4/G5): `handOverBooking`, `returnBooking`, `previewReturn`, `submitReview`, `deleteReview`, `hooks/useReviews.ts`, `findPickupReminder`, `bookingRevenue`; `useNotifications` dùng `useUid`.
+
+**Bàn giao U3** (Claude thay Codex — Codex hết quota): `app/booking/[id].tsx`; `components/BookingSheets.tsx` (`PaymentMethodSheet`, `RescheduleSheet`, `confirmCancelBooking`), `BookingStatusBadge` (+ `getBookingStatusTone`), `PaymentErrorBanner`. Admin: `openRejectBooking`, `submitRejectBooking`, `renderRejectBookingModal`; đơn Pending dùng Từ chối thay cho Huỷ. Chưa có: nút Đánh giá (U5.1), khối biên bản (U4.3).
+**V3** (Claude): tsc + 55 test sạch; rà diff không ghi Firestore mới, không hard-code màu; thêm field `payment` còn thiếu vào `types/booking.ts`. Rủi ro đã biết: hộp thoại có nút dùng `Alert.alert` không hiện trên web (huỷ chuyến, huỷ giao dịch) → xử lý ở U8.1; modal đổi lịch dùng DateTimePicker (không chạy trên web).
 
 ### G4 — Giao xe / nhận lại xe
 **Claude**

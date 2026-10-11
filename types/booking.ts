@@ -16,7 +16,13 @@ export interface BookingPayment {
   paidAt?: any
   status: PaymentStatus
   refundAmount?: number
+  refundPercent?: number
   refundedAt?: any
+  failedAt?: any // giao dịch thất bại (failPayment)
+  failReason?: string
+  lastFourDigits?: string // thẻ ngân hàng
+  cardholderName?: string
+  phone?: string // ZaloPay
 }
 
 export interface Handover {
