@@ -1,0 +1,760 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1220" viewBox="0 0 1600 1220" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif">
+  <defs>
+    <linearGradient id="headerGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1A65E6" />
+      <stop offset="100%" stop-color="#1054CF" />
+    </linearGradient>
+
+    <!-- Table header gradients -->
+    <linearGradient id="blueHeader" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#1054CF" />
+      <stop offset="100%" stop-color="#2563EB" />
+    </linearGradient>
+
+    <linearGradient id="amberHeader" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#D97706" />
+      <stop offset="100%" stop-color="#F59E0B" />
+    </linearGradient>
+
+    <linearGradient id="emeraldHeader" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#059669" />
+      <stop offset="100%" stop-color="#10B981" />
+    </linearGradient>
+
+    <linearGradient id="purpleHeader" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#7C3AED" />
+      <stop offset="100%" stop-color="#8B5CF6" />
+    </linearGradient>
+
+    <linearGradient id="grayHeader" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#475569" />
+      <stop offset="100%" stop-color="#64748B" />
+    </linearGradient>
+
+    <!-- Shadows -->
+    <filter id="cardSh" x="-4%" y="-3%" width="108%" height="110%">
+      <feDropShadow dx="0" dy="4" stdDeviation="5" flood-color="#0A2560" flood-opacity="0.06" />
+    </filter>
+
+    <!-- Markers -->
+    <marker id="arrBlue" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#1054CF" />
+    </marker>
+    <marker id="arrEmerald" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#059669" />
+    </marker>
+    <marker id="arrAmber" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#D97706" />
+    </marker>
+    <marker id="arrPurple" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#7C3AED" />
+    </marker>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1600" height="1220" fill="#FFFFFF" />
+
+  <!-- Top Title Bar -->
+  <g transform="translate(60, 30)">
+    <rect width="1480" height="66" rx="14" fill="url(#headerGrad)" filter="url(#cardSh)" />
+    <text x="740" y="38" font-size="22" font-weight="800" fill="#FFFFFF" text-anchor="middle" letter-spacing="0.8">SƠ ĐỒ MÔ HÌNH DỮ LIỆU FIRESTORE (DATA SCHEMA)</text>
+    <text x="740" y="55" font-size="12.5" font-weight="500" fill="#E0ECFF" text-anchor="middle">Các collection, trường dữ liệu chính, khóa chính/ngoại &amp; quan hệ liên kết trong ứng dụng RENTO</text>
+  </g>
+
+  <!-- ==================== COLUMN 1 (x=50): USERS SATELLITES ==================== -->
+
+  <!-- 1. PHONES (x=50, y=120, w=270, h=145) -->
+  <g transform="translate(50, 120)" filter="url(#cardSh)">
+    <rect width="270" height="145" rx="10" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1.5" />
+    <path d="M 0 10 Q 0 0 10 0 L 260 0 Q 270 0 270 10 L 270 36 L 0 36 Z" fill="url(#amberHeader)" />
+    <text x="12" y="24" font-size="13" font-weight="800" fill="#FFFFFF">phones</text>
+    <text x="258" y="23" font-size="10" font-weight="600" fill="#FEF3C7" text-anchor="end">phones/{phone}</text>
+    <!-- Fields -->
+    <g transform="translate(10, 48)">
+      <!-- PK phone -->
+      <rect x="0" y="0" width="26" height="15" rx="3" fill="#FEF3C7" />
+      <text x="13" y="11" font-size="9" font-weight="800" fill="#B45309" text-anchor="middle">PK</text>
+      <text x="32" y="12" font-size="11" font-weight="700" fill="#1E293B">phone</text>
+      <text x="250" y="12" font-size="10.5" font-weight="500" fill="#64748B" text-anchor="end">string (+84...)</text>
+
+      <!-- FK uid -->
+      <rect x="0" y="24" width="26" height="15" rx="3" fill="#DBEAFE" />
+      <text x="13" y="35" font-size="9" font-weight="800" fill="#1E40AF" text-anchor="middle">FK</text>
+      <text x="32" y="36" font-size="11" font-weight="700" fill="#1E40AF">uid</text>
+      <text x="250" y="36" font-size="10.5" font-weight="500" fill="#64748B" text-anchor="end">string → users.uid</text>
+
+      <line x1="0" y1="48" x2="250" y2="48" stroke="#F1F5F9" stroke-width="1" />
+
+      <!-- createdAt -->
+      <text x="32" y="60" font-size="11" font-weight="500" fill="#334155">createdAt</text>
+      <text x="250" y="60" font-size="10.5" font-weight="500" fill="#64748B" text-anchor="end">Timestamp</text>
+
+      <rect x="0" y="68" width="250" height="20" rx="4" fill="#FFFBEB" />
+      <text x="125" y="82" font-size="9.5" font-weight="600" fill="#B45309" text-anchor="middle">Giữ chỗ SĐT duy nhất, chống trùng số</text>
+    </g>
+  </g>
+
+  <!-- 2. LICENSES (x=50, y=285, w=270, h=275) -->
+  <g transform="translate(50, 285)" filter="url(#cardSh)">
+    <rect width="270" height="275" rx="10" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1.5" />
+    <path d="M 0 10 Q 0 0 10 0 L 260 0 Q 270 0 270 10 L 270 36 L 0 36 Z" fill="url(#amberHeader)" />
+    <text x="12" y="24" font-size="13" font-weight="800" fill="#FFFFFF">licenses</text>
+    <text x="258" y="23" font-size="10" font-weight="600" fill="#FEF3C7" text-anchor="end">licenses/{uid}</text>
+    <!-- Fields -->
+    <g transform="translate(10, 48)">
+      <!-- PK/FK uid -->
+      <rect x="0" y="0" width="46" height="15" rx="3" fill="#FEF3C7" />
+      <text x="23" y="11" font-size="9" font-weight="800" fill="#B45309" text-anchor="middle">PK, FK</text>
+      <text x="52" y="12" font-size="11" font-weight="700" fill="#1E40AF">uid</text>
+      <text x="250" y="12" font-size="10.5" font-weight="500" fill="#64748B" text-anchor="end">string → users.uid</text>
+
+      <text x="12" y="32" font-size="11" font-weight="500" fill="#334155">userId</text>
+      <text x="250" y="32" font-size="10.5" font-weight="500" fill="#64748B" text-anchor="end">string</text>
+
+      <text x="12" y="52" font-size="11" font-weight="700" fill="#334155">licenseNumber</text>
+      <text x="250" y="52" font-size="10.5" font-weight="500" fill="#64748B" text-anchor="end">string (12 số)</text>
+
+      <text x="12" y="72" font-size="11" font-weight="500" fill="#334155">licenseClass</text>
+      <text x="250" y="72" font-size="10.5" font-weight="500" fill="#64748B" text-anchor="end">string (B1, B2, C)</text>
+
+      <text x="12" y="92" font-size="11" font-weight="500" fill="#334155">issuingAuthority</text>
+      <text x="250" y="92" font-size="10.5" font-weight="500" fill="#64748B" text-anchor="end">string</text>
+
+      <text x="12" y="112" font-size="11" font-weight="500" fill="#334155">expiryDate</text>
+      <text x="250" y="112" font-size="10.5" font-weight="500" fill="#64748B" text-anchor="end">string (dd/mm/yyyy)</text>
+
+      <text x="12" y="132" font-size="11" font-weight="500" fill="#334155">frontImage</text>
+      <text x="250" y="132" font-size="10.5" font-weight="500" fill="#64748B" text-anchor="end">string (base64)</text>
+
+      <text x="12" y="152" font-size="11" font-weight="500" fill="#334155">backImage</text>
+      <text x="250" y="152" font-size="10.5" font-weight="500" fill="#64748B" text-anchor="end">string (base64)</text>
+
+      <text x="12" y="172" font-size="11" font-weight="700" fill="#D97706">status</text>
+      <text x="250" y="172" font-size="10" font-weight="600" fill="#D97706" text-anchor="end">pending|verified|rejected</text>
+
+      <text x="12" y="192" font-size="11" font-weight="500" fill="#334155">rejectReason?</text>
+      <text x="250" y="192" font-size="10.5" font-weight="500" fill="#64748B" text-anchor="end">string</text>
+
+      <text x="12" y="212" font-size="11" font-weight="500" fill="#334155">reviewedAt?</text>
+      <text x="250" y="212" font-size="10.5" font-weight="500" fill="#64748B" text-anchor="end">Timestamp</text>
+    </g>
+  </g>
+
+  <!-- 3. SUPPORT TICKETS (x=50, y=580, w=270, h=230) -->
+  <g transform="translate(50, 580)" filter="url(#cardSh)">
+    <rect width="270" height="230" rx="10" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1.5" />
+    <path d="M 0 10 Q 0 0 10 0 L 260 0 Q 270 0 270 10 L 270 36 L 0 36 Z" fill="url(#purpleHeader)" />
+    <text x="12" y="24" font-size="13" font-weight="800" fill="#FFFFFF">supportTickets</text>
+    <text x="258" y="23" font-size="10" font-weight="600" fill="#EDE9FE" text-anchor="end">supportTickets/{id}</text>
+    <!-- Fields -->
+    <g transform="translate(10, 48)">
+      <rect x="0" y="0" width="26" height="15" rx="3" fill="#FEF3C7" />
+      <text x="13" y="11" font-size="9" font-weight="800" fill="#B45309" text-anchor="middle">PK</text>
+      <text x="32" y="12" font-size="11" font-weight="700" fill="#1E293B">id</text>
+      <text x="250" y="12" font-size="10.5" font-weight="500" fill="#64748B" text-anchor="end">string (auto)</text>
+
+      <rect x="0" y="22" width="26" height="15" rx="3" fill="#DBEAFE" />
+      <text x="13" y="33" font-size="9" font-weight="800" fill="#1E40AF" text-anchor="middle">FK</text>
+      <text x="32" y="34" font-size="11" font-weight="700" fill="#1E40AF">userId</text>
+      <text x="250" y="34" font-size="10.5" font-weight="500" fill="#64748B" text-anchor="end">string → users.uid</text>
+
+      <text x="12" y="54" font-size="11" font-weight="500" fill="#334155">userEmail</text>
+      <text x="250" y="54" font-size="10.5" font-weight="500" fill="#64748B" text-anchor="end">string</text>
+
+      <text x="12" y="74" font-size="11" font-weight="700" fill="#334155">subject</text>
+      <text x="250" y="74" font-size="10.5" font-weight="500" fill="#64748B" text-anchor="end">string</text>
+
+      <text x="12" y="94" font-size="11" font-weight="500" fill="#334155">message</text>
+      <text x="250" y="94" font-size="10.5" font-weight="500" fill="#64748B" text-anchor="end">string</text>
+
+      <text x="12" y="114" font-size="11" font-weight="500" fill="#334155">priority</text>
+      <text x="250" y="114" font-size="10" font-weight="500" fill="#64748B" text-anchor="end">low|medium|high</text>
+
+      <text x="12" y="134" font-size="11" font-weight="700" fill="#7C3AED">status</text>
+      <text x="250" y="134" font-size="10.5" font-weight="600" fill="#7C3AED" text-anchor="end">open | resolved</text>
+
+      <text x="12" y="154" font-size="11" font-weight="500" fill="#334155">reply?</text>
+      <text x="250" y="154" font-size="10.5" font-weight="500" fill="#64748B" text-anchor="end">string</text>
+
+      <text x="12" y="174" font-size="11" font-weight="500" fill="#334155">createdAt</text>
+      <text x="250" y="174" font-size="10.5" font-weight="500" fill="#64748B" text-anchor="end">Timestamp</text>
+    </g>
+  </g>
+
+  <!-- 4. NOTIFICATIONS (x=50, y=830, w=270, h=220) -->
+  <g transform="translate(50, 830)" filter="url(#cardSh)">
+    <rect width="270" height="220" rx="10" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1.5" />
+    <path d="M 0 10 Q 0 0 10 0 L 260 0 Q 270 0 270 10 L 270 36 L 0 36 Z" fill="url(#purpleHeader)" />
+    <text x="12" y="24" font-size="13" font-weight="800" fill="#FFFFFF">notifications</text>
+    <text x="258" y="23" font-size="10" font-weight="600" fill="#EDE9FE" text-anchor="end">notifications/{id}</text>
+    <!-- Fields -->
+    <g transform="translate(10, 48)">
+      <rect x="0" y="0" width="26" height="15" rx="3" fill="#FEF3C7" />
+      <text x="13" y="11" font-size="9" font-weight="800" fill="#B45309" text-anchor="middle">PK</text>
+      <text x="32" y="12" font-size="11" font-weight="700" fill="#1E293B">id</text>
+      <text x="250" y="12" font-size="10.5" font-weight="500" fill="#64748B" text-anchor="end">string (auto)</text>
+
+      <rect x="0" y="22" width="26" height="15" rx="3" fill="#DBEAFE" />
+      <text x="13" y="33" font-size="9" font-weight="800" fill="#1E40AF" text-anchor="middle">FK</text>
+      <text x="32" y="34" font-size="11" font-weight="700" fill="#1E40AF">userId</text>
+      <text x="250" y="34" font-size="10.5" font-weight="500" fill="#64748B" text-anchor="end">string → users.uid</text>
+
+      <text x="12" y="54" font-size="11" font-weight="700" fill="#7C3AED">type</text>
+      <text x="250" y="54" font-size="9.5" font-weight="600" fill="#7C3AED" text-anchor="end">booking|payment|license...</text>
+
+      <text x="12" y="74" font-size="11" font-weight="500" fill="#334155">title</text>
+      <text x="250" y="74" font-size="10.5" font-weight="500" fill="#64748B" text-anchor="end">string</text>
+
+      <text x="12" y="94" font-size="11" font-weight="500" fill="#334155">message</text>
+      <text x="250" y="94" font-size="10.5" font-weight="500" fill="#64748B" text-anchor="end">string</text>
+
+      <rect x="0" y="104" width="26" height="15" rx="3" fill="#DBEAFE" />
+      <text x="13" y="115" font-size="9" font-weight="800" fill="#1E40AF" text-anchor="middle">FK</text>
+      <text x="32" y="116" font-size="11" font-weight="500" fill="#1E40AF">bookingId?</text>
+      <text x="250" y="116" font-size="10" font-weight="500" fill="#64748B" text-anchor="end">string → bookings.id</text>
+
+      <text x="12" y="136" font-size="11" font-weight="500" fill="#334155">read</text>
+      <text x="250" y="136" font-size="10.5" font-weight="500" fill="#64748B" text-anchor="end">boolean (false)</text>
+
+      <text x="12" y="156" font-size="11" font-weight="500" fill="#334155">createdAt</text>
+      <text x="250" y="156" font-size="10.5" font-weight="500" fill="#64748B" text-anchor="end">Timestamp</text>
+    </g>
+  </g>
+
+  <!-- ==================== COLUMN 2 (x=355): USERS CORE & LIKES ==================== -->
+
+  <!-- 5. USERS (x=355, y=120, w=285, h=395) -->
+  <g transform="translate(355, 120)" filter="url(#cardSh)">
+    <rect width="285" height="395" rx="10" fill="#FFFFFF" stroke="#1054CF" stroke-width="2" />
+    <path d="M 0 10 Q 0 0 10 0 L 275 0 Q 285 0 285 10 L 285 36 L 0 36 Z" fill="url(#blueHeader)" />
+    <text x="14" y="24" font-size="14" font-weight="800" fill="#FFFFFF">users</text>
+    <text x="271" y="23" font-size="10" font-weight="600" fill="#DBEAFE" text-anchor="end">users/{uid}</text>
+    <!-- Fields -->
+    <g transform="translate(12, 48)">
+      <rect x="0" y="0" width="26" height="15" rx="3" fill="#FEF3C7" />
+      <text x="13" y="11" font-size="9" font-weight="800" fill="#B45309" text-anchor="middle">PK</text>
+      <text x="32" y="12" font-size="11.5" font-weight="800" fill="#1E40AF">uid</text>
+      <text x="261" y="12" font-size="10.5" font-weight="500" fill="#64748B" text-anchor="end">string (Firebase UID)</text>
+
+      <text x="12" y="32" font-size="11" font-weight="700" fill="#334155">email</text>
+      <text x="261" y="32" font-size="10.5" font-weight="500" fill="#64748B" text-anchor="end">string</text>
+
+      <text x="12" y="52" font-size="11" font-weight="700" fill="#334155">fullName</text>
+      <text x="261" y="52" font-size="10.5" font-weight="500" fill="#64748B" text-anchor="end">string</text>
+
+      <text x="12" y="72" font-size="11" font-weight="700" fill="#334155">phone?</text>
+      <text x="261" y="72" font-size="10.5" font-weight="500" fill="#64748B" text-anchor="end">string (10-11 số)</text>
+
+      <text x="12" y="92" font-size="11" font-weight="700" fill="#334155">idNumber?</text>
+      <text x="261" y="92" font-size="10.5" font-weight="500" fill="#64748B" text-anchor="end">string (CCCD 12 số)</text>
+
+      <text x="12" y="112" font-size="11" font-weight="500" fill="#334155">address?</text>
+      <text x="261" y="112" font-size="10.5" font-weight="500" fill="#64748B" text-anchor="end">string</text>
+
+      <text x="12" y="132" font-size="11" font-weight="500" fill="#334155">avatar?</text>
+      <text x="261" y="132" font-size="10.5" font-weight="500" fill="#64748B" text-anchor="end">string (URL / base64)</text>
+
+      <text x="12" y="152" font-size="11" font-weight="700" fill="#1054CF">isAdmin</text>
+      <text x="261" y="152" font-size="10.5" font-weight="600" fill="#1054CF" text-anchor="end">boolean (phân quyền)</text>
+
+      <text x="12" y="172" font-size="11" font-weight="500" fill="#334155">role?</text>
+      <text x="261" y="172" font-size="10.5" font-weight="500" fill="#64748B" text-anchor="end">string ("staff")</text>
+
+      <text x="12" y="192" font-size="11" font-weight="500" fill="#334155">disabled?</text>
+      <text x="261" y="192" font-size="10.5" font-weight="500" fill="#64748B" text-anchor="end">boolean (khoá tk)</text>
+
+      <text x="12" y="212" font-size="11" font-weight="500" fill="#334155">status?</text>
+      <text x="261" y="212" font-size="10.5" font-weight="500" fill="#64748B" text-anchor="end">"active" | "inactive"</text>
+
+      <text x="12" y="232" font-size="11" font-weight="500" fill="#334155">preferences?</text>
+      <text x="261" y="232" font-size="10.5" font-weight="500" fill="#64748B" text-anchor="end">UserPreferences</text>
+
+      <text x="12" y="252" font-size="11" font-weight="500" fill="#334155">createdAt</text>
+      <text x="261" y="252" font-size="10.5" font-weight="500" fill="#64748B" text-anchor="end">Timestamp</text>
+
+      <text x="12" y="272" font-size="11" font-weight="500" fill="#334155">updatedAt?</text>
+      <text x="261" y="272" font-size="10.5" font-weight="500" fill="#64748B" text-anchor="end">Timestamp</text>
+
+      <rect x="0" y="292" width="261" height="38" rx="6" fill="#F8FAFC" stroke="#E2E8F0" stroke-width="1" />
+      <text x="130" y="308" font-size="9.5" font-weight="700" fill="#1E40AF" text-anchor="middle">Tài khoản trung tâm (Firebase Auth)</text>
+      <text x="130" y="322" font-size="9" font-weight="500" fill="#64748B" text-anchor="middle">isAdmin=true cấp quyền trang quản trị (/admin)</text>
+    </g>
+  </g>
+
+  <!-- 6. LIKED CARS (x=355, y=545, w=285, h=165) -->
+  <g transform="translate(355, 545)" filter="url(#cardSh)">
+    <rect width="285" height="165" rx="10" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1.5" />
+    <path d="M 0 10 Q 0 0 10 0 L 275 0 Q 285 0 285 10 L 275 36 L 0 36 Z" fill="url(#purpleHeader)" />
+    <text x="14" y="24" font-size="13" font-weight="800" fill="#FFFFFF">likedCars</text>
+    <text x="271" y="23" font-size="10" font-weight="600" fill="#EDE9FE" text-anchor="end">likedCars/{uid_carId}</text>
+    <!-- Fields -->
+    <g transform="translate(12, 48)">
+      <rect x="0" y="0" width="26" height="15" rx="3" fill="#FEF3C7" />
+      <text x="13" y="11" font-size="9" font-weight="800" fill="#B45309" text-anchor="middle">PK</text>
+      <text x="32" y="12" font-size="11" font-weight="700" fill="#1E293B">id</text>
+      <text x="261" y="12" font-size="10.5" font-weight="500" fill="#64748B" text-anchor="end">${uid}_${carId}</text>
+
+      <rect x="0" y="22" width="26" height="15" rx="3" fill="#DBEAFE" />
+      <text x="13" y="33" font-size="9" font-weight="800" fill="#1E40AF" text-anchor="middle">FK</text>
+      <text x="32" y="34" font-size="11" font-weight="700" fill="#1E40AF">userId</text>
+      <text x="261" y="34" font-size="10.5" font-weight="500" fill="#64748B" text-anchor="end">string → users.uid</text>
+
+      <rect x="0" y="44" width="26" height="15" rx="3" fill="#DBEAFE" />
+      <text x="13" y="55" font-size="9" font-weight="800" fill="#1E40AF" text-anchor="middle">FK</text>
+      <text x="32" y="56" font-size="11" font-weight="700" fill="#1E40AF">carId</text>
+      <text x="261" y="56" font-size="10.5" font-weight="500" fill="#64748B" text-anchor="end">string → cars.id</text>
+
+      <text x="12" y="78" font-size="11" font-weight="500" fill="#334155">createdAt</text>
+      <text x="261" y="78" font-size="10.5" font-weight="500" fill="#64748B" text-anchor="end">Timestamp</text>
+
+      <rect x="0" y="88" width="261" height="20" rx="4" fill="#FAF5FF" />
+      <text x="130" y="102" font-size="9.5" font-weight="600" fill="#7C3AED" text-anchor="middle">Doc id ghép chống trùng thả tim</text>
+    </g>
+  </g>
+
+  <!-- LEGEND & RULES CARD (x=355, y=740, w=285, h=310) -->
+  <g transform="translate(355, 740)" filter="url(#cardSh)">
+    <rect width="285" height="310" rx="10" fill="#F8FAFC" stroke="#CBD5E1" stroke-width="1.5" />
+    <path d="M 0 10 Q 0 0 10 0 L 275 0 Q 285 0 285 10 L 285 34 L 0 34 Z" fill="url(#grayHeader)" />
+    <text x="14" y="23" font-size="12" font-weight="800" fill="#FFFFFF">QUY ƯỚC &amp; MỐI QUAN HỆ (LEGEND)</text>
+
+    <g transform="translate(14, 46)">
+      <!-- PK Symbol -->
+      <rect x="0" y="0" width="26" height="15" rx="3" fill="#FEF3C7" />
+      <text x="13" y="11" font-size="9" font-weight="800" fill="#B45309" text-anchor="middle">PK</text>
+      <text x="34" y="12" font-size="10.5" font-weight="700" fill="#1E293B">Primary Key (Khóa chính / Doc ID)</text>
+
+      <!-- FK Symbol -->
+      <rect x="0" y="24" width="26" height="15" rx="3" fill="#DBEAFE" />
+      <text x="13" y="35" font-size="9" font-weight="800" fill="#1E40AF" text-anchor="middle">FK</text>
+      <text x="34" y="36" font-size="10.5" font-weight="700" fill="#1E293B">Foreign Key (Tham chiếu collection khác)</text>
+
+      <!-- 1 - N Line sample -->
+      <line x1="0" y1="58" x2="30" y2="58" stroke="#1054CF" stroke-width="2" marker-end="url(#arrBlue)" />
+      <text x="36" y="62" font-size="10.5" font-weight="600" fill="#1054CF">Quan hệ 1 - N (Một - Nhiều)</text>
+
+      <!-- 1 - 1 Line sample -->
+      <line x1="0" y1="78" x2="30" y2="78" stroke="#D97706" stroke-width="2" marker-end="url(#arrAmber)" />
+      <text x="36" y="82" font-size="10.5" font-weight="600" fill="#D97706">Quan hệ 1 - 1 (Khóa chính khớp)</text>
+
+      <line x1="0" y1="96" x2="257" y2="96" stroke="#E2E8F0" stroke-width="1" />
+
+      <!-- Highlight notes -->
+      <text x="0" y="114" font-size="11" font-weight="800" fill="#1E293B">Bảo mật &amp; Kiến trúc Firestore:</text>
+      
+      <circle cx="5" cy="132" r="3" fill="#1054CF" />
+      <text x="14" y="136" font-size="9.5" font-weight="500" fill="#475569">Kiểm tra trùng lịch qua bookedSlots (công khai)</text>
+      <text x="14" y="150" font-size="9" font-weight="500" fill="#64748B">không cho khách đọc bookings của người khác.</text>
+
+      <circle cx="5" cy="170" r="3" fill="#059669" />
+      <text x="14" y="174" font-size="9.5" font-weight="500" fill="#475569">Đánh giá reviews ràng buộc 1 đơn = 1 đánh giá</text>
+      <text x="14" y="188" font-size="9" font-weight="500" fill="#64748B">và chỉ khi đơn ở trạng thái Completed.</text>
+
+      <circle cx="5" cy="208" r="3" fill="#D97706" />
+      <text x="14" y="212" font-size="9.5" font-weight="500" fill="#475569">GPLX licenses lưu ảnh base64 tách biệt</text>
+      <text x="14" y="226" font-size="9" font-weight="500" fill="#64748B">giúp nhẹ doc users và bảo vệ thông tin cá nhân.</text>
+
+      <circle cx="5" cy="244" r="3" fill="#7C3AED" />
+      <text x="14" y="248" font-size="9.5" font-weight="500" fill="#475569">phones giữ chỗ SĐT duy nhất theo số chuẩn hoá</text>
+    </g>
+  </g>
+
+  <!-- ==================== COLUMN 3 (x=670): BOOKINGS & SATELLITES ==================== -->
+
+  <!-- 7. BOOKINGS (x=670, y=120, w=380, h=575) -->
+  <g transform="translate(670, 120)" filter="url(#cardSh)">
+    <rect width="380" height="575" rx="10" fill="#FFFFFF" stroke="#1054CF" stroke-width="2" />
+    <path d="M 0 10 Q 0 0 10 0 L 370 0 Q 380 0 380 10 L 380 36 L 0 36 Z" fill="url(#blueHeader)" />
+    <text x="14" y="24" font-size="14" font-weight="800" fill="#FFFFFF">bookings</text>
+    <text x="366" y="23" font-size="10.5" font-weight="600" fill="#DBEAFE" text-anchor="end">bookings/{id}</text>
+    <!-- Fields -->
+    <g transform="translate(14, 48)">
+      <!-- PK id -->
+      <rect x="0" y="0" width="26" height="15" rx="3" fill="#FEF3C7" />
+      <text x="13" y="11" font-size="9" font-weight="800" fill="#B45309" text-anchor="middle">PK</text>
+      <text x="32" y="12" font-size="11.5" font-weight="800" fill="#1E40AF">id</text>
+      <text x="350" y="12" font-size="10.5" font-weight="500" fill="#64748B" text-anchor="end">string (auto-generated ID)</text>
+
+      <!-- FK userId -->
+      <rect x="0" y="22" width="26" height="15" rx="3" fill="#DBEAFE" />
+      <text x="13" y="33" font-size="9" font-weight="800" fill="#1E40AF" text-anchor="middle">FK</text>
+      <text x="32" y="34" font-size="11.5" font-weight="700" fill="#1E40AF">userId</text>
+      <text x="350" y="34" font-size="10.5" font-weight="500" fill="#64748B" text-anchor="end">string → users.uid</text>
+
+      <!-- FK carId -->
+      <rect x="0" y="44" width="26" height="15" rx="3" fill="#DBEAFE" />
+      <text x="13" y="55" font-size="9" font-weight="800" fill="#1E40AF" text-anchor="middle">FK</text>
+      <text x="32" y="56" font-size="11.5" font-weight="700" fill="#1E40AF">carId</text>
+      <text x="350" y="56" font-size="10.5" font-weight="500" fill="#64748B" text-anchor="end">string → cars.id</text>
+
+      <text x="12" y="76" font-size="11" font-weight="500" fill="#334155">carName</text>
+      <text x="350" y="76" font-size="10.5" font-weight="500" fill="#64748B" text-anchor="end">string (tên xe lưu trữ)</text>
+
+      <text x="12" y="96" font-size="11" font-weight="700" fill="#1E293B">pickupDate</text>
+      <text x="350" y="96" font-size="10.5" font-weight="500" fill="#64748B" text-anchor="end">Timestamp (ngày-giờ nhận)</text>
+
+      <text x="12" y="116" font-size="11" font-weight="700" fill="#1E293B">returnDate</text>
+      <text x="350" y="116" font-size="10.5" font-weight="500" fill="#64748B" text-anchor="end">Timestamp (ngày-giờ trả)</text>
+
+      <text x="12" y="136" font-size="11" font-weight="500" fill="#334155">duration</text>
+      <text x="350" y="136" font-size="10.5" font-weight="500" fill="#64748B" text-anchor="end">number (số ngày thuê ≥ 1)</text>
+
+      <text x="12" y="156" font-size="11" font-weight="500" fill="#334155">location / returnLocation</text>
+      <text x="350" y="156" font-size="10.5" font-weight="500" fill="#64748B" text-anchor="end">string (TP.HCM / HN / ĐN)</text>
+
+      <!-- Pricing fields -->
+      <line x1="0" y1="168" x2="350" y2="168" stroke="#F1F5F9" stroke-width="1" />
+
+      <text x="12" y="184" font-size="11" font-weight="500" fill="#334155">subtotal / addOnTotal</text>
+      <text x="350" y="184" font-size="10.5" font-weight="500" fill="#64748B" text-anchor="end">number (tiền thuê &amp; dịch vụ)</text>
+
+      <text x="12" y="204" font-size="11" font-weight="500" fill="#334155">discount / promoCode?</text>
+      <text x="350" y="204" font-size="10.5" font-weight="500" fill="#64748B" text-anchor="end">number | string (mã giảm)</text>
+
+      <text x="12" y="224" font-size="11" font-weight="500" fill="#334155">tax / deposit</text>
+      <text x="350" y="224" font-size="10.5" font-weight="500" fill="#64748B" text-anchor="end">number (VAT 10% · cọc xe)</text>
+
+      <text x="12" y="244" font-size="11" font-weight="800" fill="#1054CF">price</text>
+      <text x="350" y="244" font-size="10.5" font-weight="700" fill="#1054CF" text-anchor="end">number (tổng thanh toán online)</text>
+
+      <text x="12" y="264" font-size="11" font-weight="500" fill="#334155">selectedAddOns</text>
+      <text x="350" y="264" font-size="10.5" font-weight="500" fill="#64748B" text-anchor="end">BookingAddOn[]</text>
+
+      <!-- Status -->
+      <line x1="0" y1="276" x2="350" y2="276" stroke="#F1F5F9" stroke-width="1" />
+
+      <text x="12" y="292" font-size="11.5" font-weight="800" fill="#D97706">status</text>
+      <text x="350" y="292" font-size="10" font-weight="700" fill="#D97706" text-anchor="end">Pending|Confirmed|Upcoming|Active|...</text>
+
+      <!-- Embedded Objects -->
+      <text x="12" y="314" font-size="11" font-weight="700" fill="#1054CF">payment?</text>
+      <text x="350" y="314" font-size="10.5" font-weight="600" fill="#1054CF" text-anchor="end">BookingPayment (embedded object)</text>
+
+      <text x="12" y="334" font-size="11" font-weight="700" fill="#059669">handover?</text>
+      <text x="350" y="334" font-size="10.5" font-weight="600" fill="#059669" text-anchor="end">Handover (biên bản giao xe)</text>
+
+      <text x="12" y="354" font-size="11" font-weight="700" fill="#059669">returnInspection?</text>
+      <text x="350" y="354" font-size="10.5" font-weight="600" fill="#059669" text-anchor="end">ReturnInspection (biên bản trả)</text>
+
+      <!-- Timestamps & audit -->
+      <line x1="0" y1="366" x2="350" y2="366" stroke="#F1F5F9" stroke-width="1" />
+
+      <text x="12" y="382" font-size="11" font-weight="500" fill="#334155">createdAt / confirmedAt?</text>
+      <text x="350" y="382" font-size="10.5" font-weight="500" fill="#64748B" text-anchor="end">Timestamp</text>
+
+      <text x="12" y="402" font-size="11" font-weight="500" fill="#334155">rejectedAt? / rejectReason?</text>
+      <text x="350" y="402" font-size="10.5" font-weight="500" fill="#64748B" text-anchor="end">Timestamp | string</text>
+
+      <text x="12" y="422" font-size="11" font-weight="500" fill="#334155">cancelledAt? / cancelledBy?</text>
+      <text x="350" y="422" font-size="10.5" font-weight="500" fill="#64748B" text-anchor="end">Timestamp | "user"|"admin"</text>
+
+      <text x="12" y="442" font-size="11" font-weight="500" fill="#334155">handedOverAt? / returnedAt?</text>
+      <text x="350" y="442" font-size="10.5" font-weight="500" fill="#64748B" text-anchor="end">Timestamp</text>
+
+      <text x="12" y="462" font-size="11" font-weight="700" fill="#059669">reviewed?</text>
+      <text x="350" y="462" font-size="10.5" font-weight="600" fill="#059669" text-anchor="end">boolean (đã đánh giá chuyến đi)</text>
+
+      <rect x="0" y="478" width="350" height="36" rx="6" fill="#EFF6FF" stroke="#BFDBFE" stroke-width="1" />
+      <text x="175" y="494" font-size="10" font-weight="700" fill="#1E40AF" text-anchor="middle">Entity trung tâm điều phối toàn bộ nghiệp vụ thuê xe</text>
+      <text x="175" y="508" font-size="9" font-weight="500" fill="#3B82F6" text-anchor="middle">Lưu trữ toàn bộ lịch sử thanh toán, bàn giao xe và quyết toán cọc</text>
+    </g>
+  </g>
+
+  <!-- 8. BOOKED SLOTS (x=670, y=720, w=380, h=175) -->
+  <g transform="translate(670, 720)" filter="url(#cardSh)">
+    <rect width="380" height="175" rx="10" fill="#FFFFFF" stroke="#059669" stroke-width="1.8" />
+    <path d="M 0 10 Q 0 0 10 0 L 370 0 Q 380 0 380 10 L 380 36 L 0 36 Z" fill="url(#emeraldHeader)" />
+    <text x="14" y="24" font-size="13" font-weight="800" fill="#FFFFFF">bookedSlots</text>
+    <text x="366" y="23" font-size="10" font-weight="600" fill="#D1FAE5" text-anchor="end">bookedSlots/{bookingId}</text>
+    <!-- Fields -->
+    <g transform="translate(14, 48)">
+      <rect x="0" y="0" width="46" height="15" rx="3" fill="#FEF3C7" />
+      <text x="23" y="11" font-size="9" font-weight="800" fill="#B45309" text-anchor="middle">PK, FK</text>
+      <text x="52" y="12" font-size="11.5" font-weight="800" fill="#1E40AF">bookingId</text>
+      <text x="350" y="12" font-size="10.5" font-weight="500" fill="#64748B" text-anchor="end">string → bookings.id</text>
+
+      <rect x="0" y="22" width="26" height="15" rx="3" fill="#DBEAFE" />
+      <text x="13" y="33" font-size="9" font-weight="800" fill="#1E40AF" text-anchor="middle">FK</text>
+      <text x="32" y="34" font-size="11.5" font-weight="700" fill="#1E40AF">carId</text>
+      <text x="350" y="34" font-size="10.5" font-weight="500" fill="#64748B" text-anchor="end">string → cars.id</text>
+
+      <rect x="0" y="44" width="26" height="15" rx="3" fill="#DBEAFE" />
+      <text x="13" y="55" font-size="9" font-weight="800" fill="#1E40AF" text-anchor="middle">FK</text>
+      <text x="32" y="56" font-size="11" font-weight="500" fill="#1E40AF">userId</text>
+      <text x="350" y="56" font-size="10.5" font-weight="500" fill="#64748B" text-anchor="end">string → users.uid</text>
+
+      <text x="12" y="78" font-size="11" font-weight="700" fill="#1E293B">pickupDate / returnDate</text>
+      <text x="350" y="78" font-size="10.5" font-weight="500" fill="#64748B" text-anchor="end">Timestamp (khoảng giữ xe)</text>
+
+      <rect x="0" y="90" width="350" height="26" rx="5" fill="#ECFDF5" stroke="#A7F3D0" stroke-width="1" />
+      <text x="175" y="107" font-size="10" font-weight="700" fill="#065F46" text-anchor="middle">Public read cho người đăng nhập để kiểm tra trùng lịch</text>
+    </g>
+  </g>
+
+  <!-- 9. REVIEWS (x=670, y=920, w=380, h=175) -->
+  <g transform="translate(670, 920)" filter="url(#cardSh)">
+    <rect width="380" height="175" rx="10" fill="#FFFFFF" stroke="#059669" stroke-width="1.8" />
+    <path d="M 0 10 Q 0 0 10 0 L 370 0 Q 380 0 380 10 L 380 36 L 0 36 Z" fill="url(#emeraldHeader)" />
+    <text x="14" y="24" font-size="13" font-weight="800" fill="#FFFFFF">reviews</text>
+    <text x="366" y="23" font-size="10" font-weight="600" fill="#D1FAE5" text-anchor="end">reviews/{bookingId}</text>
+    <!-- Fields -->
+    <g transform="translate(14, 48)">
+      <rect x="0" y="0" width="46" height="15" rx="3" fill="#FEF3C7" />
+      <text x="23" y="11" font-size="9" font-weight="800" fill="#B45309" text-anchor="middle">PK, FK</text>
+      <text x="52" y="12" font-size="11.5" font-weight="800" fill="#1E40AF">bookingId</text>
+      <text x="350" y="12" font-size="10.5" font-weight="500" fill="#64748B" text-anchor="end">string → bookings.id (1 đơn = 1 review)</text>
+
+      <rect x="0" y="22" width="26" height="15" rx="3" fill="#DBEAFE" />
+      <text x="13" y="33" font-size="9" font-weight="800" fill="#1E40AF" text-anchor="middle">FK</text>
+      <text x="32" y="34" font-size="11.5" font-weight="700" fill="#1E40AF">carId</text>
+      <text x="350" y="34" font-size="10.5" font-weight="500" fill="#64748B" text-anchor="end">string → cars.id</text>
+
+      <rect x="0" y="44" width="26" height="15" rx="3" fill="#DBEAFE" />
+      <text x="13" y="55" font-size="9" font-weight="800" fill="#1E40AF" text-anchor="middle">FK</text>
+      <text x="32" y="56" font-size="11" font-weight="500" fill="#1E40AF">userId</text>
+      <text x="350" y="56" font-size="10.5" font-weight="500" fill="#64748B" text-anchor="end">string → users.uid</text>
+
+      <text x="12" y="78" font-size="11" font-weight="500" fill="#334155">userName / comment</text>
+      <text x="350" y="78" font-size="10.5" font-weight="500" fill="#64748B" text-anchor="end">string (họ tên &amp; nhận xét ≤500 ký tự)</text>
+
+      <text x="12" y="98" font-size="11" font-weight="800" fill="#D97706">rating / createdAt</text>
+      <text x="350" y="98" font-size="10.5" font-weight="700" fill="#D97706" text-anchor="end">number (1-5 sao) | Timestamp</text>
+
+      <rect x="0" y="106" width="350" height="16" rx="4" fill="#ECFDF5" />
+      <text x="175" y="118" font-size="9.5" font-weight="600" fill="#065F46" text-anchor="middle">Cập nhật transaction cars.rating và cars.reviewCount</text>
+    </g>
+  </g>
+
+  <!-- ==================== COLUMN 4 (x=1080): CARS & EMBEDDED ==================== -->
+
+  <!-- 10. CARS (x=1080, y=120, w=470, h=575) -->
+  <g transform="translate(1080, 120)" filter="url(#cardSh)">
+    <rect width="470" height="575" rx="10" fill="#FFFFFF" stroke="#1054CF" stroke-width="2" />
+    <path d="M 0 10 Q 0 0 10 0 L 460 0 Q 470 0 470 10 L 470 36 L 0 36 Z" fill="url(#blueHeader)" />
+    <text x="14" y="24" font-size="14" font-weight="800" fill="#FFFFFF">cars</text>
+    <text x="456" y="23" font-size="10.5" font-weight="600" fill="#DBEAFE" text-anchor="end">cars/{id}</text>
+    <!-- Fields -->
+    <g transform="translate(14, 48)">
+      <rect x="0" y="0" width="26" height="15" rx="3" fill="#FEF3C7" />
+      <text x="13" y="11" font-size="9" font-weight="800" fill="#B45309" text-anchor="middle">PK</text>
+      <text x="32" y="12" font-size="11.5" font-weight="800" fill="#1E40AF">id</text>
+      <text x="440" y="12" font-size="10.5" font-weight="500" fill="#64748B" text-anchor="end">string ("1" .. "24" xe mẫu hoặc auto)</text>
+
+      <text x="12" y="32" font-size="11" font-weight="700" fill="#1E293B">name</text>
+      <text x="440" y="32" font-size="10.5" font-weight="500" fill="#64748B" text-anchor="end">string (tên đầy đủ xe)</text>
+
+      <text x="12" y="52" font-size="11" font-weight="500" fill="#334155">brand / model / year</text>
+      <text x="440" y="52" font-size="10.5" font-weight="500" fill="#64748B" text-anchor="end">string | string | number</text>
+
+      <text x="12" y="72" font-size="11" font-weight="500" fill="#334155">type / seats</text>
+      <text x="440" y="72" font-size="10.5" font-weight="500" fill="#64748B" text-anchor="end">string (Sedan, SUV...) | number (4, 5, 7)</text>
+
+      <text x="12" y="92" font-size="11" font-weight="700" fill="#334155">fuel</text>
+      <text x="440" y="92" font-size="10.5" font-weight="500" fill="#64748B" text-anchor="end">"Xăng" | "Dầu diesel" | "Điện" | "Hybrid"</text>
+
+      <text x="12" y="112" font-size="11" font-weight="700" fill="#334155">transmission</text>
+      <text x="440" y="112" font-size="10.5" font-weight="500" fill="#64748B" text-anchor="end">"Số tự động" | "Số sàn"</text>
+
+      <text x="12" y="132" font-size="11" font-weight="800" fill="#1054CF">pricePerDay</text>
+      <text x="440" y="132" font-size="10.5" font-weight="700" fill="#1054CF" text-anchor="end">number (giá thuê ngày, VND)</text>
+
+      <text x="12" y="152" font-size="11" font-weight="800" fill="#D97706">deposit</text>
+      <text x="440" y="152" font-size="10.5" font-weight="700" fill="#D97706" text-anchor="end">number (tiền cọc xe trả khi nhận xe)</text>
+
+      <text x="12" y="172" font-size="11" font-weight="500" fill="#334155">location / licensePlate</text>
+      <text x="440" y="172" font-size="10.5" font-weight="500" fill="#64748B" text-anchor="end">string (TP.HCM, HN...) | string (biển số)</text>
+
+      <text x="12" y="192" font-size="11" font-weight="500" fill="#334155">description / amenities</text>
+      <text x="440" y="192" font-size="10.5" font-weight="500" fill="#64748B" text-anchor="end">string | string[] (Bluetooth, Camera 360...)</text>
+
+      <text x="12" y="212" font-size="11" font-weight="500" fill="#334155">imageKey?</text>
+      <text x="440" y="212" font-size="10.5" font-weight="500" fill="#64748B" text-anchor="end">string (khớp CAR_IMAGES trong assets/cars)</text>
+
+      <text x="12" y="232" font-size="11" font-weight="500" fill="#334155">image?</text>
+      <text x="440" y="232" font-size="10.5" font-weight="500" fill="#64748B" text-anchor="end">string (data URI admin tải lên ≤700KB)</text>
+
+      <line x1="0" y1="244" x2="440" y2="244" stroke="#F1F5F9" stroke-width="1" />
+
+      <text x="12" y="260" font-size="11.5" font-weight="800" fill="#D97706">status</text>
+      <text x="440" y="260" font-size="10.5" font-weight="700" fill="#D97706" text-anchor="end">"Available"|"Rented"|"Maintenance"|"Inactive"</text>
+
+      <text x="12" y="280" font-size="11" font-weight="700" fill="#059669">rating / reviewCount</text>
+      <text x="440" y="280" font-size="10.5" font-weight="600" fill="#059669" text-anchor="end">number (sao TB 1..5) | number (tổng số review)</text>
+
+      <text x="12" y="300" font-size="11" font-weight="500" fill="#334155">bookings</text>
+      <text x="440" y="300" font-size="10.5" font-weight="500" fill="#64748B" text-anchor="end">number (tổng lượt thuê xe)</text>
+
+      <text x="12" y="320" font-size="11" font-weight="500" fill="#334155">createdAt / updatedAt?</text>
+      <text x="440" y="320" font-size="10.5" font-weight="500" fill="#64748B" text-anchor="end">Timestamp</text>
+
+      <rect x="0" y="336" width="440" height="36" rx="6" fill="#EFF6FF" stroke="#BFDBFE" stroke-width="1" />
+      <text x="220" y="352" font-size="10" font-weight="700" fill="#1E40AF" text-anchor="middle">Đội xe RENTO — Quản lý tập trung trong Firestore collection 'cars'</text>
+      <text x="220" y="366" font-size="9" font-weight="500" fill="#3B82F6" text-anchor="middle">Lọc xe theo ngày kết hợp bookedSlots; tìm kiếm đa tiêu chí</text>
+    </g>
+  </g>
+
+  <!-- EMBEDDED OBJECTS BREAKDOWN CARD (x=1080, y=720, w=470, h=375) -->
+  <g transform="translate(1080, 720)" filter="url(#cardSh)">
+    <rect width="470" height="375" rx="10" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1.5" />
+    <path d="M 0 10 Q 0 0 10 0 L 460 0 Q 470 0 470 10 L 470 34 L 0 34 Z" fill="url(#grayHeader)" />
+    <text x="14" y="23" font-size="12" font-weight="800" fill="#FFFFFF">CHI TIẾT EMBEDDED OBJECTS TRONG BOOKINGS</text>
+
+    <!-- Sub object 1: BookingPayment -->
+    <g transform="translate(14, 46)">
+      <rect width="442" height="98" rx="6" fill="#F8FAFC" stroke="#E2E8F0" stroke-width="1" />
+      <rect x="0" y="0" width="442" height="22" rx="6" fill="#EFF6FF" />
+      <text x="10" y="15" font-size="11" font-weight="800" fill="#1E40AF">1. BookingPayment (payment)</text>
+      <text x="432" y="15" font-size="9.5" font-weight="600" fill="#3B82F6" text-anchor="end">Thanh toán &amp; hoàn tiền</text>
+
+      <text x="10" y="38" font-size="10.5" font-weight="600" fill="#334155">method: <tspan font-weight="400" fill="#64748B">"credit-card" | "momo" | "zalopay"</tspan></text>
+      <text x="230" y="38" font-size="10.5" font-weight="600" fill="#334155">amount: <tspan font-weight="400" fill="#64748B">number (VND)</tspan></text>
+
+      <text x="10" y="56" font-size="10.5" font-weight="600" fill="#334155">status: <tspan font-weight="700" fill="#1054CF">"Completed" | "Failed" | "Refunded"</tspan></text>
+      <text x="230" y="56" font-size="10.5" font-weight="600" fill="#334155">transactionId?: <tspan font-weight="400" fill="#64748B">string</tspan></text>
+
+      <text x="10" y="74" font-size="10.5" font-weight="600" fill="#334155">refundAmount?: <tspan font-weight="400" fill="#64748B">number (theo D5)</tspan></text>
+      <text x="230" y="74" font-size="10.5" font-weight="600" fill="#334155">refundPercent?: <tspan font-weight="400" fill="#64748B">100% | 70%</tspan></text>
+
+      <text x="10" y="90" font-size="10" font-weight="500" fill="#64748B">paidAt?, refundedAt?, failedAt?, failReason?, lastFourDigits?, phone?</text>
+    </g>
+
+    <!-- Sub object 2: Handover -->
+    <g transform="translate(14, 154)">
+      <rect width="442" height="98" rx="6" fill="#F8FAFC" stroke="#E2E8F0" stroke-width="1" />
+      <rect x="0" y="0" width="442" height="22" rx="6" fill="#ECFDF5" />
+      <text x="10" y="15" font-size="11" font-weight="800" fill="#065F46">2. Handover (handover)</text>
+      <text x="432" y="15" font-size="9.5" font-weight="600" fill="#059669" text-anchor="end">Biên bản giao xe (Admin)</text>
+
+      <text x="10" y="38" font-size="10.5" font-weight="600" fill="#334155">at: <tspan font-weight="400" fill="#64748B">Timestamp (thời điểm giao)</tspan></text>
+      <text x="230" y="38" font-size="10.5" font-weight="600" fill="#334155">odometer: <tspan font-weight="400" fill="#64748B">number (số km bắt đầu)</tspan></text>
+
+      <text x="10" y="56" font-size="10.5" font-weight="600" fill="#334155">fuelLevel: <tspan font-weight="400" fill="#64748B">"1/4" | "1/2" | "3/4" | "Đầy"</tspan></text>
+      <text x="230" y="56" font-size="10.5" font-weight="600" fill="#334155">conditionNote: <tspan font-weight="400" fill="#64748B">string (tình trạng xe)</tspan></text>
+
+      <text x="10" y="74" font-size="10.5" font-weight="600" fill="#065F46">documentsChecked: <tspan font-weight="700" fill="#059669">true (đã kiểm tra giấy tờ)</tspan></text>
+      <text x="230" y="74" font-size="10.5" font-weight="600" fill="#065F46">depositCollected: <tspan font-weight="700" fill="#059669">true (đã thu tiền cọc)</tspan></text>
+
+      <text x="10" y="90" font-size="9.5" font-weight="500" fill="#64748B">Bắt buộc đủ 2 checkbox mới chuyển đơn sang Active và xe sang Rented</text>
+    </g>
+
+    <!-- Sub object 3: ReturnInspection -->
+    <g transform="translate(14, 262)">
+      <rect width="442" height="102" rx="6" fill="#F8FAFC" stroke="#E2E8F0" stroke-width="1" />
+      <rect x="0" y="0" width="442" height="22" rx="6" fill="#FEF3C7" />
+      <text x="10" y="15" font-size="11" font-weight="800" fill="#92400E">3. ReturnInspection (returnInspection)</text>
+      <text x="432" y="15" font-size="9.5" font-weight="600" fill="#D97706" text-anchor="end">Biên bản nhận lại xe &amp; quyết toán cọc</text>
+
+      <text x="10" y="38" font-size="10.5" font-weight="600" fill="#334155">at: <tspan font-weight="400" fill="#64748B">Timestamp (thời điểm nhận lại)</tspan></text>
+      <text x="230" y="38" font-size="10.5" font-weight="600" fill="#334155">odometer: <tspan font-weight="400" fill="#64748B">number (≥ lúc giao xe)</tspan></text>
+
+      <text x="10" y="56" font-size="10.5" font-weight="600" fill="#334155">fuelLevel: <tspan font-weight="400" fill="#64748B">"1/4" | "1/2" | "3/4" | "Đầy"</tspan></text>
+      <text x="230" y="56" font-size="10.5" font-weight="600" fill="#334155">damageNote: <tspan font-weight="400" fill="#64748B">string (ghi nhận hư hại)</tspan></text>
+
+      <text x="10" y="74" font-size="10.5" font-weight="600" fill="#B45309">lateFee: <tspan font-weight="400" fill="#64748B">number (10%/giờ trễ)</tspan></text>
+      <text x="230" y="74" font-size="10.5" font-weight="600" fill="#B45309">extraFees: <tspan font-weight="400" fill="#64748B">number (vệ sinh, hư hỏng...)</tspan></text>
+
+      <text x="10" y="93" font-size="10.5" font-weight="800" fill="#059669">depositRefund: <tspan font-weight="700" fill="#047857">cọc − (lateFee + extraFees) (hoàn tiền cọc cho khách)</tspan></text>
+    </g>
+  </g>
+
+  <!-- ==================== CONNECTOR PATHS & RELATIONSHIPS ==================== -->
+
+  <!-- 1. phones.uid -> users.uid (x: 320 -> 355, y=190) [1-1] -->
+  <g>
+    <path d="M 320 190 L 355 190" stroke="#D97706" stroke-width="2.2" marker-end="url(#arrAmber)" />
+    <rect x="323" y="174" width="28" height="15" rx="3" fill="#FEF3C7" />
+    <text x="337" y="185" font-size="9.5" font-weight="800" fill="#B45309" text-anchor="middle">1 : 1</text>
+  </g>
+
+  <!-- 2. licenses.uid -> users.uid (x: 320 -> 355, y=340) [1-1] -->
+  <g>
+    <path d="M 320 340 L 355 340" stroke="#D97706" stroke-width="2.2" marker-end="url(#arrAmber)" />
+    <rect x="323" y="324" width="28" height="15" rx="3" fill="#FEF3C7" />
+    <text x="337" y="335" font-size="9.5" font-weight="800" fill="#B45309" text-anchor="middle">1 : 1</text>
+  </g>
+
+  <!-- 3. supportTickets.userId -> users.uid (x: 320 -> 340 -> 340 -> 355, y: 640 -> 440) [N-1] -->
+  <g>
+    <path d="M 320 640 L 338 640 L 338 440 L 355 440" stroke="#7C3AED" stroke-width="2" fill="none" marker-end="url(#arrPurple)" />
+    <rect x="324" y="626" width="30" height="14" rx="3" fill="#EDE9FE" />
+    <text x="339" y="637" font-size="9" font-weight="800" fill="#6D28D9" text-anchor="middle">N:1</text>
+  </g>
+
+  <!-- 4. notifications.userId -> users.uid (x: 320 -> 332 -> 332 -> 355, y: 890 -> 470) [N-1] -->
+  <g>
+    <path d="M 320 890 L 330 890 L 330 470 L 355 470" stroke="#7C3AED" stroke-width="2" fill="none" marker-end="url(#arrPurple)" />
+    <rect x="324" y="876" width="30" height="14" rx="3" fill="#EDE9FE" />
+    <text x="339" y="887" font-size="9" font-weight="800" fill="#6D28D9" text-anchor="middle">N:1</text>
+  </g>
+
+  <!-- 5. likedCars.userId -> users.uid (x: 430, y: 545 -> 515) [N-1] -->
+  <g>
+    <path d="M 440 545 L 440 515" stroke="#7C3AED" stroke-width="2" marker-end="url(#arrPurple)" />
+    <rect x="444" y="522" width="30" height="14" rx="3" fill="#EDE9FE" />
+    <text x="459" y="533" font-size="9" font-weight="800" fill="#6D28D9" text-anchor="middle">N:1</text>
+  </g>
+
+  <!-- 6. users.uid -> bookings.userId (x: 640 -> 670, y=190) [1-N] -->
+  <g>
+    <path d="M 640 190 L 670 190" stroke="#1054CF" stroke-width="2.5" marker-end="url(#arrBlue)" />
+    <rect x="643" y="174" width="24" height="14" rx="3" fill="#DBEAFE" />
+    <text x="655" y="185" font-size="9" font-weight="800" fill="#1E40AF" text-anchor="middle">1:N</text>
+  </g>
+
+  <!-- 7. cars.id -> bookings.carId (x: 1080 -> 1050, y=210) [1-N] -->
+  <g>
+    <path d="M 1080 210 L 1050 210" stroke="#1054CF" stroke-width="2.5" marker-end="url(#arrBlue)" />
+    <rect x="1053" y="194" width="24" height="14" rx="3" fill="#DBEAFE" />
+    <text x="1065" y="205" font-size="9" font-weight="800" fill="#1E40AF" text-anchor="middle">1:N</text>
+  </g>
+
+  <!-- 8. likedCars.carId -> cars.id (x: 640 -> 655 -> 655 -> 1060 -> 1060 -> 1080, y: 620 -> 250) [N-1] -->
+  <g>
+    <!-- Route likedCars to cars via clear path below bookings/users -->
+    <path d="M 640 620 L 655 620 L 655 700 L 1065 700 L 1065 240 L 1080 240" stroke="#7C3AED" stroke-width="1.8" fill="none" stroke-dasharray="5 3" marker-end="url(#arrPurple)" />
+    <rect x="644" y="605" width="24" height="14" rx="3" fill="#EDE9FE" />
+    <text x="656" y="616" font-size="9" font-weight="800" fill="#6D28D9" text-anchor="middle">N:1</text>
+  </g>
+
+  <!-- 9. bookings.id -> bookedSlots.bookingId (x: 820, y: 695 -> 720) [1-1] -->
+  <g>
+    <path d="M 820 695 L 820 720" stroke="#059669" stroke-width="2.5" marker-end="url(#arrEmerald)" />
+    <rect x="824" y="700" width="28" height="14" rx="3" fill="#D1FAE5" />
+    <text x="838" y="711" font-size="9" font-weight="800" fill="#065F46" text-anchor="middle">1 : 1</text>
+  </g>
+
+  <!-- 10. bookedSlots.carId -> cars.id (x: 1050 -> 1068 -> 1068 -> 1080, y: 770 -> 270) -->
+  <g>
+    <path d="M 1050 770 L 1068 770 L 1068 270 L 1080 270" stroke="#059669" stroke-width="1.8" fill="none" marker-end="url(#arrEmerald)" />
+    <rect x="1053" y="756" width="24" height="14" rx="3" fill="#D1FAE5" />
+    <text x="1065" y="767" font-size="9" font-weight="800" fill="#065F46" text-anchor="middle">N:1</text>
+  </g>
+
+  <!-- 11. bookings.id -> reviews.bookingId (x: 880, y: 695 -> 710 -> 660 -> 660 -> 935 -> 670, wait, direct vertical along left edge of bookedSlots: x: 662, y: 650 -> 935 -> 670) -->
+  <g>
+    <path d="M 760 695 L 760 708 L 660 708 L 660 940 L 670 940" stroke="#059669" stroke-width="2" fill="none" marker-end="url(#arrEmerald)" />
+    <rect x="664" y="924" width="28" height="14" rx="3" fill="#D1FAE5" />
+    <text x="678" y="935" font-size="9" font-weight="800" fill="#065F46" text-anchor="middle">1 : 1</text>
+  </g>
+
+  <!-- 12. reviews.carId -> cars.id (x: 1050 -> 1072 -> 1072 -> 1080, y: 970 -> 300) -->
+  <g>
+    <path d="M 1050 970 L 1072 970 L 1072 300 L 1080 300" stroke="#059669" stroke-width="1.8" fill="none" marker-end="url(#arrEmerald)" />
+    <rect x="1053" y="956" width="24" height="14" rx="3" fill="#D1FAE5" />
+    <text x="1065" y="967" font-size="9" font-weight="800" fill="#065F46" text-anchor="middle">N:1</text>
+  </g>
+
+  <!-- 13. notifications.bookingId -> bookings.id (x: 320 -> 330 -> 330 -> 660 -> 670, y: 955 -> 420) [N-1 opt] -->
+  <g>
+    <path d="M 320 955 L 340 955 L 340 1060 L 655 1060 L 655 420 L 670 420" stroke="#7C3AED" stroke-width="1.5" fill="none" stroke-dasharray="4 3" marker-end="url(#arrPurple)" />
+    <rect x="323" y="942" width="30" height="14" rx="3" fill="#EDE9FE" />
+    <text x="338" y="953" font-size="8.5" font-weight="700" fill="#6D28D9" text-anchor="middle">0..1</text>
+  </g>
+
+  <!-- Bottom Brand Footer -->
+  <g transform="translate(60, 1165)">
+    <line x1="0" y1="0" x2="1480" y2="0" stroke="#E2E8F0" stroke-width="1" />
+    <text x="0" y="24" font-size="12" font-weight="700" fill="#1054CF">RENTO · Ứng Dụng Thuê Xe Di Động</text>
+    <text x="1480" y="24" font-size="11.5" font-weight="500" fill="#64748B" text-anchor="end">Kiến trúc Firestore NoSQL · Đồ án Mobile đa nền tảng (Expo SDK 53 + Firebase 11)</text>
+  </g>
+</svg>

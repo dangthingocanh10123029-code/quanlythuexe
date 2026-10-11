@@ -351,7 +351,7 @@ Màu thương hiệu: primary `#1054CF`, secondary `#FFB700`, nền trắng. Kh�
 - [ ] **A6** (tuỳ chọn) Thư viện ảnh chi tiết xe: 3 ảnh dùng chung `assets/cars/gallery/interior.png`, `dashboard.png`, `trunk.png` (1200×800).
 - [x] **A7** Liệt kê asset không được tham chiếu (grep `app/ components/ data/`): hiện là `gcash-logo.png`, `paypal-logo.png`, `developers/*`. Xoá sau khi Claude xác nhận ở L8.2.
 - [ ] **A8** (cuối cùng, sau U8.1) Ảnh chụp màn hình thật: `npm run web`, khung 390×844, chụp 8 màn (Chào mừng, Trang chủ, Tìm xe, Chi tiết xe, Đặt xe, Chi tiết đơn, Thông báo, Quản trị) → `docs/screenshots/*.png` + ảnh bìa ghép `docs/screenshots/cover.png` thay ảnh README cũ.
-- [ ] **A9** (tuỳ chọn, cho báo cáo) Sơ đồ `docs/diagrams/`: use case 3 vai trò, luồng trạng thái đơn (D2), sơ đồ dữ liệu Firestore (mục 4).
+- [x] **A9** (tuỳ chọn, cho báo cáo) Sơ đồ `docs/diagrams/`: use case 3 vai trò, luồng trạng thái đơn (D2), sơ đồ dữ liệu Firestore (mục 4).
 
 **Ghi chú bàn giao Track A** (Antigravity, điều phối ghi lại):
 - A1: `assets/icon.png`, `assets/adaptive-icon.png`, `assets/splash.png` (1024×1024, 23–29 KB). `app.json` đã trỏ sang (L8.4); `assets/rento.png` không còn được tham chiếu.
@@ -362,7 +362,8 @@ Màu thương hiệu: primary `#1054CF`, secondary `#FFB700`, nền trắng. Kh�
 - A4 lần 1 bị trả lại: ảnh có sẵn tiêu đề (trùng chữ màn chào), bóng xe lỗi, icon emoji đơn sắc, `2.png` xe che thẻ lịch trình và ghi sai nghiệp vụ ("xác nhận tức thì", "duyệt tự động", "Chuyển khoản").
 - A4 lần 2 đạt: `assets/onboarding/1.png` (đội xe, 3 thành phố), `2.png` (GPLX do RENTO duyệt, RENTO xác nhận đơn, Thẻ · MoMo · ZaloPay, mã ưu đãi), `3.png` (biên bản giao nhận, tiền cọc trả khi nhận – hoàn khi trả), 1080×1080, 51–66 KB, không chữ tiêu đề. `PROMO_ASSETS.onboardingCars` / `onboardingBooking` / `welcome360` trỏ sang 3 ảnh này.
 - L8.2 (Claude): đã xoá asset không dùng (`gcash-logo.png`, `paypal-logo.png`, `developers/*`, `cars/mercedes_benz.gif`, `rento.png`, `adv cars.gif`, `modal_360.gif`); bỏ `testFirestoreConnection`, hằng tiếng Anh cũ, `useBookings` cũ (đã viết lại). L8.3: 55 test (`utils/__tests__`).
-- Antigravity bị ngắt 3 lần (401, broken pipe ×2) — đã chạy lại phần còn lại.
+- A9: `docs/diagrams/use-case`, `booking-states`, `firestore-data` (.svg nguồn + .png ~1600px). Cần cập nhật `firestore-data` sau G7 (carTypes, role, phản hồi phiếu hỗ trợ, thanh toán tiền mặt).
+- Antigravity bị ngắt 4 lần (401, broken pipe ×2, no route to host) — đã chạy lại phần còn lại.
 
 ---
 
