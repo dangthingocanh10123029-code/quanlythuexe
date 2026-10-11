@@ -51,7 +51,7 @@ export default function WelcomeScreen() {
           </View>
           <Text style={styles.overline}>RENTO</Text>
           <Text style={styles.title}>Chọn xe ưng ý, đi đâu cũng dễ</Text>
-          <Text style={styles.description}>Hàng trăm mẫu xe từ sedan, SUV đến xe thể thao đang chờ bạn</Text>
+          <Text style={styles.description}>Đủ dòng xe từ sedan, SUV đến xe thể thao tại TP. HCM, Hà Nội, Đà Nẵng</Text>
           <View style={styles.featureContainer}>
             <FeatureItem icon="search" text="Tìm xe" />
             <FeatureItem icon="filter" text="Lọc theo nhu cầu" />
@@ -139,7 +139,7 @@ const styles = StyleSheet.create({
   },
   illustration: {
     width: '100%',
-    height: 220,
+    height: 300, // ảnh onboarding vuông 1080×1080, có huy hiệu chữ nhỏ
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: SPACE.section,
