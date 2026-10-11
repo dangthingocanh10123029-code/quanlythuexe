@@ -19,6 +19,7 @@ export default function DateTimeRangePicker({
   returnAt,
   onPickupChange,
   onReturnChange,
+  returnLocked = false,
 }: DateTimeRangePickerProps) {
   const [activeField, setActiveField] = useState<ActiveField>("pickup")
   const selected = activeField === "pickup" ? pickupAt : returnAt
@@ -31,7 +32,7 @@ export default function DateTimeRangePicker({
   const applyDate = (value: Date) => {
     if (activeField === "pickup") {
       onPickupChange(value)
-      if (value >= returnAt) onReturnChange(new Date(value.getTime() + DAY))
+      if (!returnLocked && value >= returnAt) onReturnChange(new Date(value.getTime() + DAY))
       return
     }
     onReturnChange(value <= pickupAt ? new Date(pickupAt.getTime() + HOUR) : value)
@@ -51,12 +52,15 @@ export default function DateTimeRangePicker({
 
   const renderField = (field: ActiveField, label: string, icon: keyof typeof Ionicons.glyphMap, value: Date) => {
     const active = activeField === field
+    const locked = field === "return" && returnLocked
     return (
       <TouchableOpacity
-        style={[styles.field, active && styles.fieldActive]}
+        style={[styles.field, active && styles.fieldActive, locked && styles.fieldLocked]}
         onPress={() => setActiveField(field)}
+        disabled={locked}
         activeOpacity={PRESS_OPACITY}
         accessibilityRole="button"
+        accessibilityState={{ disabled: locked }}
       >
         <View style={[styles.iconWrap, active && styles.iconWrapActive]}>
           <Ionicons name={icon} size={18} color={active ? THEME_COLORS.primary : THEME_COLORS.textSecondary} />
@@ -66,6 +70,7 @@ export default function DateTimeRangePicker({
           <Text style={styles.value}>{formatDate(value, "datetime")}</Text>
         </View>
         {active ? <Ionicons name="checkmark-circle" size={20} color={THEME_COLORS.primary} /> : null}
+        {locked ? <Ionicons name="lock-closed" size={16} color={THEME_COLORS.textMuted} /> : null}
       </TouchableOpacity>
     )
   }
@@ -137,6 +142,9 @@ const styles = StyleSheet.create({
   fieldActive: {
     ...UI.inputFocused,
     backgroundColor: THEME_COLORS.primarySubtle,
+  },
+  fieldLocked: {
+    backgroundColor: THEME_COLORS.surfaceMuted,
   },
   iconWrap: {
     width: 34,

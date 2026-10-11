@@ -3,6 +3,7 @@ import {
   KeyboardAvoidingView,
   Modal,
   Platform,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -13,9 +14,9 @@ import {
 } from "react-native"
 import { Ionicons } from "@expo/vector-icons"
 import { router } from "expo-router"
-import DateTimePicker from "@react-native-community/datetimepicker"
 import PaymentLogo from "./ui/PaymentLogo"
-import { calcBookingPrice, toDate } from "../utils/booking"
+import DateTimeRangePicker from "./DateTimeRangePicker"
+import { calcBookingPrice, daysBetween, getBookingRange } from "../utils/booking"
 import { cancelBooking, previewRefund, rescheduleBooking, submitReview } from "../utils/bookingActions"
 import { PAYMENT_METHODS } from "../utils/constants"
 import { formatCurrency, formatDate } from "../utils/helpers"
@@ -36,17 +37,7 @@ const PAYMENT_OPTIONS: { id: "credit-card" | "momo" | "zalopay"; route: PaymentR
 ]
 
 const DAY = 86_400_000
-const MIN_DURATION = 1
-const MAX_DURATION = 30
-
-// Ô chọn ngày dùng khung của UI.input (TextStyle) cho một TouchableOpacity
-const DATE_INPUT_BOX = UI.input as unknown as ViewStyle
-
-const startOfToday = () => {
-  const d = new Date()
-  d.setHours(0, 0, 0, 0)
-  return d
-}
+const HOUR = 3_600_000
 
 function SheetHeader({ title, onClose }: { title: string; onClose: () => void }) {
   return (
@@ -117,8 +108,8 @@ export function PaymentMethodSheet({
 }
 
 // ===== Đổi lịch (D7) =====
-// Pending/Confirmed: đổi ngày + số ngày, tính lại giá, đơn quay về "Chờ xác nhận".
-// Upcoming (đã thanh toán): chỉ dời ngày nhận, khoá số ngày thuê nên giá giữ nguyên.
+// Pending/Confirmed: chọn lại giờ nhận + giờ trả, tính lại giá, đơn quay về "Chờ xác nhận".
+// Upcoming (đã thanh toán): chỉ dời giờ nhận, giờ trả đi theo để giữ nguyên số giờ thuê nên giá giữ nguyên.
 export function RescheduleSheet({
   booking,
   car,
@@ -128,51 +119,50 @@ export function RescheduleSheet({
   car?: Pick<Car, "pricePerDay"> | null
   onClose: () => void
 }) {
-  const [pickupDate, setPickupDate] = useState<Date>(new Date())
-  const [duration, setDuration] = useState(MIN_DURATION)
-  const [showDatePicker, setShowDatePicker] = useState(false)
+  const [pickupAt, setPickupAt] = useState<Date>(new Date())
+  const [returnAt, setReturnAt] = useState<Date>(new Date(Date.now() + DAY))
+  const [span, setSpan] = useState(DAY) // số ms thuê hiện tại của đơn
   const [saving, setSaving] = useState(false)
 
-  // Mỗi lần mở cho một đơn: lấy ngày nhận hiện tại (giữ giờ nhận); đã qua thì gợi ý ngày mai
+  // Mỗi lần mở cho một đơn: lấy lịch hiện tại; giờ nhận đã qua thì gợi ý ngày mai cùng giờ
   useEffect(() => {
     if (!booking) return
-    const current = toDate(booking.pickupDate)
-    setPickupDate(current && current.getTime() > Date.now() ? current : new Date(Date.now() + DAY))
-    setDuration(Math.max(MIN_DURATION, Number(booking.duration) || MIN_DURATION))
-    setShowDatePicker(false)
+    const range = getBookingRange(booking)
+    const currentSpan = range ? Math.max(HOUR, range.end.getTime() - range.start.getTime()) : DAY
+    let start = range?.start ?? new Date(Date.now() + DAY)
+    if (start.getTime() <= Date.now()) {
+      const tomorrow = new Date(Date.now() + DAY)
+      tomorrow.setHours(start.getHours(), start.getMinutes(), 0, 0)
+      start = tomorrow
+    }
+    setSpan(currentSpan)
+    setPickupAt(start)
+    setReturnAt(new Date(start.getTime() + currentSpan))
   }, [booking?.id])
 
-  const close = () => {
-    setShowDatePicker(false)
-    onClose()
-  }
-
   const paid = (booking?.status || "").toLowerCase() === "upcoming"
+  // Đơn đã thanh toán: giờ trả luôn = giờ nhận mới + số giờ thuê cũ (rescheduleBooking cũng tính như vậy)
+  const shownReturn = paid ? new Date(pickupAt.getTime() + span) : returnAt
+  const days = daysBetween(pickupAt, shownReturn)
 
   // Giá dự kiến (rescheduleBooking tính lại chính xác khi lưu)
   const getPreviewPrice = (b: Booking) => {
     if (paid || !car) return Number(b.price) || 0
-    const base = { pricePerDay: car.pricePerDay, days: duration, addOns: b.selectedAddOns ?? [], pickupDate }
+    const base = { pricePerDay: car.pricePerDay, days, addOns: b.selectedAddOns ?? [], pickupDate: pickupAt }
     const withPromo = calcBookingPrice({ ...base, promoCode: b.promoCode, isFirstBooking: true })
     return (withPromo.promoError ? calcBookingPrice(base) : withPromo).total
   }
 
-  const onPickupDateChange = (event: any, selected?: Date) => {
-    setShowDatePicker(Platform.OS === "ios")
-    if (event?.type === "dismissed" || !selected) return
-    setPickupDate(selected)
-  }
-
-  const save = async (b: Booking, days: number) => {
+  const save = async (b: Booking) => {
     try {
       setSaving(true)
-      await rescheduleBooking(b.id, pickupDate, new Date(pickupDate.getTime() + days * DAY))
-      close()
+      await rescheduleBooking(b.id, pickupAt, shownReturn)
+      onClose()
       showAlert(
         "Đổi lịch thành công",
         paid
-          ? `Ngày nhận xe mới: ${formatDate(pickupDate)}.`
-          : `Ngày nhận xe mới: ${formatDate(pickupDate)} • ${days} ngày. Đơn đang chờ RENTO xác nhận lại.`,
+          ? `Thời gian nhận xe mới: ${formatDate(pickupAt, "datetime")}.`
+          : `Nhận xe ${formatDate(pickupAt, "datetime")}, trả xe ${formatDate(shownReturn, "datetime")} • ${days} ngày. Đơn đang chờ RENTO xác nhận lại.`,
       )
     } catch (error: any) {
       console.error("Error rescheduling booking:", error)
@@ -184,87 +174,50 @@ export function RescheduleSheet({
 
   const confirm = () => {
     if (!booking) return
-    if (pickupDate < startOfToday()) {
-      showAlert("Ngày không hợp lệ", "Vui lòng chọn ngày nhận xe từ hôm nay trở đi.")
+    if (pickupAt.getTime() <= Date.now()) {
+      showAlert("Thời gian không hợp lệ", "Vui lòng chọn thời gian nhận xe sau thời điểm hiện tại.")
       return
     }
-    const days = paid ? Number(booking.duration) || MIN_DURATION : duration
     const message = paid
-      ? "Đơn đã thanh toán chỉ được dời ngày nhận xe, giữ nguyên số ngày thuê và tổng tiền."
+      ? "Đơn đã thanh toán chỉ được dời thời gian nhận xe, giữ nguyên số giờ thuê và tổng tiền."
       : `Tổng tiền dự kiến: ${formatCurrency(getPreviewPrice(booking))}.\n\nĐơn sẽ quay về trạng thái "Chờ xác nhận" để RENTO xác nhận lại lịch mới.`
-    confirmDialog("Xác nhận đổi lịch", message, "Đồng ý", () => save(booking, days), { cancelText: "Quay lại" })
+    confirmDialog("Xác nhận đổi lịch", message, "Đồng ý", () => save(booking), { cancelText: "Quay lại" })
   }
 
   const previewPrice = booking ? getPreviewPrice(booking) : 0
   const priceDiff = booking ? previewPrice - (Number(booking.price) || 0) : 0
-  const canDecrease = !paid && duration > MIN_DURATION
-  const canIncrease = !paid && duration < MAX_DURATION
 
   return (
-    <Modal visible={!!booking} transparent animationType="slide" onRequestClose={close}>
+    <Modal visible={!!booking} transparent animationType="slide" onRequestClose={onClose}>
       <View style={styles.modalOverlay}>
         <View style={styles.modalSheet}>
-          <SheetHeader title="Đổi lịch thuê xe" onClose={close} />
+          <SheetHeader title="Đổi lịch thuê xe" onClose={onClose} />
 
           {booking && (
-            <>
+            <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
               <Text style={styles.modalSubtitle}>{booking.carName}</Text>
 
-              <Text style={styles.inputLabel}>Ngày nhận xe</Text>
-              <TouchableOpacity
-                style={[styles.dateInput, showDatePicker && styles.dateInputFocused]}
-                onPress={() => setShowDatePicker(true)}
-                activeOpacity={PRESS_OPACITY}
-              >
-                <Ionicons name="calendar-outline" size={20} color={THEME_COLORS.primary} />
-                <Text style={styles.dateValueText}>{formatDate(pickupDate, "long")}</Text>
-                <Ionicons name="chevron-down" size={20} color={THEME_COLORS.textMuted} />
-              </TouchableOpacity>
-
-              {showDatePicker && (
-                <DateTimePicker
-                  value={pickupDate}
-                  mode="date"
-                  display={Platform.OS === "ios" ? "inline" : "default"}
-                  minimumDate={startOfToday()}
-                  onChange={onPickupDateChange}
-                />
-              )}
-
-              <Text style={[styles.inputLabel, styles.inputLabelSpaced]}>Thời gian thuê</Text>
-              <View style={[styles.stepper, paid && styles.stepperLocked]}>
-                <TouchableOpacity
-                  style={[styles.stepperButton, !canDecrease && styles.stepperButtonDisabled]}
-                  onPress={() => setDuration((d) => Math.max(MIN_DURATION, d - 1))}
-                  disabled={!canDecrease}
-                  accessibilityLabel="Giảm số ngày thuê"
-                  activeOpacity={PRESS_OPACITY}
-                >
-                  <Ionicons name="remove" size={20} color={canDecrease ? THEME_COLORS.primary : THEME_COLORS.textMuted} />
-                </TouchableOpacity>
-                <View style={styles.stepperCenter}>
-                  {paid && <Ionicons name="lock-closed" size={14} color={THEME_COLORS.textMuted} />}
-                  <Text style={styles.stepperValue}>{duration} ngày</Text>
-                </View>
-                <TouchableOpacity
-                  style={[styles.stepperButton, !canIncrease && styles.stepperButtonDisabled]}
-                  onPress={() => setDuration((d) => Math.min(MAX_DURATION, d + 1))}
-                  disabled={!canIncrease}
-                  accessibilityLabel="Tăng số ngày thuê"
-                  activeOpacity={PRESS_OPACITY}
-                >
-                  <Ionicons name="add" size={20} color={canIncrease ? THEME_COLORS.primary : THEME_COLORS.textMuted} />
-                </TouchableOpacity>
+              <Text style={styles.inputLabel}>Thời gian thuê</Text>
+              <DateTimeRangePicker
+                pickupAt={pickupAt}
+                returnAt={shownReturn}
+                onPickupChange={setPickupAt}
+                onReturnChange={setReturnAt}
+                returnLocked={paid}
+              />
+              <View style={styles.durationRow}>
+                {paid && <Ionicons name="lock-closed" size={14} color={THEME_COLORS.textMuted} />}
+                <Text style={styles.durationText}>Tổng thời gian thuê: {days} ngày</Text>
               </View>
               {paid && (
                 <Text style={styles.lockedHint}>
-                  Đơn đã thanh toán giữ nguyên số ngày thuê và tổng tiền, bạn chỉ có thể dời ngày nhận xe.
+                  Đơn đã thanh toán giữ nguyên số giờ thuê và tổng tiền, bạn chỉ có thể dời thời gian nhận xe.
                 </Text>
               )}
 
               <View style={styles.reschedulePrice}>
                 <Text style={styles.reschedulePriceLabel}>{paid ? "Tổng tiền" : "Tổng tiền mới"}</Text>
-                <Text style={styles.reschedulePriceValue}>{formatCurrency(previewPrice)}</Text>
+                <Text style={styles.reschedulePriceValue} numberOfLines={1}>{formatCurrency(previewPrice)}</Text>
               </View>
               {priceDiff !== 0 && (
                 <Text style={[styles.priceDiffText, { color: priceDiff > 0 ? THEME_COLORS.danger : THEME_COLORS.success }]}>
@@ -280,7 +233,7 @@ export function RescheduleSheet({
               >
                 <Text style={styles.confirmButtonText}>{saving ? "Đang lưu..." : "Xác nhận đổi lịch"}</Text>
               </TouchableOpacity>
-            </>
+            </ScrollView>
           )}
         </View>
       </View>
@@ -500,49 +453,18 @@ const styles = StyleSheet.create({
   inputLabelSpaced: {
     marginTop: SPACE.xl,
   },
-  dateInput: {
-    ...DATE_INPUT_BOX,
-    flexDirection: "row",
-    alignItems: "center",
-  },
   dateInputFocused: {
     ...UI.inputFocused,
   },
-  dateValueText: {
-    ...TYPOGRAPHY.bodyStrong,
-    flex: 1,
-    marginLeft: SPACE.md,
-  },
-  stepper: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    borderWidth: 1,
-    borderColor: THEME_COLORS.border,
-    borderRadius: RADIUS.control,
-    padding: 6,
-  },
-  stepperLocked: {
-    backgroundColor: THEME_COLORS.surfaceMuted,
-  },
-  stepperButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 10,
-    backgroundColor: THEME_COLORS.primarySoft,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  stepperButtonDisabled: {
-    backgroundColor: THEME_COLORS.surfaceMuted,
-  },
-  stepperCenter: {
+  durationRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
+    marginTop: SPACE.md,
   },
-  stepperValue: {
-    ...TYPOGRAPHY.h3,
+  durationText: {
+    ...TYPOGRAPHY.bodyStrong,
+    color: THEME_COLORS.primary,
   },
   lockedHint: {
     ...TYPOGRAPHY.caption,

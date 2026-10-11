@@ -10,6 +10,8 @@ export type DateTimeRangePickerProps = {
   returnAt: Date
   onPickupChange: (date: Date) => void
   onReturnChange: (date: Date) => void
+  // Khoá ô trả xe (đơn đã thanh toán chỉ dời giờ nhận; màn gọi tự giữ khoảng thuê)
+  returnLocked?: boolean
 }
 
 type ActiveField = "pickup" | "return"
@@ -23,6 +25,7 @@ export default function DateTimeRangePicker({
   returnAt,
   onPickupChange,
   onReturnChange,
+  returnLocked = false,
 }: DateTimeRangePickerProps) {
   const [activeField, setActiveField] = useState<ActiveField | null>(null)
   const [androidMode, setAndroidMode] = useState<"date" | "time">("date")
@@ -37,7 +40,7 @@ export default function DateTimeRangePicker({
   const applyDate = (field: ActiveField, value: Date) => {
     if (field === "pickup") {
       onPickupChange(value)
-      if (value >= returnAt) onReturnChange(new Date(value.getTime() + DAY))
+      if (!returnLocked && value >= returnAt) onReturnChange(new Date(value.getTime() + DAY))
       return
     }
     onReturnChange(value <= pickupAt ? new Date(pickupAt.getTime() + HOUR) : value)
@@ -68,12 +71,15 @@ export default function DateTimeRangePicker({
 
   const renderField = (field: ActiveField, label: string, icon: keyof typeof Ionicons.glyphMap, value: Date) => {
     const active = activeField === field
+    const locked = field === "return" && returnLocked
     return (
       <TouchableOpacity
-        style={[styles.field, active && styles.fieldActive]}
+        style={[styles.field, active && styles.fieldActive, locked && styles.fieldLocked]}
         onPress={() => openPicker(field)}
+        disabled={locked}
         activeOpacity={PRESS_OPACITY}
         accessibilityRole="button"
+        accessibilityState={{ disabled: locked }}
         accessibilityLabel={`${label}: ${formatDate(value, "datetime")}`}
       >
         <View style={[styles.iconWrap, active && styles.iconWrapActive]}>
@@ -83,7 +89,7 @@ export default function DateTimeRangePicker({
           <Text style={styles.label}>{label}</Text>
           <Text style={styles.value}>{formatDate(value, "datetime")}</Text>
         </View>
-        <Ionicons name="chevron-down" size={18} color={THEME_COLORS.textMuted} />
+        <Ionicons name={locked ? "lock-closed" : "chevron-down"} size={18} color={THEME_COLORS.textMuted} />
       </TouchableOpacity>
     )
   }
@@ -136,6 +142,9 @@ const styles = StyleSheet.create({
   },
   fieldActive: {
     ...UI.inputFocused,
+  },
+  fieldLocked: {
+    backgroundColor: THEME_COLORS.surfaceMuted,
   },
   iconWrap: {
     width: 36,

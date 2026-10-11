@@ -14,6 +14,7 @@ import { updatePersonalInfo } from "../../utils/accountActions"
 import { showAlert } from "../../utils/dialog"
 import { useAuth } from "../../hooks/useAuth"
 import { formatDate } from "../../utils/helpers"
+import { parseVnDate } from "../../utils/license"
 import { PRESS_OPACITY, RADIUS, SPACE, THEME_COLORS, TYPOGRAPHY, UI } from "../../utils/theme"
 
 // Chuyển chuỗi "dd/mm/yyyy" thành Date (mặc định 15/01/1990 nếu không đọc được)
@@ -90,7 +91,23 @@ export default function PersonalInfoScreen() {
     }
   }
 
+  // Web không chạy DateTimePicker → nhập tay dd/mm/yyyy, phải là ngày hợp lệ trước hôm nay
+  const dob = userInfo.dateOfBirth.trim()
+  const dobDate = Platform.OS === "web" && dob ? parseVnDate(dob) : null
+  const dobError =
+    Platform.OS !== "web" || !dob
+      ? ""
+      : !dobDate
+        ? "Ngày sinh không hợp lệ, nhập theo dạng dd/mm/yyyy."
+        : dobDate >= new Date(new Date().setHours(0, 0, 0, 0))
+          ? "Ngày sinh phải trước hôm nay."
+          : ""
+
   const handleSave = async () => {
+    if (dobError) {
+      showAlert("Ngày sinh không hợp lệ", dobError)
+      return
+    }
     try {
       if (!auth.currentUser?.uid) {
         throw new Error('No user ID found');
@@ -225,6 +242,22 @@ export default function PersonalInfoScreen() {
 
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Ngày sinh</Text>
+            {Platform.OS === "web" ? (
+              <>
+                <TextInput
+                  style={inputStyle("dateOfBirth")}
+                  value={userInfo.dateOfBirth}
+                  onChangeText={(text) => setUserInfo({ ...userInfo, dateOfBirth: text })}
+                  editable={isEditing}
+                  placeholder="dd/mm/yyyy"
+                  placeholderTextColor={THEME_COLORS.textMuted}
+                  maxLength={10}
+                  {...focusProps("dateOfBirth")}
+                />
+                {isEditing && dobError ? <Text style={styles.errorText}>{dobError}</Text> : null}
+              </>
+            ) : (
+            <>
             <TouchableOpacity
               style={[
                 styles.dateInput,
@@ -260,6 +293,8 @@ export default function PersonalInfoScreen() {
                   </TouchableOpacity>
                 )}
               </View>
+            )}
+            </>
             )}
           </View>
 
@@ -452,6 +487,11 @@ const styles = StyleSheet.create({
   },
   helperText: {
     ...TYPOGRAPHY.caption,
+    marginTop: SPACE.xs,
+  },
+  errorText: {
+    ...TYPOGRAPHY.caption,
+    color: THEME_COLORS.danger,
     marginTop: SPACE.xs,
   },
   buttonContainer: {
