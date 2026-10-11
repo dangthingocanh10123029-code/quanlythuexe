@@ -1,12 +1,13 @@
 "use client"
 
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Linking, Alert } from "react-native"
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Linking } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 import { Ionicons } from "@expo/vector-icons"
 import { router } from "expo-router"
 import { SUPPORT_EMAIL } from "../utils/constants"
 import { StatusBar } from "expo-status-bar"
 import { THEME_COLORS, RADIUS, SPACE, TYPOGRAPHY, UI, PRESS_OPACITY } from "../utils/theme"
+import { confirmDialog } from "../utils/dialog"
 
 const handleContactSupport = async () => {
   const url = `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent("Liên hệ hỗ trợ RENTO")}`
@@ -17,13 +18,12 @@ const handleContactSupport = async () => {
   } catch (error) {
     console.error("Error opening mail app:", error)
   }
-  Alert.alert(
+  confirmDialog(
     "Không mở được ứng dụng email",
     `Bạn có thể gửi email tới ${SUPPORT_EMAIL} hoặc gửi yêu cầu ngay trong ứng dụng.`,
-    [
-      { text: "Đóng", style: "cancel" },
-      { text: "Mở trang Hỗ trợ", onPress: () => router.push("/profile/support") },
-    ],
+    "Mở trang Hỗ trợ",
+    () => router.push("/profile/support"),
+    { cancelText: "Đóng" },
   )
 }
 
@@ -109,7 +109,7 @@ export default function DevelopersScreen() {
           <Text style={styles.contactText}>Bạn có câu hỏi hay góp ý? Chúng tôi luôn sẵn sàng lắng nghe!</Text>
 
           <TouchableOpacity style={styles.contactButton} onPress={handleContactSupport} activeOpacity={PRESS_OPACITY}>
-            <Ionicons name="mail" size={20} color="#FFFFFF" />
+            <Ionicons name="mail" size={20} color={THEME_COLORS.textInverse} />
             <Text style={styles.contactButtonText}>Liên hệ hỗ trợ</Text>
           </TouchableOpacity>
         </View>

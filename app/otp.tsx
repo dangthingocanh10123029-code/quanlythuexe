@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { View, Text, TouchableOpacity, StyleSheet, Alert } from "react-native"
+import { View, Text, TouchableOpacity, StyleSheet } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 import { router } from "expo-router"
 import { auth } from "../config/firebase"
@@ -9,6 +9,7 @@ import { StatusBar } from "expo-status-bar"
 import { Ionicons } from "@expo/vector-icons"
 import { THEME_COLORS, RADIUS, SPACE, TYPOGRAPHY, UI, PRESS_OPACITY } from "../utils/theme"
 import { OTPInput, PrimaryButton } from "../components"
+import { showAlert } from "../utils/dialog"
 
 export default function OTPScreen() {
   const [otp, setOtp] = useState(["", "", "", ""])
@@ -18,7 +19,7 @@ export default function OTPScreen() {
     const otpCode = otp.join("")
 
     if (otpCode.length !== 4 || !/^\d{4}$/.test(otpCode)) {
-      Alert.alert("Mã chưa hợp lệ", "Vui lòng nhập đủ 4 chữ số của mã xác thực (OTP)")
+      showAlert("Mã chưa hợp lệ", "Vui lòng nhập đủ 4 chữ số của mã xác thực (OTP)")
       return
     }
 
@@ -36,13 +37,13 @@ export default function OTPScreen() {
       router.replace("/(tabs)")
     } catch (error: any) {
       console.error("OTP verification error:", error.message)
-      Alert.alert("Xác thực thất bại", "Phiên đăng ký đã hết hạn hoặc không hợp lệ. Vui lòng đăng ký lại.")
+      showAlert("Xác thực thất bại", "Phiên đăng ký đã hết hạn hoặc không hợp lệ. Vui lòng đăng ký lại.")
       setLoading(false)
     }
   }
 
   const handleResend = () => {
-    Alert.alert("Đã gửi lại mã", "Mã xác thực (OTP) mới đã được gửi tới email của bạn")
+    showAlert("Đã gửi lại mã", "Mã xác thực (OTP) mới đã được gửi tới email của bạn")
     setOtp(["", "", "", ""])
   }
 

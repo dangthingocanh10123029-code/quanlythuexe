@@ -61,9 +61,7 @@ export default function WelcomeScreen() {
 
         <View style={styles.slide}>
           <View style={styles.illustration}>
-            <View style={styles.iconIllustration}>
-              <Ionicons name="calendar" size={72} color={THEME_COLORS.primary} />
-            </View>
+            <Image source={PROMO_ASSETS.onboardingBooking} style={styles.illustrationImage} resizeMode="contain" />
           </View>
           <Text style={styles.overline}>ĐẶT XE NHANH</Text>
           <Text style={styles.title}>Đặt xe chỉ trong vài phút</Text>
@@ -149,14 +147,6 @@ const styles = StyleSheet.create({
   illustrationImage: {
     width: '100%',
     height: '100%',
-  },
-  iconIllustration: {
-    width: 160,
-    height: 160,
-    borderRadius: 80,
-    backgroundColor: THEME_COLORS.primarySoft,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   overline: {
     ...TYPOGRAPHY.overline,

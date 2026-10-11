@@ -1,12 +1,13 @@
 "use client"
 
 import { useState } from "react"
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, type TextStyle } from "react-native"
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, type TextStyle } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 import { StatusBar } from "expo-status-bar"
 import { Ionicons } from "@expo/vector-icons"
 import { router } from "expo-router"
 import PaymentLogo from "../../components/ui/PaymentLogo"
+import { confirmDialog, showAlert } from "../../utils/dialog"
 import { PRESS_OPACITY, RADIUS, SHADOWS, SPACE, THEME_COLORS, TYPOGRAPHY, UI } from "../../utils/theme"
 
 type SavedPaymentType = "card" | "momo" | "zalopay"
@@ -69,39 +70,38 @@ export default function PaymentScreen() {
         isDefault: method.id === id,
       })),
     )
-    Alert.alert("Thành công", "Đã đặt làm phương thức thanh toán mặc định")
+    showAlert("Thành công", "Đã đặt làm phương thức thanh toán mặc định")
   }
 
   const removePaymentMethod = (id: number) => {
-    Alert.alert("Xoá phương thức thanh toán", "Bạn có chắc muốn xoá phương thức thanh toán này?", [
-      { text: "Huỷ", style: "cancel" },
-      {
-        text: "Xoá",
-        style: "destructive",
-        onPress: () => {
-          setMethods((prev) => {
-            const remaining = prev.filter((method) => method.id !== id)
-            // Nếu xoá phương thức mặc định thì chọn phương thức đầu tiên còn lại làm mặc định
-            if (remaining.length > 0 && !remaining.some((m) => m.isDefault)) {
-              return remaining.map((m, index) => ({ ...m, isDefault: index === 0 }))
-            }
-            return remaining
-          })
-          Alert.alert("Thành công", "Đã xoá phương thức thanh toán")
-        },
+    confirmDialog(
+      "Xoá phương thức thanh toán",
+      "Bạn có chắc muốn xoá phương thức thanh toán này?",
+      "Xoá",
+      () => {
+        setMethods((prev) => {
+          const remaining = prev.filter((method) => method.id !== id)
+          // Nếu xoá phương thức mặc định thì chọn phương thức đầu tiên còn lại làm mặc định
+          if (remaining.length > 0 && !remaining.some((m) => m.isDefault)) {
+            return remaining.map((m, index) => ({ ...m, isDefault: index === 0 }))
+          }
+          return remaining
+        })
+        showAlert("Thành công", "Đã xoá phương thức thanh toán")
       },
-    ])
+      { destructive: true, cancelText: "Huỷ" },
+    )
   }
 
   const handleAddCard = () => {
     if (!newCard.cardNumber || !newCard.expiryDate || !newCard.cvv || !newCard.cardholderName) {
-      Alert.alert("Thiếu thông tin", "Vui lòng nhập đầy đủ thông tin thẻ")
+      showAlert("Thiếu thông tin", "Vui lòng nhập đầy đủ thông tin thẻ")
       return
     }
 
     const digits = newCard.cardNumber.replace(/\D/g, "")
     if (digits.length !== 16) {
-      Alert.alert("Số thẻ không hợp lệ", "Số thẻ phải gồm đủ 16 chữ số")
+      showAlert("Số thẻ không hợp lệ", "Số thẻ phải gồm đủ 16 chữ số")
       return
     }
     const expiryMatch = newCard.expiryDate.match(/^(\d{2})\/(\d{2})$/)
@@ -115,11 +115,11 @@ export default function PaymentScreen() {
       expYear < now.getFullYear() ||
       (expYear === now.getFullYear() && expMonth < now.getMonth() + 1)
     ) {
-      Alert.alert("Ngày hết hạn không hợp lệ", "Vui lòng nhập ngày hết hạn dạng MM/YY và thẻ phải còn hạn")
+      showAlert("Ngày hết hạn không hợp lệ", "Vui lòng nhập ngày hết hạn dạng MM/YY và thẻ phải còn hạn")
       return
     }
     if (!/^\d{3,4}$/.test(newCard.cvv)) {
-      Alert.alert("CVV không hợp lệ", "Mã CVV phải gồm 3 hoặc 4 chữ số")
+      showAlert("CVV không hợp lệ", "Mã CVV phải gồm 3 hoặc 4 chữ số")
       return
     }
 
@@ -136,20 +136,15 @@ export default function PaymentScreen() {
       },
     ])
 
-    Alert.alert("Thành công", "Đã thêm thẻ ngân hàng!", [
-      {
-        text: "OK",
-        onPress: () => {
-          setShowAddCard(false)
-          setNewCard({
-            cardNumber: "",
-            expiryDate: "",
-            cvv: "",
-            cardholderName: "",
-          })
-        },
-      },
-    ])
+    showAlert("Thành công", "Đã thêm thẻ ngân hàng!", () => {
+      setShowAddCard(false)
+      setNewCard({
+        cardNumber: "",
+        expiryDate: "",
+        cvv: "",
+        cardholderName: "",
+      })
+    })
   }
 
   const focusProps = (field: string) => ({
@@ -166,7 +161,7 @@ export default function PaymentScreen() {
         <TouchableOpacity style={styles.headerButton} onPress={() => router.back()} activeOpacity={PRESS_OPACITY}>
           <Ionicons name="arrow-back" size={22} color={THEME_COLORS.textPrimary} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Phương thức thanh toán</Text>
+        <Text style={styles.headerTitle} numberOfLines={1}>Phương thức thanh toán</Text>
         <TouchableOpacity
           style={[styles.headerButton, styles.headerAddButton]}
           onPress={() => setShowAddCard(!showAddCard)}
@@ -270,6 +265,9 @@ export default function PaymentScreen() {
         {/* Payment Methods List */}
         <View style={styles.methodsList}>
           <Text style={styles.sectionTitle}>Phương thức đã lưu</Text>
+          {methods.length === 0 && (
+            <Text style={styles.emptyText}>Bạn chưa lưu phương thức thanh toán nào. Bấm dấu + để thêm thẻ ngân hàng.</Text>
+          )}
 
           {methods.map((method) => (
             <View key={method.id} style={[styles.methodCard, method.isDefault && styles.methodCardDefault]}>
@@ -279,7 +277,7 @@ export default function PaymentScreen() {
                   <Text style={styles.methodName} numberOfLines={1}>{method.name}</Text>
                   {method.type === "card" && <Text style={styles.methodSubtext}>Hết hạn {method.expiryDate}</Text>}
                   {(method.type === "momo" || method.type === "zalopay") && (
-                    <Text style={styles.methodSubtext}>Liên kết với số {method.phone}</Text>
+                    <Text style={styles.methodSubtext} numberOfLines={1}>Liên kết với số {method.phone}</Text>
                   )}
                 </View>
                 {method.isDefault && (
@@ -359,6 +357,9 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     ...TYPOGRAPHY.h3,
+    flexShrink: 1,
+    textAlign: "center",
+    marginHorizontal: SPACE.sm,
   },
   content: {
     flex: 1,
@@ -453,6 +454,9 @@ const styles = StyleSheet.create({
   },
   methodSubtext: {
     ...TYPOGRAPHY.caption,
+  },
+  emptyText: {
+    ...TYPOGRAPHY.body,
   },
   defaultBadge: {
     backgroundColor: THEME_COLORS.primarySoft,

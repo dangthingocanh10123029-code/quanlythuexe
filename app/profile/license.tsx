@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Image } from "react-native"
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 import { StatusBar } from "expo-status-bar"
 import { Ionicons } from "@expo/vector-icons"
@@ -11,6 +11,7 @@ import { useAuth } from "../../hooks/useAuth"
 import { useLicense } from "../../hooks/useLicense"
 import { validateLicense, type LicenseInput } from "../../utils/license"
 import { submitLicense } from "../../utils/licenseActions"
+import { showAlert } from "../../utils/dialog"
 import { LICENSE_CLASSES, LICENSE_STATUS_LABELS } from "../../utils/constants"
 import { PRESS_OPACITY, RADIUS, SPACE, THEME_COLORS, TYPOGRAPHY, UI } from "../../utils/theme"
 import { AppInput } from "../../components"
@@ -64,7 +65,7 @@ export default function LicenseScreen() {
     try {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
       if (status !== "granted") {
-        Alert.alert("Cần cấp quyền", "Vui lòng cho phép RENTO truy cập thư viện ảnh để tải ảnh GPLX.")
+        showAlert("Cần cấp quyền", "Vui lòng cho phép RENTO truy cập thư viện ảnh để tải ảnh GPLX.")
         return
       }
 
@@ -79,41 +80,40 @@ export default function LicenseScreen() {
       if (!result.canceled && result.assets[0].base64) {
         const base64 = result.assets[0].base64
         if (base64.length * 0.75 > MAX_IMAGE_BYTES) {
-          Alert.alert("Ảnh quá lớn", "Vui lòng chọn ảnh có dung lượng nhỏ hơn hoặc cắt sát mép GPLX.")
+          showAlert("Ảnh quá lớn", "Vui lòng chọn ảnh có dung lượng nhỏ hơn hoặc cắt sát mép GPLX.")
           return
         }
         updateForm(type === "front" ? "frontImage" : "backImage", `data:image/jpeg;base64,${base64}`)
       }
     } catch (error) {
       console.error("Error picking license image:", error)
-      Alert.alert("Lỗi", "Không thể chọn ảnh. Vui lòng thử lại.")
+      showAlert("Lỗi", "Không thể chọn ảnh. Vui lòng thử lại.")
     }
   }
 
   const handleVerifyLicense = async () => {
     if (!user?.id) {
-      Alert.alert("Bạn chưa đăng nhập", "Vui lòng đăng nhập để gửi xác minh GPLX.")
+      showAlert("Bạn chưa đăng nhập", "Vui lòng đăng nhập để gửi xác minh GPLX.")
       return
     }
     const fieldErrors = validateLicense(form)
     setErrors(fieldErrors)
     const messages = Object.values(fieldErrors)
     if (messages.length > 0) {
-      Alert.alert("Thông tin chưa hợp lệ", messages.join("\n"))
+      showAlert("Thông tin chưa hợp lệ", messages.join("\n"))
       return
     }
     setSubmitting(true)
     try {
       await submitLicense(user.id, form)
       setDirty(false)
-      Alert.alert(
+      showAlert(
         "Đã gửi xác minh",
         "GPLX của bạn sẽ được xác minh trong vòng 24 giờ. Chúng tôi sẽ gửi thông báo cho bạn ngay khi hoàn tất.",
-        [{ text: "OK" }],
       )
     } catch (error: any) {
       console.error("Error submitting license:", error)
-      Alert.alert("Gửi thất bại", error?.message || "Không gửi được GPLX. Vui lòng kiểm tra kết nối mạng và thử lại.")
+      showAlert("Gửi thất bại", error?.message || "Không gửi được GPLX. Vui lòng kiểm tra kết nối mạng và thử lại.")
     } finally {
       setSubmitting(false)
     }
@@ -162,7 +162,7 @@ export default function LicenseScreen() {
         <TouchableOpacity style={styles.headerButton} onPress={() => router.back()} activeOpacity={PRESS_OPACITY}>
           <Ionicons name="arrow-back" size={22} color={THEME_COLORS.textPrimary} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Giấy phép lái xe (GPLX)</Text>
+        <Text style={styles.headerTitle} numberOfLines={1}>Giấy phép lái xe (GPLX)</Text>
         <View style={{ width: 40 }} />
       </View>
 
@@ -328,6 +328,9 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     ...TYPOGRAPHY.h3,
+    flexShrink: 1,
+    textAlign: "center",
+    marginHorizontal: SPACE.sm,
   },
   content: {
     flex: 1,
@@ -355,6 +358,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   statusBadge: {
+    flexShrink: 1,
     paddingHorizontal: SPACE.md,
     paddingVertical: 6,
     borderRadius: RADIUS.pill,

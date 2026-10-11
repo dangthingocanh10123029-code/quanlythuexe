@@ -1,12 +1,13 @@
 "use client"
 
 import { useEffect, useRef, useState } from 'react'
-import { View, Text, StyleSheet, TouchableOpacity, Alert, Linking, ScrollView } from 'react-native'
+import { View, Text, StyleSheet, TouchableOpacity, Linking, ScrollView } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons'
 import { router, useLocalSearchParams } from 'expo-router'
 import { failPayment, payBooking } from '../utils/bookingActions'
 import { formatCurrency, validatePhone } from '../utils/helpers'
+import { confirmDialog, showAlert } from '../utils/dialog'
 import { PAYMENT_METHODS } from '../utils/constants'
 import PaymentLogo from '../components/ui/PaymentLogo'
 import { StatusBar } from 'expo-status-bar'
@@ -16,7 +17,7 @@ import PaymentErrorBanner from '../components/PaymentErrorBanner'
 
 // Màu thương hiệu ZaloPay: chỉ dùng cho logo, điểm nhấn và nút thanh toán
 const ZALOPAY_COLOR = PAYMENT_METHODS.ZALOPAY.color // #0068FF
-const ZALOPAY_SOFT = "#EFF6FF"
+const ZALOPAY_SOFT = THEME_COLORS.zalopaySoft
 const ZALOPAY_BUTTON_SHADOW = "0px 1px 2px rgba(0, 104, 255, 0.20), 0px 4px 12px rgba(0, 104, 255, 0.22)"
 
 // Quay lại màn trước; nếu không có lịch sử (vào thẳng màn hình) thì về danh sách đơn
@@ -45,10 +46,10 @@ export default function ZaloPayPayment() {
   // Vào thẳng màn hình mà không có mã đơn đặt xe → báo lỗi và quay lại
   useEffect(() => {
     if (!bookingId) {
-      Alert.alert(
+      showAlert(
         "Không tìm thấy đơn đặt xe",
         "Thiếu thông tin đơn đặt xe cần thanh toán. Vui lòng đặt xe lại.",
-        [{ text: "OK", onPress: goBackSafely }]
+        goBackSafely
       )
     }
   }, [bookingId])
@@ -56,11 +57,11 @@ export default function ZaloPayPayment() {
   // Kiểm tra số điện thoại và mã PIN (dùng cho cả bước đăng nhập và bước thanh toán)
   const validateCredentials = (): boolean => {
     if (!validatePhone(phone)) {
-      Alert.alert("Số điện thoại không hợp lệ", "Vui lòng nhập số điện thoại Việt Nam hợp lệ")
+      showAlert("Số điện thoại không hợp lệ", "Vui lòng nhập số điện thoại Việt Nam hợp lệ")
       return false
     }
     if (!/^\d{6}$/.test(pin)) {
-      Alert.alert("Mã PIN không hợp lệ", "Mã PIN ZaloPay gồm 6 chữ số")
+      showAlert("Mã PIN không hợp lệ", "Mã PIN ZaloPay gồm 6 chữ số")
       return false
     }
     return true
@@ -68,11 +69,11 @@ export default function ZaloPayPayment() {
 
   const validatePayment = (): boolean => {
     if (!bookingId) {
-      Alert.alert("Không tìm thấy đơn đặt xe", "Thiếu thông tin đơn đặt xe cần thanh toán. Vui lòng đặt xe lại.")
+      showAlert("Không tìm thấy đơn đặt xe", "Thiếu thông tin đơn đặt xe cần thanh toán. Vui lòng đặt xe lại.")
       return false
     }
     if (!parsedAmount || isNaN(parsedAmount) || parsedAmount <= 0) {
-      Alert.alert("Số tiền không hợp lệ", "Số tiền cần thanh toán không hợp lệ. Vui lòng đặt xe lại.")
+      showAlert("Số tiền không hợp lệ", "Số tiền cần thanh toán không hợp lệ. Vui lòng đặt xe lại.")
       return false
     }
     return validateCredentials()
@@ -104,24 +105,23 @@ export default function ZaloPayPayment() {
       await failPayment(bookingId, PAYMENT_METHODS.ZALOPAY.short, "Bạn đã huỷ giao dịch")
       setPaymentError("Giao dịch đã bị huỷ. Bạn có thể thanh toán lại bất cứ lúc nào.")
     } catch (error: any) {
-      Alert.alert("Lỗi", error?.message || "Không thể huỷ giao dịch. Vui lòng thử lại.")
+      showAlert("Lỗi", error?.message || "Không thể huỷ giao dịch. Vui lòng thử lại.")
     }
   }
 
 
   const confirmCancelTransaction = () => {
-    Alert.alert("Huỷ giao dịch", "Bạn có chắc muốn huỷ giao dịch này? Đơn vẫn chờ thanh toán, bạn có thể thanh toán lại sau.", [
-      { text: "Không", style: "cancel" },
-      {
-        text: "Huỷ giao dịch",
-        style: "destructive",
-        onPress: async () => {
-          setIsCancelling(true)
-          await handleCancelTransaction()
-          setIsCancelling(false)
-        },
+    confirmDialog(
+      "Huỷ giao dịch",
+      "Bạn có chắc muốn huỷ giao dịch này? Đơn vẫn chờ thanh toán, bạn có thể thanh toán lại sau.",
+      "Huỷ giao dịch",
+      async () => {
+        setIsCancelling(true)
+        await handleCancelTransaction()
+        setIsCancelling(false)
       },
-    ])
+      { destructive: true },
+    )
   }
 
   const openZaloPay = async () => {
@@ -129,18 +129,17 @@ export default function ZaloPayPayment() {
       await Linking.openURL(ZALOPAY_URL)
     } catch (error) {
       console.error("Error opening ZaloPay:", error)
-      Alert.alert("Lỗi", "Không thể mở trang ZaloPay. Vui lòng thử lại sau.")
+      showAlert("Lỗi", "Không thể mở trang ZaloPay. Vui lòng thử lại sau.")
     }
   }
 
   const handleForgotPin = () => {
-    Alert.alert(
+    confirmDialog(
       "Quên mã PIN?",
       "Mã PIN được đặt lại trong ứng dụng ZaloPay: mở ZaloPay → Cá nhân → Cài đặt bảo mật → Đổi mã PIN.",
-      [
-        { text: "Đóng", style: "cancel" },
-        { text: "Mở ZaloPay", onPress: openZaloPay }
-      ]
+      "Mở ZaloPay",
+      openZaloPay,
+      { cancelText: "Đóng" },
     )
   }
 
@@ -156,12 +155,12 @@ export default function ZaloPayPayment() {
           <Text style={styles.paymentTitle}>Thanh toán ZaloPay</Text>
           <View style={styles.accountChip}>
             <Ionicons name="person-circle-outline" size={16} color={ZALOPAY_COLOR} />
-            <Text style={styles.emailText}>{phone}</Text>
+            <Text style={styles.emailText} numberOfLines={1}>{phone}</Text>
           </View>
 
           <View style={styles.amountContainer}>
             <Text style={styles.amountLabel}>Số tiền cần thanh toán</Text>
-            <Text style={styles.amount}>{formatCurrency(parsedAmount)}</Text>
+            <Text style={styles.amount} numberOfLines={1} adjustsFontSizeToFit>{formatCurrency(parsedAmount)}</Text>
           </View>
         </ScrollView>
 

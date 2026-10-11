@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react"
 import type { StyleProp, TextStyle } from "react-native"
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, Image, Animated, Modal, Platform, ActivityIndicator, KeyboardAvoidingView } from "react-native"
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Image, Animated, Modal, Platform, ActivityIndicator, KeyboardAvoidingView } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 import { Ionicons } from "@expo/vector-icons"
 import { router } from "expo-router"
@@ -12,6 +12,8 @@ import * as ImagePicker from 'expo-image-picker';
 import { LineChart, BarChart } from "react-native-chart-kit"
 import { Dimensions } from "react-native"
 import { formatCurrency, formatDate } from "../utils/helpers"
+import { confirmDialog, showAlert } from "../utils/dialog"
+import EmptyState from "../components/EmptyState"
 import { AMENITIES, CAR_STATUS_LABELS, FUEL_LEVELS, getBookingStatusLabel, PAYMENT_STATUS_LABELS, TRANSMISSIONS } from "../utils/constants"
 import { useCars, getCarImage } from "../hooks/useCars"
 import { useAuth } from "../hooks/useAuth"
@@ -71,7 +73,7 @@ interface Booking {
   returnLocation?: string;
   subtotal?: number;
   deposit?: number;
-  handover?: { odometer?: number; fuelLevel?: string; conditionNote?: string; at?: any } | null;
+  handover?: { odometer?: number; fuelLevel?: string; conditionNote?: string; documentsChecked?: boolean; depositCollected?: boolean; at?: any } | null;
   returnInspection?: { odometer?: number; fuelLevel?: string; damageNote?: string; lateFee?: number; extraFees?: number; depositRefund?: number; at?: any } | null;
   rejectReason?: string;
   rejectedAt?: any;
@@ -143,19 +145,6 @@ const formatAnyDate = (value: any, format = "short") => {
   return d ? formatDate(d, format) : ""
 }
 
-// Hiển thị yes/no qua Alert (web không hỗ trợ nút trong Alert nên dùng window.confirm)
-const confirmAction = (title: string, message: string, confirmText: string, onConfirm: () => void, destructive = true) => {
-  if (Platform.OS === "web") {
-    const confirmFn = (globalThis as any).confirm
-    if (typeof confirmFn !== "function" || confirmFn(`${title}\n\n${message}`)) onConfirm()
-    return
-  }
-  Alert.alert(title, message, [
-    { text: "Không", style: "cancel" },
-    { text: confirmText, style: destructive ? "destructive" : "default", onPress: onConfirm },
-  ])
-}
-
 const avatarFor = (name: string) =>
   `https://ui-avatars.com/api/?name=${encodeURIComponent(name || "U")}&background=1054CF&color=fff`
 
@@ -170,9 +159,9 @@ const screenWidth = Dimensions.get("window").width
 // Chiều rộng biểu đồ = màn hình - lề màn hình - padding thẻ - viền thẻ
 const chartWidth = screenWidth - SPACE.screen * 2 - SPACE.lg * 2 - 2
 const chartConfig = {
-  backgroundColor: "#FFFFFF",
-  backgroundGradientFrom: "#FFFFFF",
-  backgroundGradientTo: "#FFFFFF",
+  backgroundColor: THEME_COLORS.surface,
+  backgroundGradientFrom: THEME_COLORS.surface,
+  backgroundGradientTo: THEME_COLORS.surface,
   color: (opacity = 1) => `rgba(16, 84, 207, ${opacity})`, // primary #1054CF
   labelColor: (opacity = 1) => `rgba(148, 163, 184, ${opacity})`, // textMuted #94A3B8
   strokeWidth: 2,
@@ -187,7 +176,7 @@ const chartConfig = {
   propsForDots: {
     r: "4",
     strokeWidth: "2",
-    stroke: "#FFFFFF",
+    stroke: THEME_COLORS.surface,
   },
 }
 
@@ -589,7 +578,7 @@ export default function AdminScreen() {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
     if (status !== 'granted') {
-      Alert.alert('Cần cấp quyền', 'Vui lòng cho phép truy cập thư viện ảnh để tải ảnh xe lên.');
+      showAlert('Cần cấp quyền', 'Vui lòng cho phép truy cập thư viện ảnh để tải ảnh xe lên.');
       return;
     }
 
@@ -662,7 +651,7 @@ export default function AdminScreen() {
     setFormErrors(errors);
     const messages = Object.values(errors).filter(Boolean);
     if (messages.length > 0) {
-      Alert.alert('Thông tin chưa hợp lệ', messages.join('\n'));
+      showAlert('Thông tin chưa hợp lệ', messages.join('\n'));
       return;
     }
 
@@ -692,7 +681,7 @@ export default function AdminScreen() {
           ...carFields,
           updatedAt: new Date().toISOString(),
         });
-        Alert.alert('Thành công', 'Đã cập nhật thông tin xe!');
+        showAlert('Thành công', 'Đã cập nhật thông tin xe!');
       } else {
         await addDoc(collection(db, 'cars'), {
           ...carFields,
@@ -701,13 +690,13 @@ export default function AdminScreen() {
           rating: 0,
           reviewCount: 0,
         });
-        Alert.alert('Thành công', 'Đã thêm xe mới!');
+        showAlert('Thành công', 'Đã thêm xe mới!');
       }
 
       closeCarForm();
     } catch (error: any) {
       console.error('Error saving car:', error);
-      Alert.alert(
+      showAlert(
         'Lỗi',
         editingCarId
           ? 'Không thể cập nhật xe. Vui lòng kiểm tra kết nối mạng và thử lại.'
@@ -719,16 +708,16 @@ export default function AdminScreen() {
   }
 
   const handleDeleteCar = (car: Car) => {
-    confirmAction("Xoá xe", `Bạn có chắc muốn xoá xe "${car.name}"? Thao tác này không thể hoàn tác.`, "Xoá", async () => {
+    confirmDialog("Xoá xe", `Bạn có chắc muốn xoá xe "${car.name}"? Thao tác này không thể hoàn tác.`, "Xoá", async () => {
       try {
         await deleteCar(car.id)
         if (editingCarId === car.id) closeCarForm()
-        Alert.alert("Thành công", "Đã xoá xe.")
+        showAlert("Thành công", "Đã xoá xe.")
       } catch (error: any) {
         console.error("Error deleting car:", error)
-        Alert.alert("Không thể xoá xe", error?.message || "Vui lòng thử lại.")
+        showAlert("Không thể xoá xe", error?.message || "Vui lòng thử lại.")
       }
-    })
+    }, { destructive: true })
   }
 
   const handleSeedCars = async () => {
@@ -736,10 +725,10 @@ export default function AdminScreen() {
     setIsSeeding(true)
     try {
       const added = await seedCars()
-      Alert.alert("Nạp dữ liệu xe mẫu", added > 0 ? `Đã thêm ${added} xe mẫu.` : "Tất cả xe mẫu đã có sẵn.")
+      showAlert("Nạp dữ liệu xe mẫu", added > 0 ? `Đã thêm ${added} xe mẫu.` : "Tất cả xe mẫu đã có sẵn.")
     } catch (error) {
       console.error("Error seeding cars:", error)
-      Alert.alert("Lỗi", "Không thể nạp dữ liệu xe mẫu. Vui lòng thử lại.")
+      showAlert("Lỗi", "Không thể nạp dữ liệu xe mẫu. Vui lòng thử lại.")
     } finally {
       setIsSeeding(false)
     }
@@ -752,7 +741,7 @@ export default function AdminScreen() {
 
   const handleCancelBooking = (booking: Booking) => {
     const refund = previewRefund(booking as any, "admin")
-    confirmAction(
+    confirmDialog(
       "Huỷ đơn",
       `Bạn có chắc muốn huỷ đơn ${booking.carName} của ${getCustomerName(booking)}?` +
         (refund.amount > 0 ? `\n\nKhách sẽ được hoàn ${formatCurrency(refund.amount)} (100%).` : ""),
@@ -760,31 +749,31 @@ export default function AdminScreen() {
       async () => {
         try {
           await cancelBooking(booking.id, "admin")
-          Alert.alert("Thành công", "Đã huỷ đơn đặt xe.")
+          showAlert("Thành công", "Đã huỷ đơn đặt xe.")
         } catch (error: any) {
           console.error("Error cancelling booking:", error)
-          Alert.alert("Không thể huỷ đơn", error?.message || "Vui lòng thử lại.")
+          showAlert("Không thể huỷ đơn", error?.message || "Vui lòng thử lại.")
         }
-      }
+      },
+      { destructive: true },
     )
   }
 
   // Pending → Confirmed (kiểm tra lại trùng lịch + GPLX đã xác minh)
   const handleConfirmBooking = (booking: Booking) => {
-    confirmAction(
+    confirmDialog(
       "Xác nhận đơn",
       `Xác nhận đơn ${booking.carName} của ${getCustomerName(booking)}? Khách sẽ được thông báo để thanh toán.`,
       "Xác nhận",
       async () => {
         try {
           await confirmBooking(booking.id)
-          Alert.alert("Thành công", "Đã xác nhận đơn. Đơn chuyển sang Chờ thanh toán.")
+          showAlert("Thành công", "Đã xác nhận đơn. Đơn chuyển sang Chờ thanh toán.")
         } catch (error: any) {
           console.error("Error confirming booking:", error)
-          Alert.alert("Không thể xác nhận", error?.message || "Vui lòng thử lại.")
+          showAlert("Không thể xác nhận", error?.message || "Vui lòng thử lại.")
         }
       },
-      false
     )
   }
 
@@ -792,11 +781,11 @@ export default function AdminScreen() {
   const handleRejectBooking = async (bookingId: string, reason: string) => {
     try {
       await rejectBooking(bookingId, reason)
-      Alert.alert("Đã từ chối đơn", "Khách đã được thông báo kèm lý do.")
+      showAlert("Đã từ chối đơn", "Khách đã được thông báo kèm lý do.")
       return true
     } catch (error: any) {
       console.error("Error rejecting booking:", error)
-      Alert.alert("Không thể từ chối", error?.message || "Vui lòng thử lại.")
+      showAlert("Không thể từ chối", error?.message || "Vui lòng thử lại.")
       return false
     }
   }
@@ -847,7 +836,7 @@ export default function AdminScreen() {
           odometer: Number(f.odometer.trim()),
           fuelLevel: f.fuelLevel,
         })
-        Alert.alert("Đã giao xe", "Đơn chuyển sang Đang thuê, xe chuyển sang Đang cho thuê.")
+        showAlert("Đã giao xe", "Đơn chuyển sang Đang thuê, xe chuyển sang Đang cho thuê.")
       } else {
         const result = await returnBooking(inspection.bookingId, {
           odometer: Number(f.odometer.trim()),
@@ -855,7 +844,7 @@ export default function AdminScreen() {
           damageNote: f.damageNote,
           extraFees: parsePriceInput(f.extraFees || "0"),
         })
-        Alert.alert(
+        showAlert(
           "Đã nhận lại xe",
           `Phí trễ giờ: ${formatCurrency(result.lateFee)}\nPhí phát sinh: ${formatCurrency(result.extraFees)}\nHoàn cọc: ${formatCurrency(result.depositRefund)}`,
         )
@@ -863,7 +852,7 @@ export default function AdminScreen() {
       setInspection(null)
     } catch (error: any) {
       console.error("Error saving inspection:", error)
-      Alert.alert("Chưa lưu được biên bản", error?.message || "Vui lòng thử lại.")
+      showAlert("Chưa lưu được biên bản", error?.message || "Vui lòng thử lại.")
     } finally {
       setInspectionSubmitting(false)
     }
@@ -872,7 +861,7 @@ export default function AdminScreen() {
   // ===== Thao tác với người dùng =====
   const handleToggleUserLock = (user: User) => {
     const locking = user.status === "active"
-    confirmAction(
+    confirmDialog(
       locking ? "Khoá tài khoản" : "Mở khoá tài khoản",
       locking
         ? `Khoá tài khoản ${user.name}? Người dùng sẽ được đánh dấu ngừng hoạt động.`
@@ -885,13 +874,13 @@ export default function AdminScreen() {
             disabled: locking,
             updatedAt: new Date(),
           })
-          Alert.alert("Thành công", locking ? "Đã khoá tài khoản." : "Đã mở khoá tài khoản.")
+          showAlert("Thành công", locking ? "Đã khoá tài khoản." : "Đã mở khoá tài khoản.")
         } catch (error) {
           console.error("Error updating user status:", error)
-          Alert.alert("Lỗi", "Không thể cập nhật tài khoản. Vui lòng thử lại.")
+          showAlert("Lỗi", "Không thể cập nhật tài khoản. Vui lòng thử lại.")
         }
       },
-      locking
+      { destructive: locking },
     )
   }
 
@@ -899,9 +888,9 @@ export default function AdminScreen() {
     setLicenseProcessingId(uid)
     try {
       await verifyLicense(uid)
-      Alert.alert("Đã duyệt GPLX", "Giấy phép lái xe của khách hàng đã được xác minh.")
+      showAlert("Đã duyệt GPLX", "Giấy phép lái xe của khách hàng đã được xác minh.")
     } catch (error: any) {
-      Alert.alert("Không thể duyệt GPLX", error?.message || "Vui lòng thử lại.")
+      showAlert("Không thể duyệt GPLX", error?.message || "Vui lòng thử lại.")
     } finally {
       setLicenseProcessingId(null)
     }
@@ -914,9 +903,9 @@ export default function AdminScreen() {
       await rejectLicense(rejectLicenseId, rejectReason)
       setRejectLicenseId(null)
       setRejectReason("")
-      Alert.alert("Đã từ chối GPLX", "Lý do từ chối đã được gửi đến khách hàng.")
+      showAlert("Đã từ chối GPLX", "Lý do từ chối đã được gửi đến khách hàng.")
     } catch (error: any) {
-      Alert.alert("Không thể từ chối GPLX", error?.message || "Vui lòng thử lại.")
+      showAlert("Không thể từ chối GPLX", error?.message || "Vui lòng thử lại.")
     } finally {
       setLicenseProcessingId(null)
     }
@@ -925,7 +914,7 @@ export default function AdminScreen() {
   // ===== Đánh giá (U5.4) =====
   const handleDeleteReview = (review: Review) => {
     const carName = cars.find((c) => c.id === review.carId)?.name || "xe đã xoá"
-    confirmAction(
+    confirmDialog(
       "Xoá đánh giá",
       `Xoá đánh giá ${review.rating} sao của ${review.userName || "khách hàng"} cho ${carName}? Điểm trung bình của xe sẽ được tính lại.`,
       "Xoá",
@@ -933,14 +922,15 @@ export default function AdminScreen() {
         setDeletingReviewId(review.id)
         try {
           await deleteReview(review.id)
-          Alert.alert("Đã xoá đánh giá", "Điểm đánh giá của xe đã được cập nhật.")
+          showAlert("Đã xoá đánh giá", "Điểm đánh giá của xe đã được cập nhật.")
         } catch (error: any) {
           console.error("Error deleting review:", error)
-          Alert.alert("Không thể xoá đánh giá", error?.message || "Vui lòng thử lại.")
+          showAlert("Không thể xoá đánh giá", error?.message || "Vui lòng thử lại.")
         } finally {
           setDeletingReviewId(null)
         }
       },
+      { destructive: true },
     )
   }
 
@@ -968,7 +958,7 @@ export default function AdminScreen() {
       <View style={styles.statIconWrap}>
         <Ionicons name={icon as any} size={18} color={THEME_COLORS.primary} />
       </View>
-      <Text style={styles.statLabel} numberOfLines={1}>{label}</Text>
+      <Text style={styles.statLabel} numberOfLines={2}>{label}</Text>
       <Text style={[styles.statNumber, small && styles.statNumberSmall]} numberOfLines={1} adjustsFontSizeToFit>
         {value}
       </Text>
@@ -1024,7 +1014,7 @@ export default function AdminScreen() {
         <View style={styles.cardTitleRow}>
           <View style={styles.flex1}>
             <Text style={styles.carName} numberOfLines={1}>{car.name}</Text>
-            <Text style={styles.carBrand}>{car.brand}{car.year ? ` · ${car.year}` : ""}</Text>
+            <Text style={styles.carBrand} numberOfLines={1}>{car.brand}{car.year ? ` · ${car.year}` : ""}</Text>
           </View>
           {renderBadge(getCarStatusLabel(car.status), getCarTone(car.status))}
         </View>
@@ -1068,7 +1058,7 @@ export default function AdminScreen() {
       <View style={styles.tabHeader}>
         <Text style={styles.tabTitle}>Quản lý xe</Text>
         <TouchableOpacity style={styles.addButton} onPress={openAddCarForm} activeOpacity={PRESS_OPACITY}>
-          <Ionicons name="add" size={20} color="#FFFFFF" />
+          <Ionicons name="add" size={20} color={THEME_COLORS.textInverse} />
           <Text style={styles.addButtonText}>Thêm xe</Text>
         </TouchableOpacity>
       </View>
@@ -1429,7 +1419,7 @@ export default function AdminScreen() {
         {!loaded.bookings
           ? renderEmpty("hourglass-outline", "Đang tải đơn đặt xe...")
           : filteredBookings.length === 0
-            ? renderEmpty("calendar-outline", bookings.length === 0 ? "Chưa có đơn đặt xe nào." : "Không có đơn phù hợp.")
+            ? <EmptyState image={bookings.length === 0 ? "bookings" : "results"} size={140} title={bookings.length === 0 ? "Chưa có đơn đặt xe nào." : "Không có đơn phù hợp."} />
             : filteredBookings.map(booking => {
           const imageSource = getBookingImageSource(booking)
           const paymentKey = getPaymentStatusKey(booking)
@@ -1518,7 +1508,7 @@ export default function AdminScreen() {
                   onPress={() => handleAdvanceBooking(booking)}
                   activeOpacity={PRESS_OPACITY}
                 >
-                  <Ionicons name={status === "upcoming" ? "key-outline" : "return-down-back-outline"} size={16} color="#FFFFFF" />
+                  <Ionicons name={status === "upcoming" ? "key-outline" : "return-down-back-outline"} size={16} color={THEME_COLORS.textInverse} />
                   <Text style={styles.smallPrimaryText}>{status === "upcoming" ? "Giao xe" : "Nhận lại xe"}</Text>
                 </TouchableOpacity>
               )}
@@ -1672,7 +1662,9 @@ export default function AdminScreen() {
         {!loaded.users
           ? renderEmpty("hourglass-outline", "Đang tải người dùng...")
           : filteredUsers.length === 0
-            ? renderEmpty("people-outline", users.length === 0 ? "Chưa có người dùng nào." : "Không có người dùng phù hợp.")
+            ? users.length === 0
+              ? renderEmpty("people-outline", "Chưa có người dùng nào.")
+              : <EmptyState image="results" size={140} title="Không có người dùng phù hợp." />
             : filteredUsers.map(user => (
           <Animated.View
             key={user.id}
@@ -1749,7 +1741,7 @@ export default function AdminScreen() {
           {reviewsLoading
             ? renderEmpty("hourglass-outline", "Đang tải đánh giá...")
             : visible.length === 0
-              ? renderEmpty("star-outline", reviews.length === 0 ? "Chưa có đánh giá nào." : "Không có đánh giá phù hợp.")
+              ? <EmptyState image={reviews.length === 0 ? "reviews" : "results"} size={140} title={reviews.length === 0 ? "Chưa có đánh giá nào." : "Không có đánh giá phù hợp."} />
               : visible.map((review) => {
                   const car = cars.find((c) => c.id === review.carId)
                   const deleting = deletingReviewId === review.id
@@ -1774,7 +1766,7 @@ export default function AdminScreen() {
                       <View style={styles.reviewCarRow}>
                         <Ionicons name="car-sport-outline" size={16} color={THEME_COLORS.textMuted} />
                         <Text style={styles.reviewCarName} numberOfLines={1}>{car?.name || "Xe đã bị xoá"}</Text>
-                        {hasBooking ? <Text style={styles.bookingCode} numberOfLines={1}>Mã đơn: {review.id}</Text> : null}
+                        {hasBooking ? <Text style={[styles.bookingCode, styles.shrink]} numberOfLines={1}>Mã đơn: {review.id}</Text> : null}
                       </View>
 
                       <Text style={review.comment ? styles.reviewComment : styles.reviewNoComment}>
@@ -1816,7 +1808,7 @@ export default function AdminScreen() {
         {renderStatCard("car-outline", "Tổng số xe", stats.totalCars)}
         {renderStatCard("receipt-outline", "Tổng số đơn", stats.totalBookings)}
         {renderStatCard("people-outline", "Người dùng", stats.totalUsers)}
-        {renderStatCard("wallet-outline", "Doanh thu (đơn đã thanh toán)", formatCurrency(stats.totalRevenue), true)}
+        {renderStatCard("wallet-outline", "Tổng doanh thu", formatCurrency(stats.totalRevenue), true)}
       </View>
 
       <View style={styles.chartCard}>
@@ -1919,6 +1911,9 @@ export default function AdminScreen() {
       (payment?.status && PAYMENT_STATUS_LABELS[normalizeStatus(payment.status)]) ||
       PAYMENT_STATUS_LABELS[paymentKey] ||
       paymentKey
+    const { handover, returnInspection: back } = booking
+    const distance =
+      handover?.odometer != null && back?.odometer != null ? Number(back.odometer) - Number(handover.odometer) : null
     return (
       <Modal visible transparent animationType="slide" onRequestClose={() => setSelectedBookingId(null)}>
         <View style={styles.modalOverlay}>
@@ -1931,7 +1926,7 @@ export default function AdminScreen() {
                 </View>
               ) : null}
               <View style={styles.modalStatusRow}>
-                <Text style={[styles.modalCarName, styles.flex1]}>{booking.carName}</Text>
+                <Text style={[styles.modalCarName, styles.flex1]} numberOfLines={2}>{booking.carName}</Text>
                 {renderStatusBadge(booking.status)}
               </View>
 
@@ -1983,9 +1978,53 @@ export default function AdminScreen() {
                     {renderDetailRow("Số tiền đã trả", payment.amount != null ? formatCurrency(payment.amount) : "")}
                     {renderDetailRow("Mã giao dịch", payment.transactionId || "")}
                     {renderDetailRow("Thời gian thanh toán", formatAnyDate(payment.paidAt, "datetime"))}
+                    {payment.refundAmount
+                      ? renderDetailRow(
+                          "Tiền hoàn",
+                          `${formatCurrency(payment.refundAmount)}${payment.refundPercent ? ` (${payment.refundPercent}%)` : ""}`,
+                        )
+                      : null}
+                    {payment.refundedAt ? renderDetailRow("Ngày hoàn", formatAnyDate(payment.refundedAt, "datetime")) : null}
                   </>
                 ) : null}
               </View>
+
+              {handover ? (
+                <>
+                  <Text style={styles.detailSection}>Biên bản giao xe</Text>
+                  <View style={styles.detailGroup}>
+                    {renderDetailRow("Thời gian giao", formatAnyDate(handover.at, "datetime"))}
+                    {renderDetailRow("Số km", handover.odometer != null ? `${handover.odometer} km` : "")}
+                    {renderDetailRow("Mức nhiên liệu", handover.fuelLevel || "")}
+                    {renderDetailRow("Giấy tờ (CCCD, GPLX)", handover.documentsChecked ? "Đã kiểm tra" : "Chưa kiểm tra")}
+                    {renderDetailRow(
+                      "Tiền cọc",
+                      handover.depositCollected ? `Đã thu${booking.deposit ? ` ${formatCurrency(booking.deposit)}` : ""}` : "Chưa thu",
+                    )}
+                    {renderDetailRow("Tình trạng xe", handover.conditionNote || "")}
+                  </View>
+                </>
+              ) : null}
+
+              {back ? (
+                <>
+                  <Text style={styles.detailSection}>Biên bản nhận lại xe</Text>
+                  <View style={styles.detailGroup}>
+                    {renderDetailRow("Thời gian trả", formatAnyDate(back.at, "datetime"))}
+                    {renderDetailRow(
+                      "Số km",
+                      back.odometer != null
+                        ? `${back.odometer} km${distance != null && distance >= 0 ? ` (đã đi ${distance} km)` : ""}`
+                        : "",
+                    )}
+                    {renderDetailRow("Mức nhiên liệu", back.fuelLevel || "")}
+                    {renderDetailRow("Hư hỏng", back.damageNote || "Không có")}
+                    {renderDetailRow("Phí trễ giờ", formatCurrency(back.lateFee || 0))}
+                    {renderDetailRow("Phí phát sinh", formatCurrency(back.extraFees || 0))}
+                    {renderDetailRow("Tiền cọc hoàn lại", formatCurrency(back.depositRefund || 0))}
+                  </View>
+                </>
+              ) : null}
 
               <View style={styles.modalActions}>
                 {canDecide(booking) && (
@@ -2401,7 +2440,12 @@ export default function AdminScreen() {
         </View>
 
         {/* Thanh chuyển tab dạng segmented control */}
-        <View style={styles.tabsContainer}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.tabsContainer}
+          contentContainerStyle={styles.tabsContent}
+        >
           {adminTabs.map((tab) => {
             const isActive = activeTab === tab.id
             return (
@@ -2416,13 +2460,13 @@ export default function AdminScreen() {
                   size={18}
                   color={isActive ? THEME_COLORS.primary : THEME_COLORS.textMuted}
                 />
-                <Text style={[styles.tabText, isActive && styles.activeTabText]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>
+                <Text style={[styles.tabText, isActive && styles.activeTabText]} numberOfLines={1}>
                   {tab.name}
                 </Text>
               </TouchableOpacity>
             )
           })}
-        </View>
+        </ScrollView>
       </View>
       <View style={styles.headerDivider} />
 
@@ -2450,6 +2494,9 @@ const styles = StyleSheet.create({
   },
   flex1: {
     flex: 1,
+  },
+  shrink: {
+    flexShrink: 1,
   },
 
   // ===== Header + segmented control =====
@@ -2483,20 +2530,23 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   tabsContainer: {
-    flexDirection: "row",
+    flexGrow: 0,
     backgroundColor: THEME_COLORS.surfaceMuted,
     borderRadius: RADIUS.control,
     borderWidth: 1,
     borderColor: THEME_COLORS.border,
+  },
+  tabsContent: {
+    flexGrow: 1,
     padding: SPACE.xs,
     gap: SPACE.xs,
   },
   tab: {
-    flex: 1,
+    flexGrow: 1,
     alignItems: "center",
     justifyContent: "center",
     paddingVertical: SPACE.sm,
-    paddingHorizontal: 2,
+    paddingHorizontal: SPACE.md,
     borderRadius: RADIUS.control - SPACE.xs,
     gap: 2,
   },
@@ -2821,7 +2871,7 @@ const styles = StyleSheet.create({
     ...SHADOWS.primaryButton,
   },
   smallPrimaryText: {
-    color: "#FFFFFF",
+    color: THEME_COLORS.textInverse,
     fontSize: 13,
     fontWeight: "700",
   },
@@ -3145,6 +3195,7 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.pill,
   },
   paymentStatusText: {
+    flexShrink: 1,
     fontSize: 12,
     fontWeight: "600",
   },

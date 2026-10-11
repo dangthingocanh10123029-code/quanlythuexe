@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, Image, Platform, type TextStyle } from "react-native"
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Image, Platform, type TextStyle } from "react-native"
 import { StatusBar } from "expo-status-bar"
 import DateTimePicker from "@react-native-community/datetimepicker"
 import { SafeAreaView } from "react-native-safe-area-context"
@@ -11,6 +11,7 @@ import * as ImagePicker from "expo-image-picker"
 import { updateProfile } from "firebase/auth" // Add this import
 import { auth } from "../../config/firebase"
 import { updatePersonalInfo } from "../../utils/accountActions"
+import { showAlert } from "../../utils/dialog"
 import { useAuth } from "../../hooks/useAuth"
 import { formatDate } from "../../utils/helpers"
 import { PRESS_OPACITY, RADIUS, SPACE, THEME_COLORS, TYPOGRAPHY, UI } from "../../utils/theme"
@@ -64,7 +65,7 @@ export default function PersonalInfoScreen() {
       // Request permission first
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('Cần cấp quyền', 'Vui lòng cho phép RENTO truy cập thư viện ảnh của bạn');
+        showAlert('Cần cấp quyền', 'Vui lòng cho phép RENTO truy cập thư viện ảnh của bạn');
         return;
       }
 
@@ -85,7 +86,7 @@ export default function PersonalInfoScreen() {
       }
     } catch (error) {
       console.error('Error picking image:', error);
-      Alert.alert('Lỗi', 'Không thể chọn ảnh. Vui lòng thử lại.');
+      showAlert('Lỗi', 'Không thể chọn ảnh. Vui lòng thử lại.');
     }
   }
 
@@ -108,12 +109,12 @@ export default function PersonalInfoScreen() {
       // Force refresh user data
       await refresh();
 
-      Alert.alert("Thành công", "Đã cập nhật thông tin cá nhân!");
+      showAlert("Thành công", "Đã cập nhật thông tin cá nhân!");
       setIsEditing(false);
       router.back();
     } catch (error: any) {
       console.error('Save error:', error);
-      Alert.alert('Không thể lưu thay đổi', error?.message || 'Vui lòng thử lại.');
+      showAlert('Không thể lưu thay đổi', error?.message || 'Vui lòng thử lại.');
     }
   }
 
@@ -137,7 +138,7 @@ export default function PersonalInfoScreen() {
         <TouchableOpacity style={styles.headerButton} onPress={() => router.back()} activeOpacity={PRESS_OPACITY}>
           <Ionicons name="arrow-back" size={22} color={THEME_COLORS.textPrimary} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Thông tin cá nhân</Text>
+        <Text style={styles.headerTitle} numberOfLines={1}>Thông tin cá nhân</Text>
         <TouchableOpacity
           onPress={() => {
             setIsEditing(!isEditing)
@@ -160,13 +161,13 @@ export default function PersonalInfoScreen() {
           >
             <Image
               source={{
-                uri: userInfo.avatar || "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgdmlld0JveD0iMCAwIDEwMCAxMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxjaXJjbGUgY3g9IjUwIiBjeT0iNTAiIHI9IjUwIiBmaWxsPSIjNDE2OWUxIi8+Cjx0ZXh0IHg9IjUwIiB5PSI1NSIgZmlsbD0id2hpdGUiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIiBmb250LWZhbWlseT0ic3lzdGVtLXVpIiBmb250LXNpemU9IjI0IiBmb250LXdlaWdodD0iYm9sZCI+TkE8L3RleHQ+Cjwvc3ZnPgo="
+                uri: userInfo.avatar || DEFAULT_AVATAR
               }}
               style={styles.avatar}
             />
             {isEditing && (
               <View style={styles.cameraIcon}>
-                <Ionicons name="camera" size={18} color="#FFFFFF" />
+                <Ionicons name="camera" size={18} color={THEME_COLORS.textInverse} />
               </View>
             )}
           </TouchableOpacity>
@@ -327,6 +328,8 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     ...TYPOGRAPHY.h3,
+    flexShrink: 1,
+    marginHorizontal: SPACE.sm,
   },
   editText: {
     fontSize: 15,

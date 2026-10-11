@@ -1,12 +1,13 @@
 "use client"
 
 import { useState } from "react"
-import { View, Text, StyleSheet, ScrollView, Alert, KeyboardAvoidingView, Platform } from "react-native"
+import { View, Text, StyleSheet, ScrollView, KeyboardAvoidingView, Platform } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 import { StatusBar } from "expo-status-bar"
 import { router } from "expo-router"
 import { Ionicons } from "@expo/vector-icons"
 import { changePassword } from "../../utils/accountActions"
+import { showAlert } from "../../utils/dialog"
 import { RADIUS, SPACE, THEME_COLORS, TYPOGRAPHY, UI } from "../../utils/theme"
 import { AppHeader, AppInput, PrimaryButton } from "../../components"
 
@@ -44,7 +45,7 @@ export default function ChangePasswordScreen() {
     setSaving(true)
     try {
       await changePassword(form.current, form.next)
-      Alert.alert("Thành công", "Đã đổi mật khẩu. Lần đăng nhập sau bạn hãy dùng mật khẩu mới.")
+      showAlert("Thành công", "Đã đổi mật khẩu. Lần đăng nhập sau bạn hãy dùng mật khẩu mới.")
       router.back()
     } catch (e: any) {
       setError(e?.message || "Không đổi được mật khẩu. Vui lòng thử lại.")

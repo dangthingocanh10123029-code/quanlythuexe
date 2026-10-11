@@ -1,7 +1,7 @@
 "use client"
 
 import { useRef, useState } from "react"
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, Linking, Modal, type TextStyle } from "react-native"
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Linking, Modal, type TextStyle } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 import { StatusBar } from "expo-status-bar"
 import { Ionicons } from "@expo/vector-icons"
@@ -9,6 +9,7 @@ import { router } from "expo-router"
 import { collection, addDoc, serverTimestamp } from "firebase/firestore"
 import { db } from "../../config/firebase"
 import { useAuth } from "../../hooks/useAuth"
+import { showAlert } from "../../utils/dialog"
 import { HOTLINE, SUPPORT_EMAIL } from "../../utils/constants"
 import { PRESS_OPACITY, RADIUS, SHADOWS, SPACE, THEME_COLORS, TYPOGRAPHY, UI } from "../../utils/theme"
 
@@ -19,7 +20,7 @@ const bookingGuideSteps = [
   {
     icon: "search",
     title: "Tìm xe",
-    description: "Ở tab Trang chủ hoặc tab Xe, tìm theo tên hãng/mẫu xe và lọc theo thành phố, loại xe, nhiên liệu, số chỗ, khoảng giá. Ở tab Xe, bấm biểu tượng trái tim để lưu vào Xe yêu thích.",
+    description: "Ở tab Trang chủ hoặc tab Xe, chọn ngày nhận – trả xe để chỉ hiện xe còn trống, tìm theo tên hãng/mẫu xe và lọc theo thành phố, loại xe, nhiên liệu, số chỗ, khoảng giá. Bấm biểu tượng trái tim để lưu vào Xe yêu thích.",
   },
   {
     icon: "car-sport",
@@ -34,22 +35,22 @@ const bookingGuideSteps = [
   {
     icon: "location",
     title: "Chọn Thời gian thuê & Điểm nhận xe",
-    description: "Chọn số ngày thuê, điểm nhận xe và các Dịch vụ thêm (nếu cần). Chi tiết giá đã gồm VAT 10% hiển thị ngay bên dưới.",
+    description: "Kiểm tra thời gian thuê, chọn điểm nhận xe, Dịch vụ thêm và nhập mã giảm giá (nếu có). Chi tiết giá đã gồm VAT 10%. Bạn cần gửi GPLX trong mục Tài khoản trước khi đặt xe.",
   },
   {
-    icon: "wallet",
-    title: "Chọn Phương thức thanh toán",
-    description: "Chọn Thẻ ngân hàng, MoMo hoặc ZaloPay rồi bấm \"Tiếp tục thanh toán\".",
+    icon: "paper-plane",
+    title: "Gửi yêu cầu đặt xe",
+    description: "Bấm \"Gửi yêu cầu đặt xe\". Đơn ở trạng thái \"Chờ xác nhận\" cho đến khi RENTO xác nhận, sau đó chuyển sang \"Chờ thanh toán\".",
   },
   {
     icon: "card",
     title: "Thanh toán",
-    description: "Nhập thông tin thanh toán và xác nhận. Khi thanh toán thành công, đơn chuyển sang trạng thái \"Sắp nhận xe\".",
+    description: "Mở đơn trong tab Chuyến đi, bấm \"Thanh toán\" và chọn Thẻ ngân hàng, MoMo hoặc ZaloPay. Khi thanh toán thành công, đơn chuyển sang trạng thái \"Sắp nhận xe\".",
   },
   {
     icon: "calendar",
     title: "Theo dõi chuyến đi",
-    description: "Đơn đặt xe hiện trong tab Chuyến đi. Khi nhận xe, nhớ mang theo CCCD và GPLX bản gốc.",
+    description: "Đơn đặt xe hiện trong tab Chuyến đi. Khi nhận xe, nhớ mang theo CCCD, GPLX bản gốc và tiền cọc.",
   },
 ]
 
@@ -58,7 +59,7 @@ const faqData = [
     id: 1,
     question: "Làm sao để đặt xe trên RENTO?",
     answer:
-      "Bạn chọn xe ưng ý, chọn ngày nhận – trả xe và điểm nhận xe, sau đó bấm \"Đặt xe ngay\" và thanh toán qua MoMo, ZaloPay hoặc thẻ ngân hàng. Đơn đặt xe sẽ hiện trong tab Chuyến đi ngay khi thanh toán thành công.",
+      "Bạn chọn xe ưng ý, chọn ngày nhận – trả xe và điểm nhận xe, sau đó bấm \"Gửi yêu cầu đặt xe\". Đơn hiện ngay trong tab Chuyến đi; khi RENTO xác nhận, bạn thanh toán qua MoMo, ZaloPay hoặc thẻ ngân hàng trong chi tiết đơn.",
   },
   {
     id: 2,
@@ -70,7 +71,7 @@ const faqData = [
     id: 3,
     question: "Có phải đặt cọc khi thuê xe không?",
     answer:
-      "Có. Khi nhận xe, bạn để lại tài sản thế chấp là 15.000.000đ tiền mặt/chuyển khoản hoặc xe máy kèm cà vẹt chính chủ. Tiền cọc được hoàn lại trong vòng 1–3 ngày làm việc sau khi trả xe và kiểm tra không phát sinh phạt nguội.",
+      "Có. Mỗi xe có mức tiền cọc riêng, hiển thị khi bạn đặt xe. Tiền cọc trả khi nhận xe (không cộng vào khoản thanh toán online) và được hoàn lại khi trả xe, sau khi trừ phí trả trễ hoặc phí phát sinh (nếu có).",
   },
   {
     id: 4,
@@ -82,7 +83,7 @@ const faqData = [
     id: 5,
     question: "Trả xe trễ giờ thì sao?",
     answer:
-      "Trả xe trễ dưới 1 giờ được miễn phí. Từ giờ thứ 2 trở đi, phụ phí 100.000đ/giờ; trễ quá 5 giờ sẽ tính thêm một ngày thuê. Nếu muốn gia hạn, bạn hãy gọi hotline trước giờ trả xe để được hỗ trợ.",
+      "Mỗi giờ trả trễ tính phụ phí bằng 10% giá thuê một ngày, tối đa bằng giá thuê một ngày; phí được trừ vào tiền cọc khi nhận lại xe. Nếu muốn gia hạn, bạn hãy gọi hotline trước giờ trả xe để được hỗ trợ.",
   },
   {
     id: 6,
@@ -157,7 +158,7 @@ export default function SupportScreen() {
       await Linking.openURL(url)
     } catch (error) {
       console.error("Error opening URL:", url, error)
-      Alert.alert("Không mở được", fallbackMessage)
+      showAlert("Không mở được", fallbackMessage)
     }
   }
 
@@ -205,11 +206,11 @@ export default function SupportScreen() {
     const subject = contactForm.subject.trim()
     const message = contactForm.message.trim()
     if (!subject || !message) {
-      Alert.alert("Thiếu thông tin", "Vui lòng nhập đầy đủ tiêu đề và nội dung")
+      showAlert("Thiếu thông tin", "Vui lòng nhập đầy đủ tiêu đề và nội dung")
       return
     }
     if (!user?.id) {
-      Alert.alert("Bạn chưa đăng nhập", "Vui lòng đăng nhập để gửi yêu cầu hỗ trợ.")
+      showAlert("Bạn chưa đăng nhập", "Vui lòng đăng nhập để gửi yêu cầu hỗ trợ.")
       return
     }
 
@@ -224,18 +225,13 @@ export default function SupportScreen() {
         status: "open",
         createdAt: serverTimestamp(),
       })
-      Alert.alert("Đã gửi", "Yêu cầu của bạn đã được gửi. RENTO sẽ phản hồi trong vòng 24 giờ.", [
-        {
-          text: "OK",
-          onPress: () => {
-            setShowContactForm(false)
-            setContactForm({ subject: "", message: "", priority: "medium" })
-          },
-        },
-      ])
+      showAlert("Đã gửi", "Yêu cầu của bạn đã được gửi. RENTO sẽ phản hồi trong vòng 24 giờ.", () => {
+        setShowContactForm(false)
+        setContactForm({ subject: "", message: "", priority: "medium" })
+      })
     } catch (error) {
       console.error("Error submitting support ticket:", error)
-      Alert.alert("Gửi thất bại", "Không gửi được yêu cầu hỗ trợ. Vui lòng kiểm tra kết nối mạng và thử lại.")
+      showAlert("Gửi thất bại", "Không gửi được yêu cầu hỗ trợ. Vui lòng kiểm tra kết nối mạng và thử lại.")
     } finally {
       setSubmitting(false)
     }
@@ -265,7 +261,7 @@ export default function SupportScreen() {
         <TouchableOpacity style={styles.headerButton} onPress={() => router.back()} activeOpacity={PRESS_OPACITY}>
           <Ionicons name="arrow-back" size={22} color={THEME_COLORS.textPrimary} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Trợ giúp & Hỗ trợ</Text>
+        <Text style={styles.headerTitle} numberOfLines={1}>Trợ giúp & Hỗ trợ</Text>
         <View style={{ width: 40 }} />
       </View>
 
@@ -324,6 +320,8 @@ export default function SupportScreen() {
                     >
                       <Text
                         style={[styles.priorityText, contactForm.priority === priority && styles.selectedPriorityText]}
+                        numberOfLines={1}
+                        adjustsFontSizeToFit
                       >
                         {PRIORITY_LABELS[priority]}
                       </Text>
@@ -516,6 +514,8 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     ...TYPOGRAPHY.h3,
+    flexShrink: 1,
+    marginHorizontal: SPACE.sm,
   },
   content: {
     flex: 1,
@@ -593,7 +593,7 @@ const styles = StyleSheet.create({
     ...UI.chip,
     flex: 1,
     alignItems: "center",
-    paddingHorizontal: SPACE.sm,
+    paddingHorizontal: SPACE.xs,
   },
   selectedPriority: {
     ...UI.chipActive,
@@ -744,6 +744,7 @@ const styles = StyleSheet.create({
     backgroundColor: THEME_COLORS.dangerSoft,
   },
   emergencyButtonText: {
+    flexShrink: 1,
     color: THEME_COLORS.danger,
     fontSize: 15,
     fontWeight: "700",

@@ -1,12 +1,13 @@
 "use client"
 
 import { useEffect, useRef, useState } from 'react'
-import { View, Text, StyleSheet, TouchableOpacity, Image, Dimensions, Modal, Alert, Share, ScrollView } from 'react-native'
+import { View, Text, StyleSheet, TouchableOpacity, Image, Dimensions, Modal, Share, ScrollView } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons'
 import { router, useLocalSearchParams } from 'expo-router'
 import { failPayment, payBooking } from '../utils/bookingActions'
 import { formatCurrency, validatePhone } from '../utils/helpers'
+import { confirmDialog, showAlert } from '../utils/dialog'
 import { PAYMENT_METHODS } from '../utils/constants'
 import { PAYMENT_ASSETS } from '../data/assets'
 import PaymentLogo from '../components/ui/PaymentLogo'
@@ -19,7 +20,7 @@ const { width } = Dimensions.get('window')
 
 // Màu thương hiệu MoMo: chỉ dùng cho logo, điểm nhấn và nút thanh toán
 const MOMO_COLOR = PAYMENT_METHODS.MOMO.color // #A50064
-const MOMO_SOFT = "#FDF2F8"
+const MOMO_SOFT = THEME_COLORS.momoSoft
 const MOMO_BUTTON_SHADOW = "0px 1px 2px rgba(165, 0, 100, 0.20), 0px 4px 12px rgba(165, 0, 100, 0.22)"
 
 // Quay lại màn trước; nếu không có lịch sử (vào thẳng màn hình) thì về danh sách đơn
@@ -47,25 +48,25 @@ export default function MomoPayment() {
   useEffect(() => {
     if (!bookingId) {
       setShowQRModal(false)
-      Alert.alert(
+      showAlert(
         "Không tìm thấy đơn đặt xe",
         "Thiếu thông tin đơn đặt xe cần thanh toán. Vui lòng đặt xe lại.",
-        [{ text: "OK", onPress: goBackSafely }]
+        goBackSafely
       )
     }
   }, [bookingId])
 
   const validatePayment = (): boolean => {
     if (!bookingId) {
-      Alert.alert("Không tìm thấy đơn đặt xe", "Thiếu thông tin đơn đặt xe cần thanh toán. Vui lòng đặt xe lại.")
+      showAlert("Không tìm thấy đơn đặt xe", "Thiếu thông tin đơn đặt xe cần thanh toán. Vui lòng đặt xe lại.")
       return false
     }
     if (!amount || isNaN(amount) || amount <= 0) {
-      Alert.alert("Số tiền không hợp lệ", "Số tiền cần thanh toán không hợp lệ. Vui lòng đặt xe lại.")
+      showAlert("Số tiền không hợp lệ", "Số tiền cần thanh toán không hợp lệ. Vui lòng đặt xe lại.")
       return false
     }
     if (!validatePhone(walletPhone)) {
-      Alert.alert("Ví MoMo không hợp lệ", "Số điện thoại ví MoMo không hợp lệ")
+      showAlert("Ví MoMo không hợp lệ", "Số điện thoại ví MoMo không hợp lệ")
       return false
     }
     return true
@@ -97,24 +98,23 @@ export default function MomoPayment() {
       await failPayment(bookingId, PAYMENT_METHODS.MOMO.short, "Bạn đã huỷ giao dịch")
       setPaymentError("Giao dịch đã bị huỷ. Bạn có thể thanh toán lại bất cứ lúc nào.")
     } catch (error: any) {
-      Alert.alert("Lỗi", error?.message || "Không thể huỷ giao dịch. Vui lòng thử lại.")
+      showAlert("Lỗi", error?.message || "Không thể huỷ giao dịch. Vui lòng thử lại.")
     }
   }
 
 
   const confirmCancelTransaction = () => {
-    Alert.alert("Huỷ giao dịch", "Bạn có chắc muốn huỷ giao dịch này? Đơn vẫn chờ thanh toán, bạn có thể thanh toán lại sau.", [
-      { text: "Không", style: "cancel" },
-      {
-        text: "Huỷ giao dịch",
-        style: "destructive",
-        onPress: async () => {
-          setIsCancelling(true)
-          await handleCancelTransaction()
-          setIsCancelling(false)
-        },
+    confirmDialog(
+      "Huỷ giao dịch",
+      "Bạn có chắc muốn huỷ giao dịch này? Đơn vẫn chờ thanh toán, bạn có thể thanh toán lại sau.",
+      "Huỷ giao dịch",
+      async () => {
+        setIsCancelling(true)
+        await handleCancelTransaction()
+        setIsCancelling(false)
       },
-    ])
+      { destructive: true },
+    )
   }
 
   // Chia sẻ thông tin thanh toán (nút chia sẻ trên header)
@@ -125,7 +125,7 @@ export default function MomoPayment() {
       })
     } catch (error) {
       console.error("Error sharing payment:", error)
-      Alert.alert("Lỗi", "Không thể chia sẻ thông tin thanh toán")
+      showAlert("Lỗi", "Không thể chia sẻ thông tin thanh toán")
     }
   }
 
@@ -216,7 +216,7 @@ export default function MomoPayment() {
         <View style={styles.amountSection}>
           <Text style={styles.amountLabel}>SỐ TIỀN THANH TOÁN</Text>
           <View style={styles.amountRow}>
-            <Text style={styles.amount}>{formatCurrency(amount)}</Text>
+            <Text style={styles.amount} numberOfLines={1} adjustsFontSizeToFit>{formatCurrency(amount)}</Text>
           </View>
         </View>
       </ScrollView>
@@ -297,6 +297,8 @@ const styles = StyleSheet.create({
   },
   label: {
     ...TYPOGRAPHY.overline,
+    flexShrink: 1,
+    marginRight: SPACE.md,
   },
   balanceContainer: {
     alignItems: 'flex-end',

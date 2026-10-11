@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, Alert, ActivityIndicator } from "react-native"
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, ActivityIndicator } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 import { StatusBar } from "expo-status-bar"
 import { Ionicons } from "@expo/vector-icons"
@@ -9,6 +9,7 @@ import { router } from "expo-router"
 import { doc, getDoc, setDoc } from "firebase/firestore"
 import { db } from "../../config/firebase"
 import { useAuth } from "../../hooks/useAuth"
+import { showAlert } from "../../utils/dialog"
 import { PRESS_OPACITY, SPACE, THEME_COLORS, TYPOGRAPHY, UI } from "../../utils/theme"
 
 // Lưu tại users/{uid}.preferences
@@ -61,7 +62,7 @@ export default function SettingsScreen() {
     setPreferences(next)
     if (!user?.id) {
       setPreferences(previous)
-      Alert.alert("Bạn chưa đăng nhập", "Vui lòng đăng nhập để lưu cài đặt.")
+      showAlert("Bạn chưa đăng nhập", "Vui lòng đăng nhập để lưu cài đặt.")
       return
     }
     try {
@@ -69,7 +70,7 @@ export default function SettingsScreen() {
     } catch (error) {
       console.error("Error saving preferences:", error)
       setPreferences(previous)
-      Alert.alert("Lỗi", "Không lưu được cài đặt. Vui lòng thử lại.")
+      showAlert("Lỗi", "Không lưu được cài đặt. Vui lòng thử lại.")
     }
   }
   const language = "Tiếng Việt"
@@ -83,7 +84,7 @@ export default function SettingsScreen() {
 
   const switchProps = {
     trackColor: { false: THEME_COLORS.borderStrong, true: THEME_COLORS.primary },
-    thumbColor: "#FFFFFF",
+    thumbColor: THEME_COLORS.surface,
     ios_backgroundColor: THEME_COLORS.borderStrong,
   }
 
@@ -256,6 +257,7 @@ const styles = StyleSheet.create({
   },
   settingLabel: {
     ...TYPOGRAPHY.bodyStrong,
+    flexShrink: 1,
   },
   settingValue: {
     ...TYPOGRAPHY.body,

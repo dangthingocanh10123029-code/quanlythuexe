@@ -1,11 +1,12 @@
 "use client"
 
-import { View, Text, StyleSheet, Image, Animated, Alert, ScrollView } from 'react-native'
+import { View, Text, StyleSheet, Image, Animated, ScrollView } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { router, useLocalSearchParams } from 'expo-router'
 import { useEffect, useRef, useState } from 'react'
 import { failPayment, payBooking } from '../utils/bookingActions'
 import { formatCurrency } from "../utils/helpers"
+import { showAlert } from "../utils/dialog"
 import { PAYMENT_METHODS } from "../utils/constants"
 import { PAYMENT_ASSETS } from "../data/assets"
 import { StatusBar } from "expo-status-bar"
@@ -60,43 +61,43 @@ export default function CreditCardScreen() {
   // Vào thẳng màn hình mà không có mã đơn đặt xe → báo lỗi và quay lại
   useEffect(() => {
     if (!bookingId) {
-      Alert.alert(
+      showAlert(
         "Không tìm thấy đơn đặt xe",
         "Thiếu thông tin đơn đặt xe cần thanh toán. Vui lòng đặt xe lại.",
-        [{ text: "OK", onPress: goBackSafely }]
+        goBackSafely
       )
     }
   }, [bookingId])
 
   const validateCard = (): boolean => {
     if (!bookingId) {
-      Alert.alert("Không tìm thấy đơn đặt xe", "Thiếu thông tin đơn đặt xe cần thanh toán. Vui lòng đặt xe lại.")
+      showAlert("Không tìm thấy đơn đặt xe", "Thiếu thông tin đơn đặt xe cần thanh toán. Vui lòng đặt xe lại.")
       return false
     }
     if (!amount || isNaN(amount) || amount <= 0) {
-      Alert.alert("Số tiền không hợp lệ", "Số tiền cần thanh toán không hợp lệ. Vui lòng đặt xe lại.")
+      showAlert("Số tiền không hợp lệ", "Số tiền cần thanh toán không hợp lệ. Vui lòng đặt xe lại.")
       return false
     }
     if (!/^\d{16}$/.test(cardNumber)) {
-      Alert.alert("Số thẻ không hợp lệ", "Số thẻ phải gồm đủ 16 chữ số")
+      showAlert("Số thẻ không hợp lệ", "Số thẻ phải gồm đủ 16 chữ số")
       return false
     }
     const name = cardName.trim()
     if (!name) {
-      Alert.alert("Thiếu tên chủ thẻ", "Vui lòng nhập tên chủ thẻ")
+      showAlert("Thiếu tên chủ thẻ", "Vui lòng nhập tên chủ thẻ")
       return false
     }
     if (!/^[A-Za-z ]+$/.test(name)) {
-      Alert.alert("Tên chủ thẻ không hợp lệ", "Tên chủ thẻ chỉ gồm chữ cái không dấu, ví dụ: NGUYEN VAN A")
+      showAlert("Tên chủ thẻ không hợp lệ", "Tên chủ thẻ chỉ gồm chữ cái không dấu, ví dụ: NGUYEN VAN A")
       return false
     }
     const expiryError = getExpiryError(expiry)
     if (expiryError) {
-      Alert.alert("Ngày hết hạn không hợp lệ", expiryError)
+      showAlert("Ngày hết hạn không hợp lệ", expiryError)
       return false
     }
     if (!/^\d{3}$/.test(cvv)) {
-      Alert.alert("CVV không hợp lệ", "Mã CVV phải gồm 3 chữ số ở mặt sau thẻ")
+      showAlert("CVV không hợp lệ", "Mã CVV phải gồm 3 chữ số ở mặt sau thẻ")
       return false
     }
     return true
@@ -300,7 +301,7 @@ export default function CreditCardScreen() {
 
         <View style={styles.amountContainer}>
           <Text style={styles.amountLabel}>Số tiền cần thanh toán</Text>
-          <Text style={styles.amount}>{formatCurrency(amount)}</Text>
+          <Text style={styles.amount} numberOfLines={1}>{formatCurrency(amount)}</Text>
         </View>
       </ScrollView>
 
@@ -360,7 +361,7 @@ const styles = StyleSheet.create({
     height: 40,
   },
   cardNumber: {
-    color: '#FFFFFF',
+    color: THEME_COLORS.textInverse,
     fontSize: 22,
     fontWeight: '600',
     letterSpacing: 2,
@@ -377,7 +378,7 @@ const styles = StyleSheet.create({
     marginBottom: SPACE.xs,
   },
   cardValue: {
-    color: '#FFFFFF',
+    color: THEME_COLORS.textInverse,
     fontSize: 14,
     fontWeight: '600',
     letterSpacing: 1,
@@ -398,6 +399,7 @@ const styles = StyleSheet.create({
   amount: {
     ...TYPOGRAPHY.price,
     fontSize: 22,
+    flexShrink: 1,
   },
   cardSection: {
     ...UI.card,
@@ -473,7 +475,7 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
   },
   cvvBoxBack: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: THEME_COLORS.surface,
     paddingVertical: 6,
     paddingHorizontal: 18,
     borderRadius: 6,
