@@ -2,13 +2,14 @@ import { initializeApp, getApps, getApp } from "firebase/app"
 import { getAuth } from "firebase/auth"
 import { getFirestore } from "firebase/firestore"
 
+// Project Firebase của nhóm (rento-app-e2c08)
 const firebaseConfig = {
-  apiKey: "AIzaSyDEEZskDHI4NvBKnmrO58IbnGLSSnUEYKw",
-  authDomain: "car-rental-adv.firebaseapp.com",
-  projectId: "car-rental-adv",
-  storageBucket: "car-rental-adv.firebasestorage.app",
-  messagingSenderId: "730119150751",
-  appId: "1:730119150751:web:41dc6974d405005ac016aa"
+  apiKey: "AIzaSyCIWs_gfPp0uj2mpGamm_Bonf8RSdAOvsU",
+  authDomain: "rento-app-e2c08.firebaseapp.com",
+  projectId: "rento-app-e2c08",
+  storageBucket: "rento-app-e2c08.firebasestorage.app",
+  messagingSenderId: "1012164056693",
+  appId: "1:1012164056693:web:dc5313d656cd1d856b4a3c",
 };
 
 // Initialize Firebase with error handling
