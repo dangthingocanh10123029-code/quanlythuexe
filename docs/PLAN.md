@@ -271,9 +271,9 @@ Thứ tự bắt buộc: G0 → G1 → … → G6 → G8. G7 tuỳ chọn, làm 
 
 ### G5 — Đánh giá & thông báo
 **Claude**
-- [ ] **L5.1** `submitReview`: chỉ đơn `Completed` của chính người dùng, chưa đánh giá; transaction ghi `reviews/{bookingId}` + cập nhật `cars.rating`, `reviewCount` + `booking.reviewed`. Bỏ form đánh giá tự do ở Car details.
-- [ ] **L5.2** `deleteReview` (admin), tính lại điểm.
-- [ ] **L5.3** Gọi `notify` ở mọi sự kiện: đặt xe, xác nhận, từ chối, thanh toán thành công/thất bại, giao xe, hoàn tất, huỷ/hoàn tiền, GPLX duyệt/từ chối. `notifications.tsx` đọc Firestore qua `useNotifications` (bỏ dữ liệu mẫu và key AsyncStorage); đếm chưa đọc cho chuông Home; nhắc nhận xe khi có đơn `Upcoming` trong 24h tới (tính phía client).
+- [x] **L5.1** `submitReview`: chỉ đơn `Completed` của chính người dùng, chưa đánh giá; transaction ghi `reviews/{bookingId}` + cập nhật `cars.rating`, `reviewCount` + `booking.reviewed`. Bỏ form đánh giá tự do ở Car details.
+- [x] **L5.2** `deleteReview` (admin), tính lại điểm.
+- [x] **L5.3** Gọi `notify` ở mọi sự kiện: đặt xe, xác nhận, từ chối, thanh toán thành công/thất bại, giao xe, hoàn tất, huỷ/hoàn tiền, GPLX duyệt/từ chối. `notifications.tsx` đọc Firestore qua `useNotifications` (bỏ dữ liệu mẫu và key AsyncStorage); đếm chưa đọc cho chuông Home; nhắc nhận xe khi có đơn `Upcoming` trong 24h tới (tính phía client).
 
 **Codex**
 - [ ] **U5.1** Bottom sheet "Đánh giá chuyến đi" (5 sao + nhận xét) mở từ chi tiết đơn và thẻ Lịch sử.
@@ -281,7 +281,13 @@ Thứ tự bắt buộc: G0 → G1 → … → G6 → G8. G7 tuỳ chọn, làm 
 - [ ] **U5.3** Màn Thông báo: icon theo loại, đã đọc/chưa đọc, bấm thì mở chi tiết đơn; chấm đỏ chuông Home; thẻ nhắc nhận xe trên Home.
 - [ ] **U5.4** Admin: mục "Đánh giá" — danh sách, lọc theo số sao, xoá.
 
-**Ghi chú bàn giao G5:** _(…)_
+**Ghi chú bàn giao G5** (Claude, L5):
+- `submitReview(bookingId, rating, comment)` (transaction: `reviews/{bookingId}` + cập nhật `cars.rating`, `reviewCount` + `booking.reviewed`). Chỉ đơn `Completed` của chính người dùng, chưa đánh giá; 1–5 sao; nhận xét ≤ 500 ký tự; tên hiển thị = `users.fullName`. Nút "Đánh giá" hiện khi `status === "Completed" && !booking.reviewed` (chi tiết đơn + thẻ Lịch sử).
+- `deleteReview(reviewId)` (admin) tính lại điểm. `hooks/useReviews.ts`: `useCarReviews(carId)`, `useAllReviews(isAdmin)` → `{ reviews, loading }`; `Review` có `userName` (đánh giá cũ có thể là email).
+- Chi tiết xe: đã bỏ form đánh giá tự do; danh sách lấy từ `useCarReviews`; điểm trung bình/số đánh giá dùng `car.rating`, `car.reviewCount` (U5.2). Dòng `reviewEmail` đang lặp lại tên với đánh giá mới → chỉ hiện khi `userName` chứa "@".
+- Thông báo: `app/notifications.tsx` đọc Firestore qua `useNotifications()` (`notifications`, `unreadCount`, `markAsRead(id)`, `markAllAsRead()`); đã bỏ dữ liệu mẫu và key AsyncStorage `rento:readNotificationIds`. Bấm thông báo có `bookingId` → `/booking/[id]`. Icon/màu theo loại ở `TYPE_STYLE` (giao diện giữ như cũ, comment `ponytail:` → U5.3).
+- Trang chủ: `hasNotifications` = `unreadCount > 0` (chấm đỏ chuông); `pickupReminder` = đơn `Upcoming` nhận xe trong 24h tới (`findPickupReminder`) → U5.3 hiện thẻ nhắc.
+- Mọi sự kiện đã gọi `notify`: đặt xe, xác nhận, từ chối, thanh toán thành công/thất bại, giao xe, hoàn tất, huỷ/hoàn tiền, đổi lịch, GPLX duyệt/từ chối.
 
 ### G6 — Tài khoản
 **Claude**

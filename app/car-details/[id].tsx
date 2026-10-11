@@ -7,9 +7,7 @@ import { Ionicons } from "@expo/vector-icons"
 import { router, useLocalSearchParams } from "expo-router"
 import { useCar, getCarImage } from "../../hooks/useCars"
 import { useLikedCarIds } from "../../hooks/useLikedCarIds"
-import { db } from "../../config/firebase"
-import { collection, addDoc, query, where, onSnapshot, serverTimestamp } from "firebase/firestore"
-import { useAuth } from "../../hooks/useAuth"
+import { useCarReviews } from "../../hooks/useReviews"
 import { formatCurrency, formatDate } from "../../utils/helpers"
 import { HOTLINE, CAR_STATUS_LABELS, HIDDEN_CAR_STATUSES } from "../../utils/constants"
 import { getBrandAsset } from "../../data/assets"
@@ -17,20 +15,6 @@ import { StatusBar } from "expo-status-bar"
 import { THEME_COLORS, RADIUS, SPACE, TYPOGRAPHY, UI, PRESS_OPACITY } from "../../utils/theme"
 import { AppHeader, PrimaryButton, StatCard } from "../../components"
 
-type User = {
-  id: string;
-  email: string;
-}
-
-type Review = {
-  id: string;
-  carId: string;
-  userId: string;
-  userName: string;
-  rating: number;
-  comment: string;
-  createdAt: any; // Using 'any' for Firestore Timestamp
-}
 
 const { width } = Dimensions.get("window")
 
@@ -55,72 +39,8 @@ export default function CarDetailsScreen() {
   const { car, loading: carLoading } = useCar(id)
   const { likedIds, toggleLike } = useLikedCarIds()
 
-  // Review state
-  const { user } = useAuth()
-  const [reviews, setReviews] = useState<Review[]>([])
-  const [reviewLoading, setReviewLoading] = useState(true)
-  const [reviewText, setReviewText] = useState("")
-  const [reviewRating, setReviewRating] = useState(5)
-  const [submitting, setSubmitting] = useState(false)
-  const [focusedField, setFocusedField] = useState<string | null>(null)
-
-  // Fetch reviews for this car
-  useEffect(() => {
-    if (!id) return
-    
-    setReviewLoading(true)
-    const reviewsRef = collection(db, "reviews")
-    // where + orderBy cần composite index → lọc trên server, sắp xếp phía client
-    const q = query(reviewsRef, where("carId", "==", id))
-
-    const unsub = onSnapshot(q, (snapshot) => {
-      const reviewsData: Review[] = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-      } as Review))
-      const ms = (v: any) => (v?.toDate ? v.toDate().getTime() : v ? new Date(v).getTime() || 0 : 0)
-      reviewsData.sort((x: any, y: any) => ms(y.createdAt) - ms(x.createdAt))
-      setReviews(reviewsData)
-      setReviewLoading(false)
-    }, (error) => {
-      console.error("Error fetching reviews: ", error)
-      setReviewLoading(false)
-    })
-
-    return () => unsub()
-  }, [id])
-
-  // Submit review
-  const handleSubmitReview = async () => {
-    if (!user || !user.email) {
-      Alert.alert("Bạn chưa đăng nhập", "Vui lòng đăng nhập bằng email để viết đánh giá.")
-      return
-    }
-    if (!reviewText.trim()) {
-      Alert.alert("Chưa có nội dung", "Vui lòng nhập nội dung đánh giá.")
-      return
-    }
-    setSubmitting(true)
-    try {
-      console.log("Submitting review for car:", id)
-      const docRef = await addDoc(collection(db, "reviews"), {
-        carId: id,
-        userId: user.id,
-        userName: user.email, // Always use email, never "Anonymous"
-        rating: reviewRating,
-        comment: reviewText,
-        createdAt: serverTimestamp(),
-      })
-      console.log("Review added with ID:", docRef.id)
-      
-      setReviewText("")
-      setReviewRating(5)
-    } catch (e) {
-      console.error("Error adding review:", e)
-      Alert.alert("Lỗi", "Không gửi được đánh giá. Vui lòng thử lại.")
-    }
-    setSubmitting(false)
-  }
+  // Đánh giá chỉ viết từ chi tiết đơn đã hoàn thành (submitReview, G5); ở đây chỉ xem
+  const { reviews, loading: reviewLoading } = useCarReviews(id)
 
   if (!car) {
     return (
@@ -346,46 +266,6 @@ export default function CarDetailsScreen() {
             ))
             )}
 
-          {/* --- Leave a Review Form --- */}
-          {user && (
-            <View style={styles.reviewForm}>
-              <Text style={styles.reviewFormTitle}>Viết đánh giá</Text>
-              <View style={styles.ratingInputContainer}>
-                <Text style={styles.ratingLabel}>Chấm điểm</Text>
-                <View style={styles.ratingStars}>
-                  {[1, 2, 3, 4, 5].map((star) => (
-                    <TouchableOpacity key={star} onPress={() => setReviewRating(star)} activeOpacity={PRESS_OPACITY} style={styles.starButton}>
-                      <Ionicons
-                        name={reviewRating >= star ? "star" : "star-outline"}
-                        size={26}
-                        color={reviewRating >= star ? THEME_COLORS.accent : THEME_COLORS.borderStrong}
-                      />
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </View>
-              <TextInput
-                style={[styles.reviewInput, focusedField === "review" && styles.inputFocused]}
-                placeholder="Chia sẻ trải nghiệm của bạn..."
-                placeholderTextColor={THEME_COLORS.textMuted}
-                value={reviewText}
-                onChangeText={setReviewText}
-                onFocus={() => setFocusedField("review")}
-                onBlur={() => setFocusedField(null)}
-                multiline
-              />
-              <TouchableOpacity
-                style={[styles.submitButton, submitting && { opacity: 0.6 }]}
-                onPress={handleSubmitReview}
-                disabled={submitting}
-                activeOpacity={PRESS_OPACITY}
-              >
-                <Text style={styles.submitButtonText}>
-                  {submitting ? "Đang gửi..." : "Gửi đánh giá"}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          )}
         </View>
       </ScrollView>
 

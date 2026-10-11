@@ -10,6 +10,9 @@ import type { Car } from "../../types/car"
 import { onAuthStateChanged } from 'firebase/auth'
 import { useCars, getCarImage } from "../../hooks/useCars"
 import { useLikedCarIds } from "../../hooks/useLikedCarIds"
+import { useNotifications } from "../../hooks/useNotifications"
+import { useUserBookings } from "../../hooks/useBookings"
+import { findPickupReminder } from "../../utils/booking"
 import { HIDDEN_CAR_STATUSES } from "../../utils/constants"
 import { BRAND_ASSETS, PROMO_ASSETS } from "../../data/assets"
 import { StatusBar } from "expo-status-bar"
@@ -60,7 +63,11 @@ export default function HomeScreen() {
   const [userName, setUserName] = useState("bạn")
   const [showPromoModal, setShowPromoModal] = useState(false)
   const [timeLeft, setTimeLeft] = useState(180) // 180 seconds = 3 minutes
-  const [hasNotifications, setHasNotifications] = useState(false)
+  const { unreadCount } = useNotifications()
+  const hasNotifications = unreadCount > 0
+  // Đơn "Sắp nhận xe" trong 24 giờ tới (U5.3 hiển thị thẻ nhắc nhận xe)
+  const { bookings } = useUserBookings()
+  const pickupReminder = findPickupReminder(bookings)
   const [rentalRange, setRentalRange] = useState(createDefaultRange)
   const { cars, loading: carsLoading } = useCars()
   const { likedIds, toggleLike } = useLikedCarIds()

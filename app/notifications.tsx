@@ -1,10 +1,11 @@
 "use client"
 
-import { useEffect, useState } from "react"
 import { View, Text, StyleSheet, TouchableOpacity, FlatList } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 import { StatusBar } from "expo-status-bar"
-import AsyncStorage from "@react-native-async-storage/async-storage"
+import { useNotifications } from "../hooks/useNotifications"
+import { toDate } from "../utils/booking"
+import { formatDate } from "../utils/helpers"
 import { Ionicons } from "@expo/vector-icons"
 import { router } from "expo-router"
 import { THEME_COLORS, RADIUS, SPACE, TYPOGRAPHY, UI, PRESS_OPACITY } from "../utils/theme"
@@ -19,134 +20,33 @@ const SOFT_BY_COLOR: Record<string, string> = {
 const UNREAD_BG = "#F6F9FF"
 const UNREAD_BORDER = "#D6E3FB"
 
-const READ_STORAGE_KEY = "rento:readNotificationIds"
-
-const initialNotifications = [
-  {
-    id: 1,
-    type: "booking",
-    title: "Đặt xe thành công",
-    message: "Đơn đặt xe BMW X5 của bạn đã được xác nhận, nhận xe tại Sân bay Tân Sơn Nhất từ 12/10 đến 15/10/2026.",
-    time: "5 phút trước",
-    read: false,
-    icon: "checkmark-circle",
-    color: THEME_COLORS.success,
-  },
-  {
-    id: 2,
-    type: "reminder",
-    title: "Nhắc lịch nhận xe",
-    message: "Đừng quên nhận xe Mercedes C-Class lúc 09:00 sáng mai tại Hồ Hoàn Kiếm, Hà Nội. Nhớ mang theo CCCD và GPLX nhé!",
-    time: "2 giờ trước",
-    read: false,
-    icon: "time",
-    color: THEME_COLORS.primary,
-  },
-  {
-    id: 3,
-    type: "reminder",
-    title: "Sắp đến hạn trả xe",
-    message: "Chuyến đi với Honda CR-V sẽ kết thúc lúc 18:00 hôm nay. Vui lòng trả xe đúng giờ để tránh phụ phí.",
-    time: "Hôm qua",
-    read: false,
-    icon: "alarm",
-    color: THEME_COLORS.warning,
-  },
-  {
-    id: 4,
-    type: "promotion",
-    title: "Ưu đãi cuối tuần",
-    message: "Giảm ngay 20% cho chuyến thuê xe cuối tuần. Nhập mã CUOITUAN20 khi thanh toán qua MoMo.",
-    time: "Hôm qua",
-    read: true,
-    icon: "gift",
-    color: THEME_COLORS.warning,
-  },
-  {
-    id: 5,
-    type: "return",
-    title: "Trả xe hoàn tất",
-    message: "Cảm ơn bạn đã trả xe Toyota Camry đúng hẹn. Tiền đặt cọc sẽ được hoàn về tài khoản trong 1–3 ngày làm việc.",
-    time: "3 ngày trước",
-    read: true,
-    icon: "car",
-    color: THEME_COLORS.success,
-  },
-  {
-    id: 6,
-    type: "payment",
-    title: "Thanh toán thành công",
-    message: "Bạn đã thanh toán 2.805.000đ qua ZaloPay cho chuyến thuê Toyota Camry 3 ngày.",
-    time: "3 ngày trước",
-    read: true,
-    icon: "card",
-    color: THEME_COLORS.primary,
-  },
-  {
-    id: 7,
-    type: "promotion",
-    title: "Xe mới tại Đà Nẵng",
-    message: "Audi Q7 và Toyota Supra vừa có mặt tại Đà Nẵng. Đặt sớm để giữ xe cho kỳ nghỉ sắp tới!",
-    time: "1 tuần trước",
-    read: true,
-    icon: "car-sport",
-    color: THEME_COLORS.warning,
-  },
-]
+// Icon + màu theo loại thông báo (types/notification.ts)
+const TYPE_STYLE: Record<string, { icon: keyof typeof Ionicons.glyphMap; color: string }> = {
+  booking: { icon: "car", color: THEME_COLORS.primary },
+  payment: { icon: "card", color: THEME_COLORS.success },
+  license: { icon: "id-card", color: THEME_COLORS.warning },
+  support: { icon: "chatbubbles", color: THEME_COLORS.primary },
+  system: { icon: "notifications", color: THEME_COLORS.warning },
+}
 
 export default function NotificationsScreen() {
-  const [notifications, setNotifications] = useState(initialNotifications)
+  // ponytail: giao diện giữ như cũ, U5.3 làm lại (icon theo loại, đã đọc/chưa đọc, rỗng)
+  const { notifications: list, markAsRead: markRead, markAllAsRead } = useNotifications()
+  const notifications = list.map((n) => {
+    const at = toDate(n.createdAt)
+    return { ...n, ...(TYPE_STYLE[n.type] ?? TYPE_STYLE.system), time: at ? formatDate(at, "datetime") : "" }
+  })
 
-  // Khôi phục trạng thái đã đọc đã lưu trên máy
-  useEffect(() => {
-    let cancelled = false
-    const loadReadState = async () => {
-      try {
-        const stored = await AsyncStorage.getItem(READ_STORAGE_KEY)
-        if (!stored || cancelled) return
-        const readIds: number[] = JSON.parse(stored)
-        if (!Array.isArray(readIds)) return
-        setNotifications((prev) => prev.map((n) => (readIds.includes(n.id) ? { ...n, read: true } : n)))
-      } catch (error) {
-        console.error("Error loading notification read state:", error)
-      }
-    }
-    loadReadState()
-    return () => {
-      cancelled = true
-    }
-  }, [])
-
-  const persistReadState = async (list: typeof initialNotifications) => {
-    try {
-      const readIds = list.filter((n) => n.read).map((n) => n.id)
-      await AsyncStorage.setItem(READ_STORAGE_KEY, JSON.stringify(readIds))
-    } catch (error) {
-      console.error("Error saving notification read state:", error)
-    }
-  }
-
-  const markAsRead = (id: number) => {
-    setNotifications((prev) => {
-      if (!prev.some((n) => n.id === id && !n.read)) return prev
-      const next = prev.map((n) => (n.id === id ? { ...n, read: true } : n))
-      persistReadState(next)
-      return next
-    })
-  }
-
-  const markAllAsRead = () => {
-    setNotifications((prev) => {
-      const next = prev.map((n) => ({ ...n, read: true }))
-      persistReadState(next)
-      return next
-    })
+  // Bấm thông báo: đánh dấu đã đọc, có đơn thì mở chi tiết đơn
+  const openNotification = (item: (typeof notifications)[number]) => {
+    if (!item.read) markRead(item.id).catch((error) => console.error("Error marking notification read:", error))
+    if (item.bookingId) router.push({ pathname: "/booking/[id]", params: { id: item.bookingId } })
   }
 
   const renderNotificationItem = ({ item }: { item: any }) => (
     <TouchableOpacity
       style={[styles.notificationCard, !item.read && styles.unreadCard]}
-      onPress={() => markAsRead(item.id)}
+      onPress={() => openNotification(item)}
       activeOpacity={PRESS_OPACITY}
     >
       <View style={[styles.iconContainer, { backgroundColor: SOFT_BY_COLOR[item.color] ?? THEME_COLORS.surfaceMuted }]}>
@@ -185,7 +85,7 @@ export default function NotificationsScreen() {
       <View style={styles.content}>
         {unreadCount > 0 && (
           <View style={styles.actionContainer}>
-            <TouchableOpacity style={styles.markAllReadButton} onPress={markAllAsRead} activeOpacity={PRESS_OPACITY}>
+            <TouchableOpacity style={styles.markAllReadButton} onPress={() => markAllAsRead().catch(console.error)} activeOpacity={PRESS_OPACITY}>
               <Ionicons name="checkmark-done" size={16} color={THEME_COLORS.primary} />
               <Text style={styles.markAllReadText}>Đánh dấu tất cả đã đọc</Text>
             </TouchableOpacity>
