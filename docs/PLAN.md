@@ -179,9 +179,9 @@ Thứ tự bắt buộc: G0 → G1 → … → G6 → G8. G7 tuỳ chọn, làm 
 - [x] **L1.7** Xoá `app/chats.tsx` rỗng và state chọn ngày chết ở Home.
 
 **Codex**
-- [ ] **U1.1** Form xe trong admin: thêm biển số, hộp số, tiền cọc, mô tả, tiện nghi (chip chọn nhiều), trạng thái (4 lựa chọn); nút "Nạp dữ liệu xe mẫu"; badge trạng thái trên thẻ xe.
-- [ ] **U1.2** Car details: hiển thị hộp số, tiền cọc, mô tả, tiện nghi; nút tim; nhãn "Đang bảo dưỡng"/"Tạm ngừng" + nút đặt bị khoá. Bỏ 4 chấm ảnh giả nếu chưa có A6.
-- [ ] **U1.3** Trạng thái loading (skeleton) và rỗng cho danh sách xe ở Home/Search.
+- [x] **U1.1** Form xe trong admin: thêm biển số, hộp số, tiền cọc, mô tả, tiện nghi (chip chọn nhiều), trạng thái (4 lựa chọn); nút "Nạp dữ liệu xe mẫu"; badge trạng thái trên thẻ xe.
+- [x] **U1.2** Car details: hiển thị hộp số, tiền cọc, mô tả, tiện nghi; nút tim; nhãn "Đang bảo dưỡng"/"Tạm ngừng" + nút đặt bị khoá. Bỏ 4 chấm ảnh giả nếu chưa có A6.
+- [x] **U1.3** Trạng thái loading (skeleton) và rỗng cho danh sách xe ở Home/Search.
 
 **Ghi chú bàn giao G1** (Claude, L1):
 - `hooks/useCars.ts`: `useCars()` → `{ cars, loading, error }` (realtime `cars`, xe mới lên đầu, xe mẫu theo id); `useCar(id)` → `{ car, loading }`; `getCarImage(car)` → `ImageSourcePropType` (ảnh `imageKey` trong `CAR_IMAGES`, nếu không thì data URI `image`). Thẻ xe dùng `car={{ ...item, image: getCarImage(item) }}`.
@@ -195,6 +195,9 @@ Thứ tự bắt buộc: G0 → G1 → … → G6 → G8. G7 tuỳ chọn, làm 
 - Đơn mới không lưu `carImage`; ảnh đơn lấy theo `carId` (Chuyến đi, Lịch sử, Admin), đơn cũ còn `carImage` dạng chuỗi vẫn hiện.
 - Đã xoá `app/chats.tsx`, `hooks/useBookings.ts` (không ai dùng; G3 viết `useUserBookings`), state chọn ngày chết ở Home.
 - Điều phối: Codex/Antigravity **không tự commit, không sửa docs/PLAN.md**; Claude (điều phối) commit và tick thay để tránh tranh chấp git/PLAN.md.
+
+**Bàn giao U1** (Codex): `components/CarCardSkeleton.tsx` (prop `featured`, `style`); `CarCardFeatured` thêm `liked`, `onFavoritePress`. Không thiếu hàm/hook.
+**V1** (Claude): tsc + jest sạch; rà diff không có ghi Firestore mới, không hard-code màu; `npx expo export -p web` render được mọi route. Cần người dùng thử trên Expo Go: nạp xe mẫu bằng tài khoản admin (G0.2) rồi kiểm tra Home/Search/Chi tiết xe.
 
 ### G2 — Đặt xe theo ngày, xe còn trống, mã giảm giá, GPLX
 **Claude**
