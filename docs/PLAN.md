@@ -254,16 +254,20 @@ Thứ tự bắt buộc: G0 → G1 → … → G6 → G8. G7 tuỳ chọn, làm 
 
 ### G4 — Giao xe / nhận lại xe
 **Claude**
-- [ ] **L4.1** `handOverBooking`: bắt buộc đủ checklist (giấy tờ, đã thu cọc, tình trạng xe), số km, mức xăng → `Active`, xe `Rented`, `handedOverAt`.
-- [ ] **L4.2** `returnBooking`: km ≥ lúc giao, mức xăng, hư hỏng, phí phát sinh, `calcLateFee` (mỗi giờ trễ = 10% giá ngày, tối đa 1 ngày) → `depositRefund` → `Completed`, xe `Available`, `returnedAt`, thông báo.
-- [ ] **L4.3** Doanh thu admin = tiền thuê đã thanh toán − hoàn tiền + phí phát sinh.
+- [x] **L4.1** `handOverBooking`: bắt buộc đủ checklist (giấy tờ, đã thu cọc, tình trạng xe), số km, mức xăng → `Active`, xe `Rented`, `handedOverAt`.
+- [x] **L4.2** `returnBooking`: km ≥ lúc giao, mức xăng, hư hỏng, phí phát sinh, `calcLateFee` (mỗi giờ trễ = 10% giá ngày, tối đa 1 ngày) → `depositRefund` → `Completed`, xe `Available`, `returnedAt`, thông báo.
+- [x] **L4.3** Doanh thu admin = tiền thuê đã thanh toán − hoàn tiền + phí phát sinh.
 
 **Codex**
 - [ ] **U4.1** Admin: bottom sheet "Biên bản giao xe" (checkbox, số km, mức xăng dạng chip ¼ ½ ¾ Đầy, ghi chú).
 - [ ] **U4.2** Admin: bottom sheet "Biên bản nhận lại xe" (km, xăng, hư hỏng, các dòng phí, tiền hoàn cọc tự tính).
 - [ ] **U4.3** Chi tiết đơn của khách: khối biên bản giao/nhận (chỉ xem).
 
-**Ghi chú bàn giao G4:** _(…)_
+**Ghi chú bàn giao G4** (Claude, L4):
+- `utils/bookingActions.ts`: `handOverBooking(id, { documentsChecked, depositCollected, conditionNote, odometer, fuelLevel })` → `Active`, xe `Rented`; `returnBooking(id, { odometer, fuelLevel, damageNote, extraFees })` → `Completed`, xe `Available` (+1 lượt đặt), xoá `bookedSlots`, trả `{ lateFee, extraFees, depositRefund }`; `previewReturn(booking, car, extraFees)` tính trước cho biên bản. Mức nhiên liệu `FUEL_LEVELS` (¼ ½ ¾ Đầy). Lỗi ném `Error` tiếng Việt (thiếu checklist, km nhỏ hơn lúc giao…).
+- Admin: nút "Giao xe"/"Nhận lại xe" gọi `handleAdvanceBooking(booking)` → mở biên bản. State `inspection` (`{ bookingId, kind: "handover" | "return" }`), `inspectionForm` + `updateInspection(field, value)`, `inspectionBooking`, `inspectionCar`, `returnPreview` (`lateFee`, `depositRefund`), `submitInspection()`, `inspectionSubmitting`. Modal biên bản đang là giao diện tạm (`renderInspectionModal`, comment `ponytail:`) → U4.1/U4.2 làm lại thành bottom sheet.
+- Doanh thu (L4.3): `bookingRevenue(b)` (utils/booking) = đã thanh toán − hoàn tiền + phí trễ/phát sinh; thống kê, biểu đồ 6 tháng và "đã chi" của người dùng dùng hàm này.
+- Chi tiết đơn của khách (U4.3): `booking.handover` (`at`, `odometer`, `fuelLevel`, `conditionNote`, `documentsChecked`, `depositCollected`) và `booking.returnInspection` (`at`, `odometer`, `fuelLevel`, `damageNote`, `lateFee`, `extraFees`, `depositRefund`).
 
 ### G5 — Đánh giá & thông báo
 **Claude**

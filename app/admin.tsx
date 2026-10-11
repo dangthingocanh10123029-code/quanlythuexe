@@ -12,13 +12,14 @@ import * as ImagePicker from 'expo-image-picker';
 import { LineChart, BarChart } from "react-native-chart-kit"
 import { Dimensions } from "react-native"
 import { formatCurrency, formatDate } from "../utils/helpers"
-import { AMENITIES, CAR_STATUS_LABELS, getBookingStatusLabel, PAYMENT_STATUS_LABELS, TRANSMISSIONS } from "../utils/constants"
+import { AMENITIES, CAR_STATUS_LABELS, FUEL_LEVELS, getBookingStatusLabel, PAYMENT_STATUS_LABELS, TRANSMISSIONS } from "../utils/constants"
 import { useCars, getCarImage } from "../hooks/useCars"
 import { useAuth } from "../hooks/useAuth"
 import { useAllLicenses } from "../hooks/useLicense"
 import { seedCars, deleteCar } from "../utils/carActions"
 import { rejectLicense, verifyLicense } from "../utils/licenseActions"
-import { cancelBooking, confirmBooking, previewRefund, rejectBooking } from "../utils/bookingActions"
+import { cancelBooking, confirmBooking, handOverBooking, previewRefund, previewReturn, rejectBooking, returnBooking } from "../utils/bookingActions"
+import { bookingRevenue } from "../utils/booking"
 import type { Car, CarStatus, Transmission } from "../types/car"
 import { THEME_COLORS, RADIUS, SPACE, SHADOWS, TYPOGRAPHY, UI, PRESS_OPACITY } from "../utils/theme"
 
@@ -64,6 +65,13 @@ interface Booking {
   pickupDate: any;
   cancelledAt: Date | null;
   payment: BookingPayment | null;
+  // Field mới (G2–G4), đơn cũ có thể thiếu
+  returnDate?: any;
+  returnLocation?: string;
+  subtotal?: number;
+  deposit?: number;
+  handover?: { odometer?: number; fuelLevel?: string; conditionNote?: string; at?: any } | null;
+  returnInspection?: { odometer?: number; fuelLevel?: string; damageNote?: string; lateFee?: number; extraFees?: number; depositRefund?: number; at?: any } | null;
 }
 
 const adminTabs = [
@@ -220,6 +228,17 @@ const getCarTone = (status?: string): Tone => {
   }
 }
 
+// Biên bản giao xe / nhận lại xe (G4)
+const emptyInspectionForm = {
+  documentsChecked: false,
+  depositCollected: false,
+  conditionNote: "",
+  odometer: "",
+  fuelLevel: "",
+  damageNote: "",
+  extraFees: "",
+}
+
 const emptyCarForm = {
   name: "",
   brand: "",
@@ -245,6 +264,9 @@ export default function AdminScreen() {
   const [editingCarId, setEditingCarId] = useState<string | null>(null)
   const [formErrors, setFormErrors] = useState<{ [key: string]: string }>({})
   const { cars, loading: carsLoading } = useCars()
+  const [inspection, setInspection] = useState<{ bookingId: string; kind: "handover" | "return" } | null>(null)
+  const [inspectionForm, setInspectionForm] = useState(emptyInspectionForm)
+  const [inspectionSubmitting, setInspectionSubmitting] = useState(false)
   const { user: authUser, loading: authLoading } = useAuth()
   const isAdmin = authUser?.isAdmin === true
   const { licenses, loading: licensesLoading } = useAllLicenses(isAdmin)
@@ -316,6 +338,7 @@ export default function AdminScreen() {
         const data = snapshot.docs.map((d) => {
           const b = d.data()
           return {
+            ...b,
             id: d.id,
             userId: b.userId || "",
             carId: b.carId != null ? String(b.carId) : "",
@@ -419,15 +442,16 @@ export default function AdminScreen() {
   // ===== Số liệu thống kê =====
   const stats = useMemo(() => {
     const now = new Date()
-    const paidBookings = bookings.filter(isPaid)
+    // Doanh thu (L4.3) = tiền thuê đã thanh toán − tiền hoàn + phí phát sinh khi trả xe
+    const paidBookings = bookings.filter((b) => bookingRevenue(b as any) !== 0)
     const revenueDate = (b: Booking) => toDate(b.payment?.paidAt) || b.createdAt
-    const totalRevenue = paidBookings.reduce((sum, b) => sum + b.price, 0)
+    const totalRevenue = paidBookings.reduce((sum, b) => sum + bookingRevenue(b as any), 0)
     const monthRevenue = paidBookings
       .filter((b) => {
         const d = revenueDate(b)
         return d && d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth()
       })
-      .reduce((sum, b) => sum + b.price, 0)
+      .reduce((sum, b) => sum + bookingRevenue(b as any), 0)
 
     // Doanh thu 6 tháng gần nhất (triệu đồng)
     const months: { key: number; label: string; value: number }[] = []
@@ -439,7 +463,7 @@ export default function AdminScreen() {
       const d = revenueDate(b)
       if (!d) return
       const month = months.find((m) => m.key === d.getFullYear() * 12 + d.getMonth())
-      if (month) month.value += b.price
+      if (month) month.value += bookingRevenue(b as any)
     })
     const revenueByMonth = months.map((m) => ({ label: m.label, value: Math.round(m.value / 100000) / 10 }))
 
@@ -763,33 +787,58 @@ export default function AdminScreen() {
     }
   }
 
-  // Upcoming -> Active (giao xe), Active -> Completed (nhận lại xe)
+  // Upcoming → Active (biên bản giao xe), Active → Completed (biên bản nhận lại xe)
   const handleAdvanceBooking = (booking: Booking) => {
     const current = normalizeStatus(booking.status)
-    const isHandOver = current === "upcoming"
-    if (!isHandOver && current !== "active") return
-    confirmAction(
-      isHandOver ? "Giao xe" : "Nhận lại xe",
-      isHandOver
-        ? `Xác nhận đã giao xe ${booking.carName} cho ${getCustomerName(booking)}?`
-        : `Xác nhận đã nhận lại xe ${booking.carName} từ ${getCustomerName(booking)}?`,
-      "Xác nhận",
-      async () => {
-        try {
-          await updateDoc(
-            doc(db, "bookings", booking.id),
-            isHandOver
-              ? { status: "Active", handedOverAt: new Date() }
-              : { status: "Completed", returnedAt: new Date() }
-          )
-          Alert.alert("Thành công", isHandOver ? "Đơn đã chuyển sang Đang thuê." : "Đơn đã hoàn thành.")
-        } catch (error) {
-          console.error("Error updating booking status:", error)
-          Alert.alert("Lỗi", "Không thể cập nhật trạng thái đơn. Vui lòng thử lại.")
-        }
-      },
-      false
-    )
+    if (current !== "upcoming" && current !== "active") return
+    setSelectedBookingId(null) // tránh chồng 2 Modal (iOS không mở được)
+    setInspectionForm(emptyInspectionForm)
+    setInspection({ bookingId: booking.id, kind: current === "upcoming" ? "handover" : "return" })
+  }
+
+  const inspectionBooking = inspection ? bookings.find((b) => b.id === inspection.bookingId) ?? null : null
+  const inspectionCar = inspectionBooking ? cars.find((c) => c.id === inspectionBooking.carId) ?? null : null
+  // Phí trễ / hoàn cọc tự tính cho biên bản nhận lại xe (cùng công thức returnBooking)
+  const returnPreview = inspectionBooking
+    ? previewReturn(inspectionBooking as any, inspectionCar, parsePriceInput(inspectionForm.extraFees || "0") || 0)
+    : null
+
+  const updateInspection = <K extends keyof typeof emptyInspectionForm>(field: K, value: (typeof emptyInspectionForm)[K]) =>
+    setInspectionForm((prev) => ({ ...prev, [field]: value }))
+
+  const submitInspection = async () => {
+    if (!inspection || inspectionSubmitting) return
+    const f = inspectionForm
+    setInspectionSubmitting(true)
+    try {
+      if (inspection.kind === "handover") {
+        await handOverBooking(inspection.bookingId, {
+          documentsChecked: f.documentsChecked,
+          depositCollected: f.depositCollected,
+          conditionNote: f.conditionNote,
+          odometer: Number(f.odometer.trim()),
+          fuelLevel: f.fuelLevel,
+        })
+        Alert.alert("Đã giao xe", "Đơn chuyển sang Đang thuê, xe chuyển sang Đang cho thuê.")
+      } else {
+        const result = await returnBooking(inspection.bookingId, {
+          odometer: Number(f.odometer.trim()),
+          fuelLevel: f.fuelLevel,
+          damageNote: f.damageNote,
+          extraFees: parsePriceInput(f.extraFees || "0"),
+        })
+        Alert.alert(
+          "Đã nhận lại xe",
+          `Phí trễ giờ: ${formatCurrency(result.lateFee)}\nPhí phát sinh: ${formatCurrency(result.extraFees)}\nHoàn cọc: ${formatCurrency(result.depositRefund)}`,
+        )
+      }
+      setInspection(null)
+    } catch (error: any) {
+      console.error("Error saving inspection:", error)
+      Alert.alert("Chưa lưu được biên bản", error?.message || "Vui lòng thử lại.")
+    } finally {
+      setInspectionSubmitting(false)
+    }
   }
 
   // ===== Thao tác với người dùng =====
@@ -1824,7 +1873,7 @@ export default function AdminScreen() {
     const user = selectedUser
     if (!user) return null
     const userBookings = bookings.filter((b) => b.userId === user.id)
-    const spent = userBookings.filter(isPaid).reduce((sum, b) => sum + b.price, 0)
+    const spent = userBookings.reduce((sum, b) => sum + bookingRevenue(b as any), 0)
     return (
       <Modal visible transparent animationType="slide" onRequestClose={() => setSelectedUserId(null)}>
         <View style={styles.modalOverlay}>
@@ -1944,6 +1993,69 @@ export default function AdminScreen() {
     )
   }
 
+  // ponytail: biên bản tạm của L4, U4.1/U4.2 làm lại thành bottom sheet đúng thiết kế
+  const renderInspectionModal = () => {
+    if (!inspection || !inspectionBooking) return null
+    const isHandover = inspection.kind === "handover"
+    const f = inspectionForm
+    const check = (field: "documentsChecked" | "depositCollected", label: string) => (
+      <TouchableOpacity onPress={() => updateInspection(field, !f[field])} activeOpacity={PRESS_OPACITY} style={styles.choiceChip}>
+        <Ionicons name={f[field] ? "checkbox" : "square-outline"} size={18} color={THEME_COLORS.primary} />
+        <Text style={styles.choiceChipText}>{label}</Text>
+      </TouchableOpacity>
+    )
+    return (
+      <Modal visible transparent animationType="slide" onRequestClose={() => setInspection(null)}>
+        <View style={styles.modalOverlay}>
+          <ScrollView style={[styles.modalContent, styles.rejectModalContent]}>
+            {renderModalHeader(isHandover ? "Biên bản giao xe" : "Biên bản nhận lại xe", () => setInspection(null))}
+            <Text style={styles.rejectLicenseDescription}>{inspectionBooking.carName} · {getCustomerName(inspectionBooking)}</Text>
+            {isHandover ? (
+              <View style={styles.choiceRow}>
+                {check("documentsChecked", "Đã kiểm tra CCCD, GPLX bản gốc")}
+                {check("depositCollected", `Đã thu cọc ${formatCurrency(inspectionBooking.deposit ?? inspectionCar?.deposit ?? 0)}`)}
+              </View>
+            ) : null}
+            <Text style={styles.inputLabel}>Số km {isHandover ? "" : `(lúc giao: ${inspectionBooking.handover?.odometer ?? 0})`}</Text>
+            <TextInput style={styles.input} value={f.odometer} onChangeText={(t) => updateInspection("odometer", t)} keyboardType="numeric" />
+            <Text style={styles.inputLabel}>Mức nhiên liệu</Text>
+            <View style={styles.choiceRow}>
+              {FUEL_LEVELS.map((level) => (
+                <TouchableOpacity key={level} style={[styles.choiceChip, f.fuelLevel === level && styles.choiceChipActive]} onPress={() => updateInspection("fuelLevel", level)} activeOpacity={PRESS_OPACITY}>
+                  <Text style={[styles.choiceChipText, f.fuelLevel === level && styles.choiceChipTextActive]}>{level}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <Text style={styles.inputLabel}>{isHandover ? "Tình trạng xe lúc giao" : "Hư hỏng (nếu có)"}</Text>
+            <TextInput
+              style={[styles.input, styles.textArea]}
+              value={isHandover ? f.conditionNote : f.damageNote}
+              onChangeText={(t) => updateInspection(isHandover ? "conditionNote" : "damageNote", t)}
+              multiline
+              textAlignVertical="top"
+            />
+            {!isHandover && returnPreview ? (
+              <>
+                <Text style={styles.inputLabel}>Phí phát sinh (VND)</Text>
+                <TextInput style={styles.input} value={f.extraFees} onChangeText={(t) => updateInspection("extraFees", t)} keyboardType="numeric" />
+                {renderDetailRow("Phí trễ giờ", formatCurrency(returnPreview.lateFee))}
+                {renderDetailRow("Hoàn cọc", formatCurrency(returnPreview.depositRefund))}
+              </>
+            ) : null}
+            <TouchableOpacity
+              style={[styles.modalActionButton, styles.modalPrimaryButton, inspectionSubmitting && styles.disabledButton]}
+              onPress={submitInspection}
+              disabled={inspectionSubmitting}
+              activeOpacity={PRESS_OPACITY}
+            >
+              <Text style={styles.modalPrimaryText}>{isHandover ? "Xác nhận giao xe" : "Xác nhận nhận lại xe"}</Text>
+            </TouchableOpacity>
+          </ScrollView>
+        </View>
+      </Modal>
+    )
+  }
+
   if (!isAdmin) {
     return (
       <SafeAreaView style={[styles.container, { alignItems: "center", justifyContent: "center" }]}>
@@ -1996,6 +2108,7 @@ export default function AdminScreen() {
       </ScrollView>
 
       {renderBookingDetailModal()}
+      {renderInspectionModal()}
       {renderUserDetailModal()}
       {renderRejectLicenseModal()}
     </SafeAreaView>
