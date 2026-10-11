@@ -327,8 +327,8 @@ Thứ tự bắt buộc: G0 → G1 → … → G6 → G8. G7 tuỳ chọn, làm 
 ### G8 — Bảo mật & hoàn thiện
 **Claude**
 - [x] **L8.1** `firestore.rules` + `firebase.json`: khách chỉ đọc/ghi dữ liệu của mình; `cars` đọc công khai, admin ghi; admin (`users/{uid}.isAdmin`) đọc/ghi tất cả. Người dùng deploy: `! npx firebase-tools deploy --only firestore:rules` (cần đăng nhập và có quyền project `car-rental-adv`).
-- [ ] **L8.2** Dọn: `hooks/useBookings` theo field thật; `BOOKING_STATUS`/`PAYMENT_STATUS` cũ; `testFirestoreConnection`; asset không còn dùng (sau A7).
-- [ ] **L8.3** Test đủ cho `utils/booking.ts` (`npx jest --watchAll=false`).
+- [x] **L8.2** Dọn: `hooks/useBookings` theo field thật; `BOOKING_STATUS`/`PAYMENT_STATUS` cũ; `testFirestoreConnection`; asset không còn dùng (sau A7).
+- [x] **L8.3** Test đủ cho `utils/booking.ts` (`npx jest --watchAll=false`).
 - [ ] **L8.4** `app.json` trỏ icon/splash mới (sau A1). Cập nhật `CLAUDE.md` (luồng mới; bỏ dòng "Không có git") và `README.md` (tạo admin, nạp xe mẫu, deploy rules, ảnh mới từ A8).
 
 **Ghi chú L8.1** (Claude): `firestore.rules` + `firebase.json` + `.firebaserc` (project `car-rental-adv`). Rà theo từng luồng ghi trong `utils/*Actions.ts`: khách tạo đơn chỉ ở `Pending`; khách chỉ được thanh toán (Confirmed → Upcoming), huỷ (`cancelledBy: "user"`), đổi lịch, đánh dấu đã đánh giá; admin ghi mọi thứ. `cars` đọc công khai, khách chỉ sửa được `rating`/`reviewCount` (submitReview) — điểm hạn chế đã biết. `reviews` tạo được khi đơn của mình đã `Completed`. `bookedSlots` đọc cho người đã đăng nhập. **Chưa chạy được trên emulator** (cần Java/đăng nhập) → người dùng deploy rồi chạy lại nghiệm thu mục 6.
@@ -342,7 +342,7 @@ Màu thương hiệu: primary `#1054CF`, secondary `#FFB700`, nền trắng. Kh�
 - [x] **A1** Icon & splash (cần trước L8.4): `assets/icon.png` 1024×1024; `assets/adaptive-icon.png` 1024×1024 (logo nằm trong vùng an toàn 66% giữa ảnh, nền trong suốt); `assets/splash.png` logo RENTO 1024×1024 nền trong suốt. Giữ nguyên `assets/rento.png` cho tới khi L8.4 đổi đường dẫn.
 - [x] **A2** Tối ưu 24 ảnh xe trong `assets/cars/`: **giữ nguyên tên file**, PNG nền trong suốt, rộng ≤ 1200 px, ≤ 300 KB mỗi ảnh, cùng góc nhìn ¾ trước. `mercedes_benz.gif` (2,6 MB) → thêm `mercedes_benz.png` và ghi vào ghi chú bàn giao để Claude đổi `require`. Mục tiêu cả thư mục < 6 MB.
 - [x] **A3** Banner khuyến mãi thay `assets/coup1.png` và `assets/coup2.png` (giữ tên file), 1200×620: "FIRST20 – Giảm 20% chuyến thuê đầu tiên", "WEEKEND50 – Giảm 50% thuê xe cuối tuần". Dùng xe có trong đội xe.
-- [ ] **A4** Minh hoạ onboarding thay `adv cars.gif` và `modal_360.gif` bằng PNG ≤ 300 KB (`assets/onboarding/1.png`, `2.png`, `3.png`, 1080×1080) theo 3 câu: "Chọn xe ưng ý, đi đâu cũng dễ" · "Đặt xe chỉ trong vài phút" · "Sẵn sàng lên đường". Claude đổi `data/assets.ts`.
+- [x] **A4** Minh hoạ onboarding thay `adv cars.gif` và `modal_360.gif` bằng PNG ≤ 300 KB (`assets/onboarding/1.png`, `2.png`, `3.png`, 1080×1080) theo 3 câu: "Chọn xe ưng ý, đi đâu cũng dễ" · "Đặt xe chỉ trong vài phút" · "Sẵn sàng lên đường". Claude đổi `data/assets.ts`.
 - [x] **A5** Minh hoạ trạng thái rỗng (cần trước U3/U5/U8.1): `assets/empty/no-bookings.png`, `no-liked.png`, `no-notifications.png`, `no-results.png`, `no-reviews.png` — 600×600, nền trong suốt, phong cách phẳng cùng bộ.
 - [ ] **A6** (tuỳ chọn) Thư viện ảnh chi tiết xe: 3 ảnh dùng chung `assets/cars/gallery/interior.png`, `dashboard.png`, `trunk.png` (1200×800).
 - [x] **A7** Liệt kê asset không được tham chiếu (grep `app/ components/ data/`): hiện là `gcash-logo.png`, `paypal-logo.png`, `developers/*`. Xoá sau khi Claude xác nhận ở L8.2.
@@ -356,7 +356,9 @@ Màu thương hiệu: primary `#1054CF`, secondary `#FFB700`, nền trắng. Kh�
 - A5: `assets/empty/no-bookings.png`, `no-liked.png`, `no-notifications.png`, `no-results.png`, `no-reviews.png` (600×600, nền trong suốt, 30–47 KB).
 - A7 (chỉ liệt kê): không còn tham chiếu `assets/gcash-logo.png`, `assets/paypal-logo.png`, `assets/developers/*` (4 ảnh), `assets/cars/mercedes_benz.gif`, `assets/rento.png`; `adv cars.gif`, `modal_360.gif` sẽ thừa sau khi A4 thay vào màn chào → xoá ở L8.2.
 - A4 lần 1 bị trả lại: ảnh có sẵn tiêu đề (trùng chữ màn chào), bóng xe lỗi, icon emoji đơn sắc, `2.png` xe che thẻ lịch trình và ghi sai nghiệp vụ ("xác nhận tức thì", "duyệt tự động", "Chuyển khoản").
-- Antigravity bị ngắt 2 lần (401, broken pipe) — đã chạy lại phần còn lại.
+- A4 lần 2 đạt: `assets/onboarding/1.png` (đội xe, 3 thành phố), `2.png` (GPLX do RENTO duyệt, RENTO xác nhận đơn, Thẻ · MoMo · ZaloPay, mã ưu đãi), `3.png` (biên bản giao nhận, tiền cọc trả khi nhận – hoàn khi trả), 1080×1080, 51–66 KB, không chữ tiêu đề. `PROMO_ASSETS.onboardingCars` / `onboardingBooking` / `welcome360` trỏ sang 3 ảnh này.
+- L8.2 (Claude): đã xoá asset không dùng (`gcash-logo.png`, `paypal-logo.png`, `developers/*`, `cars/mercedes_benz.gif`, `rento.png`, `adv cars.gif`, `modal_360.gif`); bỏ `testFirestoreConnection`, hằng tiếng Anh cũ, `useBookings` cũ (đã viết lại). L8.3: 55 test (`utils/__tests__`).
+- Antigravity bị ngắt 3 lần (401, broken pipe ×2) — đã chạy lại phần còn lại.
 
 ---
 

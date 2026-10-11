@@ -19,8 +19,10 @@ export const getBrandAsset = (brand: string): ImageSourcePropType | null =>
   BRAND_ASSETS[brand as SupportedBrand] ?? null
 
 export const PROMO_ASSETS = {
-  onboardingCars: require("../assets/adv cars.gif"),
-  welcome360: require("../assets/modal_360.gif"),
+  // Minh hoạ màn chào (3 slide) — onboarding/1–3.png
+  onboardingCars: require("../assets/onboarding/1.png"),
+  onboardingBooking: require("../assets/onboarding/2.png"),
+  welcome360: require("../assets/onboarding/3.png"),
   firstRide: require("../assets/coup1.png"),
   weekend: require("../assets/coup2.png"),
 } satisfies Record<string, ImageSourcePropType>
