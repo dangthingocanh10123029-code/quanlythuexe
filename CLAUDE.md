@@ -4,7 +4,7 @@ Hướng dẫn cho Claude Code khi làm việc trong repo này.
 
 ## Tổng quan
 
-**RENTO** — app thuê xe di động (đồ án môn *Ứng dụng Mobile đa nền tảng*). Expo SDK 53 + React Native 0.79 + React 19 + **Expo Router 5** (file-based routing, `typedRoutes` bật) + **Firebase 11** (Auth + Firestore) + TypeScript strict. Tên hiển thị trong `app.json` là `RENTO`; package/slug vẫn là `pezo` (tên cũ) — không phải lỗi.
+**RENTO** — app thuê xe di động (đồ án môn *Ứng dụng Mobile đa nền tảng*). Expo SDK 57 + React Native 0.86 + React 19.2 + **Expo Router** (bản đi kèm SDK 57) (file-based routing, `typedRoutes` bật) + **Firebase 11** (Auth + Firestore) + TypeScript strict. Tên hiển thị trong `app.json` là `RENTO`; package/slug vẫn là `pezo` (tên cũ) — không phải lỗi.
 
 **Toàn bộ giao diện đã Việt hoá** (tiếng Việt, VND, địa điểm TP. HCM / Hà Nội / Đà Nẵng, thanh toán Thẻ ngân hàng / MoMo / ZaloPay, số điện thoại +84, ngày dd/mm/yyyy). Mọi chuỗi mới thêm vào phải viết tiếng Việt có dấu, theo đúng thuật ngữ đang dùng (xem mục *Quy ước Việt hoá*).
 
