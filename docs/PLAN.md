@@ -335,6 +335,16 @@ Thứ tự bắt buộc: G0 → G1 → … → G6 → G8. G7 tuỳ chọn, làm 
 **Bàn giao U7** (Claude thay Codex, 2 agent): admin có tab "Thanh toán", "Hỗ trợ", khối "Loại xe", nút gán/bỏ nhân viên, checkbox "Đã thu tiền thuê"; khách xem phiếu hỗ trợ + phản hồi, chọn "Tiền mặt khi nhận xe" trong `PaymentMethodSheet`.
 **V7** (Claude): tsc + 57 test sạch, `expo export -p web` thành công. Sửa thêm: huỷ đơn tiền mặt chưa thu → `payment.status: "Cancelled"` (không còn bị tính vào "Chờ thu tiền mặt"); `PRIORITY_LABELS` chuyển vào `utils/constants.ts`; câu chữ đổi lịch cho đơn trả tiền mặt. Đơn cũ có `payment.method` GCash/PayPal/Credit Card chỉ hiện ở lọc "Tất cả".
 
+### G9 — Thông số xe & chính sách đền bù (người dùng thêm 12/10/2026)
+**Claude**
+- [ ] **L9.1** Hợp đồng dữ liệu `cars` thêm thông số kỹ thuật: `engine` (động cơ/dung tích, vd "2.0L Turbo"), `power` (mã lực), `fuelConsumption` (L/100km hoặc kWh/100km), `airbags` (số túi khí), `color`, `odometer` (km đã đi), `trunkCapacity` (lít). Bổ sung số liệu cho 24 xe mẫu (`data/cars.ts`), `seedCars` cập nhật xe đã có còn thiếu thông số (không ghi đè field đã sửa).
+- [ ] **L9.2** Chính sách đền bù trong `utils/constants.ts` (`COMPENSATION_POLICY`): bảng mức đền bù theo loại sự cố (trầy xước nhỏ, móp/vỡ bộ phận, hư hỏng nặng/tai nạn, mất xe, mất giấy tờ/chìa khoá, vi phạm giao thông/phạt nguội, vệ sinh đặc biệt, hết xăng so với lúc nhận, trễ giờ = `calcLateFee`), mức khấu trừ từ tiền cọc và phần vượt cọc. Hàm thuần `calcCompensation(items)` (+ test) dùng trong biên bản nhận lại xe; checkout yêu cầu tick "Tôi đồng ý chính sách đền bù" (`agreedPolicyAt` lưu vào booking).
+**Codex / Claude (U)**
+- [ ] **U9.1** Chi tiết xe: khối "Thông số kỹ thuật" đủ field mới; form xe admin có ô nhập tương ứng.
+- [ ] **U9.2** Màn/khối "Chính sách đền bù" (chi tiết xe, checkout có checkbox đồng ý, Trợ giúp/FAQ); biên bản nhận lại xe chọn hạng mục đền bù thay vì chỉ nhập số tiền tự do.
+
+**Ghi chú bàn giao G9:** _(…)_
+
 ### G8 — Bảo mật & hoàn thiện
 **Claude**
 - [x] **L8.1** `firestore.rules` + `firebase.json`: khách chỉ đọc/ghi dữ liệu của mình; `cars` đọc công khai, admin ghi; admin (`users/{uid}.isAdmin`) đọc/ghi tất cả. Người dùng deploy: `! npx firebase-tools deploy --only firestore:rules` (cần đăng nhập và có quyền project `car-rental-adv`).
