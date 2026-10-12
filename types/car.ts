@@ -19,6 +19,14 @@ export interface Car {
   licensePlate: string
   description: string
   amenities: string[]
+  // Thông số kỹ thuật (G9) — xe admin tạo trước G9 có thể thiếu
+  engine?: string // động cơ, vd "2.0L I4 Turbo"
+  power?: number // mã lực (hp)
+  fuelConsumption?: string // vd "6,8 L/100km"
+  airbags?: number
+  color?: string
+  odometer?: number // km đã đi
+  trunkCapacity?: number // lít
   imageKey?: string // ảnh có sẵn trong assets/cars (CAR_IMAGES)
   image?: string // data URI do admin tải lên
   status: CarStatus

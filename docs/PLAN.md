@@ -337,13 +337,17 @@ Thứ tự bắt buộc: G0 → G1 → … → G6 → G8. G7 tuỳ chọn, làm 
 
 ### G9 — Thông số xe & chính sách đền bù (người dùng thêm 12/10/2026)
 **Claude**
-- [ ] **L9.1** Hợp đồng dữ liệu `cars` thêm thông số kỹ thuật: `engine` (động cơ/dung tích, vd "2.0L Turbo"), `power` (mã lực), `fuelConsumption` (L/100km hoặc kWh/100km), `airbags` (số túi khí), `color`, `odometer` (km đã đi), `trunkCapacity` (lít). Bổ sung số liệu cho 24 xe mẫu (`data/cars.ts`), `seedCars` cập nhật xe đã có còn thiếu thông số (không ghi đè field đã sửa).
-- [ ] **L9.2** Chính sách đền bù trong `utils/constants.ts` (`COMPENSATION_POLICY`): bảng mức đền bù theo loại sự cố (trầy xước nhỏ, móp/vỡ bộ phận, hư hỏng nặng/tai nạn, mất xe, mất giấy tờ/chìa khoá, vi phạm giao thông/phạt nguội, vệ sinh đặc biệt, hết xăng so với lúc nhận, trễ giờ = `calcLateFee`), mức khấu trừ từ tiền cọc và phần vượt cọc. Hàm thuần `calcCompensation(items)` (+ test) dùng trong biên bản nhận lại xe; checkout yêu cầu tick "Tôi đồng ý chính sách đền bù" (`agreedPolicyAt` lưu vào booking).
+- [x] **L9.1** Hợp đồng dữ liệu `cars` thêm thông số kỹ thuật: `engine` (động cơ/dung tích, vd "2.0L Turbo"), `power` (mã lực), `fuelConsumption` (L/100km hoặc kWh/100km), `airbags` (số túi khí), `color`, `odometer` (km đã đi), `trunkCapacity` (lít). Bổ sung số liệu cho 24 xe mẫu (`data/cars.ts`), `seedCars` cập nhật xe đã có còn thiếu thông số (không ghi đè field đã sửa).
+- [x] **L9.2** Chính sách đền bù trong `utils/constants.ts` (`COMPENSATION_POLICY`): bảng mức đền bù theo loại sự cố (trầy xước nhỏ, móp/vỡ bộ phận, hư hỏng nặng/tai nạn, mất xe, mất giấy tờ/chìa khoá, vi phạm giao thông/phạt nguội, vệ sinh đặc biệt, hết xăng so với lúc nhận, trễ giờ = `calcLateFee`), mức khấu trừ từ tiền cọc và phần vượt cọc. Hàm thuần `calcCompensation(items)` (+ test) dùng trong biên bản nhận lại xe; checkout yêu cầu tick "Tôi đồng ý chính sách đền bù" (`agreedPolicyAt` lưu vào booking).
 **Codex / Claude (U)**
 - [ ] **U9.1** Chi tiết xe: khối "Thông số kỹ thuật" đủ field mới; form xe admin có ô nhập tương ứng.
 - [ ] **U9.2** Màn/khối "Chính sách đền bù" (chi tiết xe, checkout có checkbox đồng ý, Trợ giúp/FAQ); biên bản nhận lại xe chọn hạng mục đền bù thay vì chỉ nhập số tiền tự do.
 
-**Ghi chú bàn giao G9:** _(…)_
+**Ghi chú bàn giao G9** (Claude, L9):
+- `Car` thêm `engine`, `power` (hp), `fuelConsumption` (chuỗi "6,8 L/100km"), `airbags`, `color`, `odometer` (km), `trunkCapacity` (lít) — đều tuỳ chọn (xe admin tạo trước G9 có thể thiếu → UI hiện "Chưa cập nhật"). 24 xe mẫu đã có số liệu; bấm lại "Nạp dữ liệu xe mẫu" sẽ bổ sung thông số còn thiếu cho xe đã có, không ghi đè field admin đã sửa. Form admin: `newCar` đã có 7 field (chuỗi), `handleSaveCar` đã ghi — U9.1 chỉ thêm ô nhập (comment `ponytail:`).
+- `COMPENSATION_POLICY` (utils/constants): 10 hạng mục `{ id, label, unit?, unitLabel?, custom?, note }` — có đơn giá × số lượng, hoặc `custom` nhập số tiền (phạt nguội, tai nạn). `calcCompensation(items: { id, qty?, amount? }[])` → `{ lines, total }` (utils/booking, có test). `calcReturnSettlement` / `previewReturn` trả thêm `extraDue` (phần phí vượt cọc khách trả thêm).
+- `returnBooking(id, { odometer, fuelLevel, damageNote, extraFees, compensations })`: lưu `returnInspection.compensations` (dòng đã tính), `compensationTotal`, `otherFees`, `extraFees` (= đền bù + phí khác), `depositRefund`, `extraDue`. Biên bản nhận lại xe (U9.2): chọn hạng mục + số lượng / số tiền, xem trước bằng `calcCompensation` + `previewReturn(booking, car, total + phí khác)`.
+- `createBooking` bắt buộc `agreedPolicy: true` (ném "Vui lòng đọc và đồng ý chính sách đền bù trước khi đặt xe."), lưu `agreedPolicyAt`. Checkout có state `agreedPolicy` / `setAgreedPolicy` (comment `ponytail:`) — U9.2 thêm checkbox + link xem chính sách.
 
 ### G8 — Bảo mật & hoàn thiện
 **Claude**

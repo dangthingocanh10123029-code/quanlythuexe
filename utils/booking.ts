@@ -1,5 +1,5 @@
 // Nghiệp vụ đặt xe dạng hàm thuần (không gọi Firestore) — có test trong utils/__tests__/booking.test.ts
-import { OPEN_BOOKING_STATUSES, PROMO_CODES, VAT_RATE } from "./constants"
+import { COMPENSATION_POLICY, OPEN_BOOKING_STATUSES, PROMO_CODES, VAT_RATE } from "./constants"
 
 const HOUR = 3_600_000
 const DAY = 24 * HOUR
@@ -132,7 +132,9 @@ export function calcReturnSettlement(input: {
 }) {
   const lateFee = calcLateFee(input.returnDate, input.actual, input.pricePerDay)
   const extraFees = Math.max(0, Math.round(input.extraFees ?? 0))
-  return { lateFee, extraFees, depositRefund: calcDepositRefund(input.deposit, lateFee + extraFees) }
+  const fees = lateFee + extraFees
+  // extraDue: phần phí vượt tiền cọc khách phải trả thêm
+  return { lateFee, extraFees, depositRefund: calcDepositRefund(input.deposit, fees), extraDue: Math.max(0, fees - input.deposit) }
 }
 
 type RevenueSource = {
@@ -226,4 +228,21 @@ export function summarizePayments(rows: PaymentRow[]) {
     failedCount: rows.filter((r) => lower(r.status) === "failed").length,
     byMethod,
   }
+}
+
+export type CompensationInput = { id: string; qty?: number; amount?: number }
+
+// Tiền đền bù theo COMPENSATION_POLICY (G9): hạng mục có đơn giá = đơn giá × số lượng; hạng mục "custom" dùng amount nhập tay.
+// Hạng mục không có trong chính sách hoặc số tiền ≤ 0 bị bỏ qua.
+export function calcCompensation(items: CompensationInput[]) {
+  const lines = items
+    .map((item) => {
+      const policy = COMPENSATION_POLICY.find((p) => p.id === item.id)
+      if (!policy) return null
+      const qty = Math.max(1, Math.round(item.qty ?? 1))
+      const amount = policy.custom ? Math.max(0, Math.round(item.amount ?? 0)) : (policy.unit ?? 0) * qty
+      return amount > 0 ? { id: policy.id, label: policy.label, qty: policy.custom ? 1 : qty, amount } : null
+    })
+    .filter((l): l is { id: string; label: string; qty: number; amount: number } => l !== null)
+  return { lines, total: lines.reduce((sum, l) => sum + l.amount, 0) }
 }

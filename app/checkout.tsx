@@ -63,6 +63,8 @@ export default function CheckoutScreen() {
   const [pickupLocation, setPickupLocation] = useState(LOCATIONS[0])
   const [returnLocation, setReturnLocation] = useState(LOCATIONS[0])
   const [promoCode, setPromoCode] = useState("")
+  // ponytail: chưa có ô tick, U9.2 thêm checkbox "Tôi đồng ý chính sách đền bù" (setAgreedPolicy)
+  const [agreedPolicy, setAgreedPolicy] = useState(false)
   const [promoDraft, setPromoDraft] = useState("")
   const [firstBooking, setFirstBooking] = useState(false)
   const [submitting, setSubmitting] = useState(false)
@@ -160,6 +162,7 @@ export default function CheckoutScreen() {
         returnLocation,
         addOns: chosenAddOns,
         promoCode,
+        agreedPolicy,
       })
       router.replace({ pathname: "/booking/[id]", params: { id: bookingId } })
     } catch (error: any) {

@@ -4,7 +4,8 @@ import { collection, deleteField, doc, getDoc, getDocs, increment, query, runTra
 import { auth, db } from "../config/firebase"
 import type { Car } from "../types/car"
 import type { Booking, BookingAddOn } from "../types/booking"
-import { applyRating, calcBookingPrice, calcRefund, calcReturnSettlement, canTransition, daysBetween, getBookingRange, isCarFree } from "./booking"
+import type { CompensationInput } from "./booking"
+import { applyRating, calcBookingPrice, calcCompensation, calcRefund, calcReturnSettlement, canTransition, daysBetween, getBookingRange, isCarFree } from "./booking"
 import { FUEL_LEVELS, HIDDEN_CAR_STATUSES, getBookingStatusLabel } from "./constants"
 import { formatCurrency, formatDate } from "./helpers"
 import { notify } from "./notify"
@@ -51,6 +52,7 @@ export type CreateBookingInput = {
   returnLocation?: string
   addOns: BookingAddOn[]
   promoCode?: string
+  agreedPolicy: boolean // đã đồng ý chính sách đền bù (G9)
 }
 
 // Tạo đơn "Pending" (chờ admin xác nhận, D2). Trả về id đơn.
@@ -59,6 +61,7 @@ export async function createBooking(input: CreateBookingInput): Promise<string> 
   if (HIDDEN_CAR_STATUSES.includes(car.status)) throw bookingError("Xe đang tạm ngừng cho thuê.")
   if (pickupDate.getTime() < Date.now()) throw bookingError("Thời gian nhận xe phải sau thời điểm hiện tại.")
   if (returnDate <= pickupDate) throw bookingError("Thời gian trả xe phải sau thời gian nhận xe.")
+  if (!input.agreedPolicy) throw bookingError("Vui lòng đọc và đồng ý chính sách đền bù trước khi đặt xe.")
 
   await assertLicense(uid)
 
@@ -97,6 +100,7 @@ export async function createBooking(input: CreateBookingInput): Promise<string> 
     price: price.total,
     selectedAddOns: addOns.map(({ id, name, price }) => ({ id, name, price })),
     status: "Pending",
+    agreedPolicyAt: new Date(),
     createdAt: new Date(),
   })
   batch.set(doc(db, "bookedSlots", ref.id), { carId: car.id, userId: uid, pickupDate, returnDate })
@@ -391,7 +395,8 @@ export type ReturnInput = {
   odometer: number
   fuelLevel: string
   damageNote: string // để trống nếu không hư hỏng
-  extraFees: number // phí phát sinh (hư hỏng, vệ sinh, thiếu xăng…)
+  extraFees: number // phí khác ngoài chính sách đền bù
+  compensations?: CompensationInput[] // hạng mục đền bù theo COMPENSATION_POLICY (G9)
 }
 
 // Tính trước phí trễ / hoàn cọc để UI hiện trong biên bản (cùng công thức returnBooking dùng)
@@ -418,12 +423,22 @@ export async function returnBooking(bookingId: string, input: ReturnInput) {
   const carSnap = await getDoc(doc(db, "cars", booking.carId))
   const car = carSnap.exists() ? { pricePerDay: Number(carSnap.data().pricePerDay) || 0, deposit: Number(carSnap.data().deposit) || 0 } : null
   const at = new Date()
-  const settlement = previewReturn(booking, car, input.extraFees, at)
+  const compensation = calcCompensation(input.compensations ?? [])
+  const settlement = previewReturn(booking, car, compensation.total + input.extraFees, at)
 
   const batch = writeBatch(db)
   batch.update(doc(db, "bookings", bookingId), {
     status: "Completed",
-    returnInspection: { ...input, damageNote: input.damageNote.trim(), ...settlement, at },
+    returnInspection: {
+      odometer: input.odometer,
+      fuelLevel: input.fuelLevel,
+      damageNote: input.damageNote.trim(),
+      compensations: compensation.lines,
+      compensationTotal: compensation.total,
+      otherFees: Math.max(0, Math.round(input.extraFees)),
+      ...settlement, // extraFees = đền bù + phí khác
+      at,
+    },
     returnedAt: at,
   })
   if (car) batch.update(doc(db, "cars", booking.carId), { status: "Available", bookings: increment(1), updatedAt: at })

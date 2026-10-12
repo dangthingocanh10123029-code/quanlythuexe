@@ -293,6 +293,14 @@ const emptyCarForm = {
   description: "",
   amenities: [] as string[],
   status: "Available" as CarStatus,
+  // Thông số kỹ thuật (G9), nhập dạng chuỗi; ponytail: U9.1 thêm ô nhập
+  engine: "",
+  power: "",
+  fuelConsumption: "",
+  airbags: "",
+  color: "",
+  odometer: "",
+  trunkCapacity: "",
 }
 
 export default function AdminScreen() {
@@ -714,6 +722,13 @@ export default function AdminScreen() {
       description: car.description || "",
       amenities: car.amenities || [],
       status: car.status || "Available",
+      engine: car.engine || "",
+      power: car.power != null ? String(car.power) : "",
+      fuelConsumption: car.fuelConsumption || "",
+      airbags: car.airbags != null ? String(car.airbags) : "",
+      color: car.color || "",
+      odometer: car.odometer != null ? String(car.odometer) : "",
+      trunkCapacity: car.trunkCapacity != null ? String(car.trunkCapacity) : "",
     })
     setFormErrors({})
     setShowAddCarForm(true)
@@ -748,8 +763,16 @@ export default function AdminScreen() {
         amenities: newCar.amenities,
         status: newCar.status,
         imageKey: newCar.imageKey,
+        engine: newCar.engine.trim(),
+        fuelConsumption: newCar.fuelConsumption.trim(),
+        color: newCar.color.trim(),
       };
       if (newCar.carImage) carFields.image = newCar.carImage;
+      // Số nguyên không âm; để trống thì không ghi
+      for (const key of ["power", "airbags", "odometer", "trunkCapacity"] as const) {
+        const n = parsePriceInput(newCar[key]);
+        if (newCar[key].trim() && Number.isInteger(n) && n >= 0) carFields[key] = n;
+      }
       if (newCar.year.trim()) carFields.year = Number(newCar.year.trim());
 
       if (editingCarId) {

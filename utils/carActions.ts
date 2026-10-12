@@ -3,6 +3,8 @@ import { db } from "../config/firebase"
 import { cars as SEED_CARS } from "../data/cars"
 import { OPEN_BOOKING_STATUSES } from "./constants"
 
+const SPEC_FIELDS = ["engine", "power", "fuelConsumption", "airbags", "color", "odometer", "trunkCapacity"] as const
+
 // Ghi 24 xe mẫu vào `cars` với id "1"…"24" (giữ khớp booking.carId cũ) và các loại xe vào `carTypes`.
 // Xe đã có thì bỏ qua. Trả về số xe vừa thêm.
 export async function seedCars(): Promise<number> {
@@ -10,7 +12,13 @@ export async function seedCars(): Promise<number> {
   const added = await Promise.all(
     SEED_CARS.map(async ({ id, ...car }) => {
       const ref = doc(db, "cars", id)
-      if ((await getDoc(ref)).exists()) return 0
+      const snap = await getDoc(ref)
+      if (snap.exists()) {
+        // Xe đã có (nạp trước G9): chỉ bổ sung thông số còn thiếu, không ghi đè field admin đã sửa
+        const missing = Object.fromEntries(SPEC_FIELDS.filter((k) => snap.data()[k] === undefined && car[k] !== undefined).map((k) => [k, car[k]]))
+        if (Object.keys(missing).length) await setDoc(ref, missing, { merge: true })
+        return 0
+      }
       await setDoc(ref, { ...car, createdAt, updatedAt: createdAt })
       return 1
     }),

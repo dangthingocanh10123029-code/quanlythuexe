@@ -197,3 +197,18 @@ export const USER_ROLE_LABELS: Record<string, string> = {
   staff: "Nhân viên",
   customer: "Khách hàng",
 }
+
+// Chính sách đền bù (G9). Tiền đền bù trừ vào tiền cọc khi nhận lại xe; vượt cọc thì khách trả thêm trong 7 ngày.
+// unit: số tiền mỗi đơn vị (qty); custom: nhập số tiền theo biên bản / báo giá thực tế.
+export const COMPENSATION_POLICY: { id: string; label: string; unit?: number; unitLabel?: string; custom?: boolean; note: string }[] = [
+  { id: "scratch", label: "Trầy xước nhỏ", unit: 500000, unitLabel: "vị trí", note: "Vết dưới 10 cm, không phải sơn lại cả tấm" },
+  { id: "dent", label: "Móp, nứt bộ phận ngoại thất", unit: 2000000, unitLabel: "bộ phận", note: "Cản, cửa, nắp capo, chắn bùn…" },
+  { id: "glass", label: "Vỡ đèn, gương, kính", unit: 3000000, unitLabel: "bộ phận", note: "Theo giá linh kiện chính hãng nếu cao hơn" },
+  { id: "interior", label: "Hư hỏng nội thất", unit: 1000000, unitLabel: "vị trí", note: "Rách ghế, cháy thuốc, bẩn không giặt được" },
+  { id: "cleaning", label: "Vệ sinh đặc biệt", unit: 500000, unitLabel: "lần", note: "Mùi thuốc lá, bùn đất, lông thú cưng" },
+  { id: "fuel", label: "Thiếu nhiên liệu so với lúc nhận", unit: 150000, unitLabel: "¼ bình", note: "Tính theo vạch nhiên liệu ghi trong biên bản" },
+  { id: "key", label: "Mất chìa khoá", unit: 5000000, unitLabel: "chìa", note: "Gồm làm lại và mã hoá chìa" },
+  { id: "documents", label: "Mất giấy tờ xe", unit: 2000000, unitLabel: "bộ", note: "Đăng ký, đăng kiểm, bảo hiểm" },
+  { id: "traffic_fine", label: "Phạt nguội vi phạm giao thông", custom: true, note: "Theo quyết định xử phạt trong thời gian thuê" },
+  { id: "accident", label: "Tai nạn, hư hỏng nặng", custom: true, note: "Theo giám định bảo hiểm; khách chịu phần bảo hiểm không chi trả" },
+]

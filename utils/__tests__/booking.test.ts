@@ -3,6 +3,7 @@ import {
   applyRating,
   bookingRevenue,
   calcReturnSettlement,
+  calcCompensation,
   findPickupReminder,
   listPayments,
   summarizePayments,
@@ -127,7 +128,7 @@ describe("calcReturnSettlement", () => {
         actual: d("2026-10-12T10:30"),
         extraFees: 300_000,
       }),
-    ).toEqual({ lateFee: 200_000, extraFees: 300_000, depositRefund: 4_500_000 })
+    ).toEqual({ lateFee: 200_000, extraFees: 300_000, depositRefund: 4_500_000, extraDue: 0 })
   })
 })
 
@@ -181,5 +182,17 @@ describe("listPayments / summarizePayments", () => {
       pendingCash: 500_000,
       failedCount: 1,
       byMethod: { MoMo: 1_000_000, "Thẻ ngân hàng": 2_000_000 },
+    }))
+})
+
+describe("calcCompensation / vượt cọc", () => {
+  it("đơn giá × số lượng, hạng mục nhập tay, bỏ hạng mục lạ", () => {
+    const r = calcCompensation([{ id: "scratch", qty: 2 }, { id: "traffic_fine", amount: 800_000 }, { id: "unknown", qty: 1 }, { id: "accident", amount: 0 }])
+    expect(r.total).toBe(1_800_000)
+    expect(r.lines.map((l) => l.id)).toEqual(["scratch", "traffic_fine"])
+  })
+  it("phí vượt cọc → khách trả thêm", () =>
+    expect(calcReturnSettlement({ deposit: 5_000_000, pricePerDay: 1_000_000, returnDate: d("2026-10-12T09:00"), actual: d("2026-10-12T09:00"), extraFees: 7_000_000 })).toEqual({
+      lateFee: 0, extraFees: 7_000_000, depositRefund: 0, extraDue: 2_000_000,
     }))
 })
