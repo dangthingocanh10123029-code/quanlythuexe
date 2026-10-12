@@ -2,7 +2,10 @@
 
 RENTO là ứng dụng thuê xe trên di động, xây dựng bằng Expo Router và Firebase. Ứng dụng có màn hình chào mừng, đăng ký/đăng nhập, tìm và xem xe, đặt xe kèm dịch vụ thêm, thanh toán giả lập (Thẻ ngân hàng, MoMo, ZaloPay), hồ sơ cá nhân, xe yêu thích, thông báo và trang quản trị. Toàn bộ giao diện bằng tiếng Việt, giá tính bằng VND, địa điểm tại TP. Hồ Chí Minh, Hà Nội và Đà Nẵng.
 
-![RENTO](assets/coup1.png)
+![RENTO](docs/screenshots/cover.png)
+
+## Ảnh chụp màn hình
+Chụp trên `npm run web`, khung 390×844: chào mừng, trang Xe, chi tiết xe, đăng nhập, đăng ký. Các màn cần tài khoản (Chuyến đi, Đặt xe, Thông báo, Quản trị) chưa có ảnh.
 
 ## Tính năng
 - **Chào mừng & tài khoản**: carousel giới thiệu; đăng ký có SĐT (không trùng), CCCD, địa chỉ; OTP giả lập; đăng nhập; đổi mật khẩu.
