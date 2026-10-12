@@ -20,8 +20,14 @@ import { PRESS_OPACITY, RADIUS, SPACE, THEME_COLORS, TYPOGRAPHY, UI } from "../.
 
 // Field ghi thêm khi thanh toán thất bại / hoàn tiền (utils/bookingActions), chưa khai báo trong types/booking
 type Payment = BookingPayment & { refundPercent?: number; failReason?: string; failedAt?: any; chosenAt?: any }
+type ReturnInspectionDetails = NonNullable<Booking["returnInspection"]> & {
+  compensations?: { id: string; label: string; qty: number; amount: number }[]
+  compensationTotal?: number
+  otherFees?: number
+  extraDue?: number
+}
 // Đơn cũ có thể còn carImage dạng chuỗi (URL / data URI)
-type BookingDoc = Booking & { carImage?: unknown }
+type BookingDoc = Booking & { carImage?: unknown; returnInspection?: ReturnInspectionDetails }
 
 // Timeline theo luồng D2; `at` là thời điểm đơn vào bước đó
 const STEPS: { status: string; at: (b: Booking) => any }[] = [
@@ -228,9 +234,11 @@ export default function BookingDetailScreen() {
 
   // Biên bản giao xe / nhận lại xe do RENTO lập (chỉ xem)
   const renderInspections = () => {
-    const { handover, returnInspection: back } = booking
+    const handover = booking.handover
+    const back = legacy.returnInspection
     if (!handover && !back) return null
     const totalFees = (Number(back?.lateFee) || 0) + (Number(back?.extraFees) || 0)
+    const otherFees = back?.otherFees ?? (back?.compensationTotal == null ? Number(back?.extraFees) || 0 : 0)
     const distance = handover && back ? Number(back.odometer) - Number(handover.odometer) : null
     return (
       <>
@@ -262,10 +270,21 @@ export default function BookingDetailScreen() {
               {renderRow("Mức nhiên liệu", back.fuelLevel)}
               {renderRow("Hư hỏng", back.damageNote || "Không có")}
               <View style={styles.divider} />
+              {(back.compensations ?? []).map((line) => (
+                <View key={line.id}>
+                  {renderRow(`${line.label} × ${line.qty}`, formatCurrency(line.amount))}
+                </View>
+              ))}
+              {back.compensationTotal != null
+                ? renderRow("Đền bù", formatCurrency(back.compensationTotal))
+                : null}
+              {back.otherFees != null || back.extraFees != null ? renderRow("Phí khác", formatCurrency(otherFees)) : null}
               {renderRow("Phí trễ giờ", formatCurrency(back.lateFee || 0))}
-              {renderRow("Phí phát sinh", formatCurrency(back.extraFees || 0))}
               {totalFees > 0 ? renderRow("Tổng phí trừ cọc", formatCurrency(totalFees), { strong: true, tone: THEME_COLORS.danger }) : null}
               {renderRow("Tiền cọc hoàn lại", formatCurrency(back.depositRefund || 0), { strong: true, tone: THEME_COLORS.success })}
+              {(back.extraDue ?? 0) > 0
+                ? renderRow("Khách trả thêm", formatCurrency(back.extraDue ?? 0), { strong: true, tone: THEME_COLORS.danger })
+                : null}
             </View>
           </>
         ) : null}

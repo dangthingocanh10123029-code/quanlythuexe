@@ -19,6 +19,7 @@ import PaymentLogo from "../components/ui/PaymentLogo"
 import {
   AMENITIES,
   CAR_STATUS_LABELS,
+  COMPENSATION_POLICY,
   FUEL_LEVELS,
   getBookingStatusLabel,
   PAYMENT_METHODS,
@@ -37,7 +38,7 @@ import { useCarTypes, type CarType } from "../hooks/useCarTypes"
 import { seedCars, deleteCar } from "../utils/carActions"
 import { rejectLicense, verifyLicense } from "../utils/licenseActions"
 import { cancelBooking, confirmBooking, deleteReview, handOverBooking, previewRefund, previewReturn, rejectBooking, returnBooking } from "../utils/bookingActions"
-import { bookingRevenue, getBookingRange, listPayments, summarizePayments } from "../utils/booking"
+import { bookingRevenue, calcCompensation, getBookingRange, listPayments, summarizePayments, type CompensationInput } from "../utils/booking"
 import type { Car, CarStatus, Transmission } from "../types/car"
 import { THEME_COLORS, RADIUS, SPACE, SHADOWS, TYPOGRAPHY, UI, PRESS_OPACITY } from "../utils/theme"
 
@@ -90,7 +91,19 @@ interface Booking {
   subtotal?: number;
   deposit?: number;
   handover?: { odometer?: number; fuelLevel?: string; conditionNote?: string; documentsChecked?: boolean; depositCollected?: boolean; rentCollected?: boolean; at?: any } | null;
-  returnInspection?: { odometer?: number; fuelLevel?: string; damageNote?: string; lateFee?: number; extraFees?: number; depositRefund?: number; at?: any } | null;
+  returnInspection?: {
+    odometer?: number;
+    fuelLevel?: string;
+    damageNote?: string;
+    lateFee?: number;
+    extraFees?: number;
+    depositRefund?: number;
+    compensations?: { id: string; label: string; qty: number; amount: number }[];
+    compensationTotal?: number;
+    otherFees?: number;
+    extraDue?: number;
+    at?: any;
+  } | null;
   rejectReason?: string;
   rejectedAt?: any;
   cancelledBy?: "user" | "admin";
@@ -275,6 +288,7 @@ const emptyInspectionForm = {
   fuelLevel: "",
   damageNote: "",
   extraFees: "",
+  compensations: [] as CompensationInput[],
 }
 
 const emptyCarForm = {
@@ -293,7 +307,7 @@ const emptyCarForm = {
   description: "",
   amenities: [] as string[],
   status: "Available" as CarStatus,
-  // Thông số kỹ thuật (G9), nhập dạng chuỗi; ponytail: U9.1 thêm ô nhập
+  // Thông số kỹ thuật (G9), nhập dạng chuỗi trước khi lưu
   engine: "",
   power: "",
   fuelConsumption: "",
@@ -914,13 +928,35 @@ export default function AdminScreen() {
 
   const inspectionBooking = inspection ? bookings.find((b) => b.id === inspection.bookingId) ?? null : null
   const inspectionCar = inspectionBooking ? cars.find((c) => c.id === inspectionBooking.carId) ?? null : null
+  const compensationPreview = calcCompensation(inspectionForm.compensations)
+  const otherFeesPreview = parsePriceInput(inspectionForm.extraFees || "0") || 0
   // Phí trễ / hoàn cọc tự tính cho biên bản nhận lại xe (cùng công thức returnBooking)
   const returnPreview = inspectionBooking
-    ? previewReturn(inspectionBooking as any, inspectionCar, parsePriceInput(inspectionForm.extraFees || "0") || 0)
+    ? previewReturn(inspectionBooking as any, inspectionCar, compensationPreview.total + otherFeesPreview)
     : null
 
   const updateInspection = <K extends keyof typeof emptyInspectionForm>(field: K, value: (typeof emptyInspectionForm)[K]) =>
     setInspectionForm((prev) => ({ ...prev, [field]: value }))
+
+  const toggleCompensation = (policyId: string) => {
+    setInspectionForm((prev) => {
+      const selected = prev.compensations.some((item) => item.id === policyId)
+      const policy = COMPENSATION_POLICY.find((item) => item.id === policyId)
+      return {
+        ...prev,
+        compensations: selected
+          ? prev.compensations.filter((item) => item.id !== policyId)
+          : [...prev.compensations, policy?.custom ? { id: policyId, amount: 0 } : { id: policyId, qty: 1 }],
+      }
+    })
+  }
+
+  const updateCompensation = (policyId: string, changes: Partial<CompensationInput>) => {
+    setInspectionForm((prev) => ({
+      ...prev,
+      compensations: prev.compensations.map((item) => item.id === policyId ? { ...item, ...changes } : item),
+    }))
+  }
 
   const submitInspection = async () => {
     if (!inspection || inspectionSubmitting) return
@@ -943,10 +979,12 @@ export default function AdminScreen() {
           fuelLevel: f.fuelLevel,
           damageNote: f.damageNote,
           extraFees: parsePriceInput(f.extraFees || "0"),
+          compensations: f.compensations,
         })
         showAlert(
           "Đã nhận lại xe",
-          `Phí trễ giờ: ${formatCurrency(result.lateFee)}\nPhí phát sinh: ${formatCurrency(result.extraFees)}\nHoàn cọc: ${formatCurrency(result.depositRefund)}`,
+          `Đền bù: ${formatCurrency(compensationPreview.total)}\nPhí khác: ${formatCurrency(otherFeesPreview)}\nPhí trễ giờ: ${formatCurrency(result.lateFee)}\nHoàn cọc: ${formatCurrency(result.depositRefund)}` +
+            (result.extraDue > 0 ? `\nKhách trả thêm: ${formatCurrency(result.extraDue)}` : ""),
         )
       }
       setInspection(null)
@@ -1483,6 +1521,98 @@ export default function AdminScreen() {
               {...focusProps("deposit")}
             />
             {renderFieldError("deposit")}
+          </View>
+
+          <Text style={styles.formSectionTitle}>Thông số kỹ thuật</Text>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>Động cơ</Text>
+            <TextInput
+              style={inputStyle("engine")}
+              placeholder="VD: 2.0L Turbo"
+              placeholderTextColor={THEME_COLORS.textMuted}
+              value={newCar.engine}
+              onChangeText={(text) => updateField("engine", text)}
+              {...focusProps("engine")}
+            />
+          </View>
+
+          <View style={styles.inputRow}>
+            <View style={[styles.inputGroup, styles.flex1]}>
+              <Text style={styles.inputLabel}>Công suất (mã lực)</Text>
+              <TextInput
+                style={inputStyle("power")}
+                placeholder="VD: 340"
+                placeholderTextColor={THEME_COLORS.textMuted}
+                value={newCar.power}
+                onChangeText={(text) => updateField("power", text.replace(/\D/g, ""))}
+                keyboardType="numeric"
+                {...focusProps("power")}
+              />
+            </View>
+            <View style={[styles.inputGroup, styles.flex1]}>
+              <Text style={styles.inputLabel}>Số túi khí</Text>
+              <TextInput
+                style={inputStyle("airbags")}
+                placeholder="VD: 6"
+                placeholderTextColor={THEME_COLORS.textMuted}
+                value={newCar.airbags}
+                onChangeText={(text) => updateField("airbags", text.replace(/\D/g, ""))}
+                keyboardType="numeric"
+                {...focusProps("airbags")}
+              />
+            </View>
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>Mức tiêu hao</Text>
+            <TextInput
+              style={inputStyle("fuelConsumption")}
+              placeholder="VD: 6,8 L/100km"
+              placeholderTextColor={THEME_COLORS.textMuted}
+              value={newCar.fuelConsumption}
+              onChangeText={(text) => updateField("fuelConsumption", text)}
+              {...focusProps("fuelConsumption")}
+            />
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>Màu xe</Text>
+            <TextInput
+              style={inputStyle("color")}
+              placeholder="VD: Trắng ngọc trai"
+              placeholderTextColor={THEME_COLORS.textMuted}
+              value={newCar.color}
+              onChangeText={(text) => updateField("color", text)}
+              {...focusProps("color")}
+            />
+          </View>
+
+          <View style={styles.inputRow}>
+            <View style={[styles.inputGroup, styles.flex1]}>
+              <Text style={styles.inputLabel}>Số km đã đi</Text>
+              <TextInput
+                style={inputStyle("odometer")}
+                placeholder="VD: 18500"
+                placeholderTextColor={THEME_COLORS.textMuted}
+                value={newCar.odometer}
+                onChangeText={(text) => updateField("odometer", text.replace(/\D/g, ""))}
+                keyboardType="numeric"
+                {...focusProps("odometer")}
+              />
+            </View>
+            <View style={[styles.inputGroup, styles.flex1]}>
+              <Text style={styles.inputLabel}>Dung tích cốp (lít)</Text>
+              <TextInput
+                style={inputStyle("trunkCapacity")}
+                placeholder="VD: 650"
+                placeholderTextColor={THEME_COLORS.textMuted}
+                value={newCar.trunkCapacity}
+                onChangeText={(text) => updateField("trunkCapacity", text.replace(/\D/g, ""))}
+                keyboardType="numeric"
+                {...focusProps("trunkCapacity")}
+              />
+            </View>
           </View>
 
           <View style={styles.inputGroup}>
@@ -2316,6 +2446,7 @@ export default function AdminScreen() {
     const { handover, returnInspection: back } = booking
     const distance =
       handover?.odometer != null && back?.odometer != null ? Number(back.odometer) - Number(handover.odometer) : null
+    const displayedOtherFees = back?.otherFees ?? (back?.compensationTotal == null ? Number(back?.extraFees) || 0 : 0)
     return (
       <Modal visible transparent animationType="slide" onRequestClose={() => setSelectedBookingId(null)}>
         <View style={styles.modalOverlay}>
@@ -2425,9 +2556,20 @@ export default function AdminScreen() {
                     )}
                     {renderDetailRow("Mức nhiên liệu", back.fuelLevel || "")}
                     {renderDetailRow("Hư hỏng", back.damageNote || "Không có")}
+                    {(back.compensations ?? []).map((line) => (
+                      <View key={line.id}>
+                        {renderDetailRow(`${line.label} × ${line.qty}`, formatCurrency(line.amount))}
+                      </View>
+                    ))}
+                    {back.compensationTotal != null
+                      ? renderDetailRow("Đền bù", formatCurrency(back.compensationTotal))
+                      : null}
+                    {back.otherFees != null || back.extraFees != null
+                      ? renderDetailRow("Phí khác", formatCurrency(displayedOtherFees))
+                      : null}
                     {renderDetailRow("Phí trễ giờ", formatCurrency(back.lateFee || 0))}
-                    {renderDetailRow("Phí phát sinh", formatCurrency(back.extraFees || 0))}
                     {renderDetailRow("Tiền cọc hoàn lại", formatCurrency(back.depositRefund || 0))}
+                    {(back.extraDue ?? 0) > 0 ? renderDetailRow("Khách trả thêm", formatCurrency(back.extraDue ?? 0)) : null}
                   </View>
                 </>
               ) : null}
@@ -2736,11 +2878,15 @@ export default function AdminScreen() {
     const km = f.odometer === "" ? null : Number(f.odometer)
     const kmTooLow = !isHandover && km != null && handoverKm != null && km < handoverKm
     const totalFees = returnPreview ? returnPreview.lateFee + returnPreview.extraFees : 0
+    const customAmountMissing = f.compensations.some((item) => {
+      const policy = COMPENSATION_POLICY.find((entry) => entry.id === item.id)
+      return policy?.custom && (!Number.isFinite(item.amount) || (item.amount ?? 0) <= 0)
+    })
     // Khách chọn trả tiền mặt khi nhận xe: phải thu tiền thuê trước khi giao (G7)
     const cashDue = normalizeStatus(booking.payment?.status) === "pending"
     const ready = isHandover
       ? f.documentsChecked && f.depositCollected && (!cashDue || f.rentCollected) && !!f.conditionNote.trim() && km != null && !!f.fuelLevel
-      : km != null && !kmTooLow && !!f.fuelLevel
+      : km != null && !kmTooLow && !!f.fuelLevel && !customAmountMissing
 
     const checkRow = (field: "documentsChecked" | "depositCollected" | "rentCollected", title: string, caption: string) => (
       <TouchableOpacity
@@ -2852,7 +2998,89 @@ export default function AdminScreen() {
 
               {!isHandover && returnPreview ? (
                 <>
-                  <Text style={styles.detailSection}>Phí phát sinh</Text>
+                  <Text style={styles.detailSection}>Hạng mục đền bù</Text>
+                  <Text style={styles.inspectionLead}>Chọn tất cả hạng mục phát sinh khi kiểm tra xe.</Text>
+                  <View style={styles.choiceRow}>
+                    {COMPENSATION_POLICY.map((policy) => {
+                      const selected = f.compensations.some((item) => item.id === policy.id)
+                      return (
+                        <TouchableOpacity
+                          key={policy.id}
+                          style={[styles.choiceChip, selected && styles.choiceChipActive]}
+                          onPress={() => toggleCompensation(policy.id)}
+                          accessibilityRole="checkbox"
+                          accessibilityState={{ checked: selected }}
+                          activeOpacity={PRESS_OPACITY}
+                        >
+                          <Ionicons
+                            name={selected ? "checkmark-circle" : "add-circle-outline"}
+                            size={17}
+                            color={selected ? THEME_COLORS.primary : THEME_COLORS.textMuted}
+                          />
+                          <Text style={[styles.choiceChipText, selected && styles.choiceChipTextActive]}>{policy.label}</Text>
+                        </TouchableOpacity>
+                      )
+                    })}
+                  </View>
+
+                  {f.compensations.map((item) => {
+                    const policy = COMPENSATION_POLICY.find((entry) => entry.id === item.id)
+                    if (!policy) return null
+                    const qty = Math.max(1, item.qty ?? 1)
+                    return (
+                      <View key={item.id} style={styles.compensationEditor}>
+                        <View style={styles.compensationEditorHeader}>
+                          <View style={styles.flex1}>
+                            <Text style={styles.compensationLabel}>{policy.label}</Text>
+                            <Text style={styles.compensationNote}>{policy.note}</Text>
+                          </View>
+                          {!policy.custom ? (
+                            <Text style={styles.compensationUnit}>
+                              {formatCurrency(policy.unit ?? 0)}/{policy.unitLabel ?? "đơn vị"}
+                            </Text>
+                          ) : null}
+                        </View>
+                        {policy.custom ? (
+                          <>
+                            <TextInput
+                              style={inputStyle(`compensation-${policy.id}`, (item.amount ?? 0) <= 0)}
+                              value={item.amount ? String(item.amount) : ""}
+                              onChangeText={(text) => updateCompensation(policy.id, { amount: Number(text.replace(/\D/g, "")) || 0 })}
+                              placeholder="Nhập số tiền theo thực tế"
+                              placeholderTextColor={THEME_COLORS.textMuted}
+                              keyboardType="number-pad"
+                              {...focusProps(`compensation-${policy.id}`)}
+                            />
+                            {(item.amount ?? 0) <= 0 ? <Text style={styles.fieldError}>Vui lòng nhập số tiền đền bù.</Text> : null}
+                          </>
+                        ) : (
+                          <View style={styles.quantityRow}>
+                            <TouchableOpacity
+                              style={[styles.quantityButton, qty <= 1 && styles.disabledButton]}
+                              onPress={() => updateCompensation(policy.id, { qty: Math.max(1, qty - 1) })}
+                              disabled={qty <= 1}
+                              accessibilityLabel={`Giảm số lượng ${policy.label}`}
+                              activeOpacity={PRESS_OPACITY}
+                            >
+                              <Ionicons name="remove" size={18} color={THEME_COLORS.textPrimary} />
+                            </TouchableOpacity>
+                            <Text style={styles.quantityValue}>{qty}</Text>
+                            <TouchableOpacity
+                              style={styles.quantityButton}
+                              onPress={() => updateCompensation(policy.id, { qty: qty + 1 })}
+                              accessibilityLabel={`Tăng số lượng ${policy.label}`}
+                              activeOpacity={PRESS_OPACITY}
+                            >
+                              <Ionicons name="add" size={18} color={THEME_COLORS.textPrimary} />
+                            </TouchableOpacity>
+                            <Text style={styles.compensationAmount}>{formatCurrency((policy.unit ?? 0) * qty)}</Text>
+                          </View>
+                        )}
+                      </View>
+                    )
+                  })}
+
+                  <Text style={styles.detailSection}>Phí khác</Text>
                   <TextInput
                     style={inputStyle("inspectionFees")}
                     value={f.extraFees}
@@ -2862,19 +3090,26 @@ export default function AdminScreen() {
                     keyboardType="number-pad"
                     {...focusProps("inspectionFees")}
                   />
-                  <Text style={styles.inspectionHint}>Hư hỏng, vệ sinh, thiếu nhiên liệu… (VND)</Text>
+                  <Text style={styles.inspectionHint}>Chi phí ngoài các hạng mục đền bù ở trên (VND).</Text>
 
                   <Text style={styles.detailSection}>Quyết toán tiền cọc</Text>
                   <View style={styles.detailGroup}>
                     {renderDetailRow("Giờ trả theo đơn", range ? formatDate(range.end, "datetime") : "")}
+                    {renderDetailRow("Đền bù", formatCurrency(compensationPreview.total))}
+                    {renderDetailRow("Phí khác", formatCurrency(otherFeesPreview))}
                     {renderDetailRow("Phí trễ giờ", formatCurrency(returnPreview.lateFee))}
-                    {renderDetailRow("Phí phát sinh", formatCurrency(returnPreview.extraFees))}
                     {renderDetailRow("Tổng phí", formatCurrency(totalFees))}
                     {renderDetailRow("Tiền cọc", formatCurrency(deposit))}
                     <View style={styles.settleTotalRow}>
-                      <Text style={styles.settleTotalLabel}>Hoàn cọc cho khách</Text>
+                      <Text style={styles.settleTotalLabel}>Hoàn cọc</Text>
                       <Text style={styles.settleTotalValue}>{formatCurrency(returnPreview.depositRefund)}</Text>
                     </View>
+                    {returnPreview.extraDue > 0 ? (
+                      <View style={styles.extraDueRow}>
+                        <Text style={styles.extraDueLabel}>Khách trả thêm</Text>
+                        <Text style={styles.extraDueValue}>{formatCurrency(returnPreview.extraDue)}</Text>
+                      </View>
+                    ) : null}
                   </View>
                   <Text style={styles.inspectionHint}>Phí trễ giờ tính đến thời điểm xác nhận: mỗi giờ 10% giá ngày, tối đa 1 ngày.</Text>
                 </>
@@ -3179,6 +3414,11 @@ const styles = StyleSheet.create({
   formTitle: {
     ...TYPOGRAPHY.h3,
     marginBottom: SPACE.xl,
+  },
+  formSectionTitle: {
+    ...TYPOGRAPHY.h3,
+    marginTop: SPACE.sm,
+    marginBottom: SPACE.lg,
   },
   inputRow: {
     flexDirection: "row",
@@ -3996,6 +4236,65 @@ const styles = StyleSheet.create({
     ...TYPOGRAPHY.caption,
     marginTop: SPACE.sm,
   },
+  inspectionLead: {
+    ...TYPOGRAPHY.caption,
+    marginBottom: SPACE.md,
+  },
+  compensationEditor: {
+    marginTop: SPACE.md,
+    padding: SPACE.md,
+    borderWidth: 1,
+    borderColor: THEME_COLORS.border,
+    borderRadius: RADIUS.control,
+    backgroundColor: THEME_COLORS.surfaceMuted,
+  },
+  compensationEditorHeader: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: SPACE.md,
+    marginBottom: SPACE.md,
+  },
+  compensationLabel: {
+    ...TYPOGRAPHY.bodyStrong,
+    fontSize: 14,
+  },
+  compensationNote: {
+    ...TYPOGRAPHY.caption,
+    marginTop: 2,
+  },
+  compensationUnit: {
+    ...TYPOGRAPHY.caption,
+    color: THEME_COLORS.primary,
+    fontWeight: "700",
+    maxWidth: "40%",
+    textAlign: "right",
+  },
+  quantityRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SPACE.sm,
+  },
+  quantityButton: {
+    width: 36,
+    height: 36,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: THEME_COLORS.border,
+    borderRadius: RADIUS.control,
+    backgroundColor: THEME_COLORS.surface,
+  },
+  quantityValue: {
+    ...TYPOGRAPHY.bodyStrong,
+    minWidth: 24,
+    textAlign: "center",
+  },
+  compensationAmount: {
+    ...TYPOGRAPHY.bodyStrong,
+    color: THEME_COLORS.primary,
+    flex: 1,
+    textAlign: "right",
+  },
   settleTotalRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -4011,6 +4310,23 @@ const styles = StyleSheet.create({
   settleTotalValue: {
     ...TYPOGRAPHY.price,
     color: THEME_COLORS.success,
+  },
+  extraDueRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: SPACE.md,
+    paddingVertical: SPACE.md,
+    borderTopWidth: 1,
+    borderTopColor: THEME_COLORS.border,
+  },
+  extraDueLabel: {
+    ...TYPOGRAPHY.bodyStrong,
+    color: THEME_COLORS.danger,
+  },
+  extraDueValue: {
+    ...TYPOGRAPHY.price,
+    color: THEME_COLORS.danger,
   },
 
   // ===== Đánh giá =====

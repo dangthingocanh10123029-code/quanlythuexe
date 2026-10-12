@@ -1,5 +1,6 @@
 "use client"
 
+import { useState } from "react"
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, ActivityIndicator } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 import { Ionicons } from "@expo/vector-icons"
@@ -7,14 +8,14 @@ import { router, useLocalSearchParams } from "expo-router"
 import { useCar, getCarImage } from "../../hooks/useCars"
 import { useLikedCarIds } from "../../hooks/useLikedCarIds"
 import { useCarReviews } from "../../hooks/useReviews"
-import { formatCurrency, formatDate } from "../../utils/helpers"
+import { formatCurrency, formatDate, formatNumber } from "../../utils/helpers"
 import { toDate } from "../../utils/booking"
 import { showAlert } from "../../utils/dialog"
 import { HOTLINE, CAR_STATUS_LABELS, HIDDEN_CAR_STATUSES } from "../../utils/constants"
 import { getBrandAsset } from "../../data/assets"
 import { StatusBar } from "expo-status-bar"
 import { THEME_COLORS, RADIUS, SPACE, TYPOGRAPHY, UI, PRESS_OPACITY } from "../../utils/theme"
-import { AppHeader, EmptyState, PrimaryButton, StatCard } from "../../components"
+import { AppHeader, CompensationPolicy, EmptyState, PrimaryButton, StatCard } from "../../components"
 
 
 // Địa chỉ chi nhánh RENTO theo thành phố của xe
@@ -47,6 +48,7 @@ export default function CarDetailsScreen() {
   const { id, pickup, return: returnAt } = useLocalSearchParams<{ id: string; pickup?: string; return?: string }>()
   const { car, loading: carLoading } = useCar(id)
   const { likedIds, toggleLike } = useLikedCarIds()
+  const [policyExpanded, setPolicyExpanded] = useState(false)
 
   // Đánh giá chỉ viết từ chi tiết đơn đã hoàn thành (submitReview, G5); ở đây chỉ xem
   const { reviews, loading: reviewLoading } = useCarReviews(id)
@@ -85,6 +87,16 @@ export default function CarDetailsScreen() {
     { icon: "car-sport-outline", value: String(car.type), label: "Loại xe" },
     { icon: "calendar-outline", value: String(car.year), label: "Năm SX" },
     { icon: "location-outline", value: String(car.location), label: "Khu vực" },
+  ]
+  const missing = "Chưa cập nhật"
+  const technicalSpecs = [
+    { label: "Động cơ", value: car.engine?.trim() || missing },
+    { label: "Công suất", value: car.power != null ? `${formatNumber(car.power)} mã lực` : missing },
+    { label: "Mức tiêu hao", value: car.fuelConsumption?.trim() || missing },
+    { label: "Túi khí", value: car.airbags != null ? `${formatNumber(car.airbags)} túi` : missing },
+    { label: "Màu xe", value: car.color?.trim() || missing },
+    { label: "Đã đi", value: car.odometer != null ? `${formatNumber(car.odometer)} km` : missing },
+    { label: "Cốp", value: car.trunkCapacity != null ? `${formatNumber(car.trunkCapacity)} lít` : missing },
   ]
 
   return (
@@ -167,6 +179,21 @@ export default function CarDetailsScreen() {
         </View>
 
         <View style={styles.block}>
+          <Text style={styles.sectionTitle}>Thông số kỹ thuật</Text>
+          <View style={styles.technicalCard}>
+            {technicalSpecs.map((spec, index) => (
+              <View
+                key={spec.label}
+                style={[styles.technicalRow, index < technicalSpecs.length - 1 && styles.technicalRowDivider]}
+              >
+                <Text style={styles.technicalLabel}>{spec.label}</Text>
+                <Text style={styles.technicalValue}>{spec.value}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+
+        <View style={styles.block}>
           <Text style={styles.sectionTitle}>Thông tin thuê xe</Text>
           <View style={styles.detailsCard}>
             <View style={styles.detailRow}>
@@ -212,6 +239,33 @@ export default function CarDetailsScreen() {
               )}
             </View>
           </View>
+        </View>
+
+        <View style={styles.block}>
+          <TouchableOpacity
+            style={styles.policyHeader}
+            onPress={() => setPolicyExpanded((value) => !value)}
+            accessibilityRole="button"
+            accessibilityState={{ expanded: policyExpanded }}
+            activeOpacity={PRESS_OPACITY}
+          >
+            <View style={styles.policyTitleRow}>
+              <Ionicons name="shield-checkmark-outline" size={22} color={THEME_COLORS.primary} />
+              <Text style={styles.policyTitle}>Chính sách đền bù</Text>
+            </View>
+            <Ionicons
+              name={policyExpanded ? "chevron-up" : "chevron-down"}
+              size={20}
+              color={THEME_COLORS.textMuted}
+            />
+          </TouchableOpacity>
+          {policyExpanded ? (
+            <View style={styles.policyBody}>
+              <CompensationPolicy />
+            </View>
+          ) : (
+            <Text style={styles.policySummary}>Xem mức đền bù và cách quyết toán tiền cọc khi trả xe.</Text>
+          )}
         </View>
 
         {/* Rental Company */}
@@ -433,6 +487,31 @@ const styles = StyleSheet.create({
     width: '31.5%',
     minHeight: 134,
   },
+  technicalCard: {
+    ...UI.card,
+    paddingHorizontal: SPACE.lg,
+  },
+  technicalRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: SPACE.lg,
+    paddingVertical: SPACE.md,
+  },
+  technicalRowDivider: {
+    borderBottomWidth: 1,
+    borderBottomColor: THEME_COLORS.border,
+  },
+  technicalLabel: {
+    ...TYPOGRAPHY.body,
+    color: THEME_COLORS.textSecondary,
+    flex: 1,
+  },
+  technicalValue: {
+    ...TYPOGRAPHY.bodyStrong,
+    flex: 1,
+    textAlign: "right",
+  },
   detailsCard: {
     ...UI.card,
     padding: SPACE.lg,
@@ -492,6 +571,33 @@ const styles = StyleSheet.create({
   amenityText: {
     ...UI.chipText,
     fontSize: 13,
+  },
+  policyHeader: {
+    ...UI.card,
+    minHeight: 64,
+    paddingHorizontal: SPACE.lg,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: SPACE.md,
+  },
+  policyTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SPACE.sm,
+    flex: 1,
+  },
+  policyTitle: {
+    ...TYPOGRAPHY.h3,
+    flexShrink: 1,
+  },
+  policyBody: {
+    marginTop: SPACE.md,
+  },
+  policySummary: {
+    ...TYPOGRAPHY.caption,
+    marginTop: SPACE.sm,
+    paddingHorizontal: SPACE.sm,
   },
   rentalInfo: {
     ...UI.card,

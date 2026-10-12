@@ -16,7 +16,7 @@ import { confirmDialog } from "../utils/dialog"
 import { PICKUP_LOCATIONS, VAT_RATE } from "../utils/constants"
 import { StatusBar } from "expo-status-bar"
 import { THEME_COLORS, RADIUS, SPACE, SHADOWS, TYPOGRAPHY, UI, PRESS_OPACITY } from "../utils/theme"
-import { AppHeader, EmptyState, PrimaryButton, SearchBar } from "../components"
+import { AppHeader, CompensationPolicy, EmptyState, PrimaryButton, SearchBar } from "../components"
 import DateTimeRangePicker from "../components/DateTimeRangePicker"
 
 
@@ -63,8 +63,8 @@ export default function CheckoutScreen() {
   const [pickupLocation, setPickupLocation] = useState(LOCATIONS[0])
   const [returnLocation, setReturnLocation] = useState(LOCATIONS[0])
   const [promoCode, setPromoCode] = useState("")
-  // ponytail: chưa có ô tick, U9.2 thêm checkbox "Tôi đồng ý chính sách đền bù" (setAgreedPolicy)
   const [agreedPolicy, setAgreedPolicy] = useState(false)
+  const [showPolicyModal, setShowPolicyModal] = useState(false)
   const [promoDraft, setPromoDraft] = useState("")
   const [firstBooking, setFirstBooking] = useState(false)
   const [submitting, setSubmitting] = useState(false)
@@ -318,6 +318,34 @@ export default function CheckoutScreen() {
           ))}
         </View>
 
+        <View style={styles.card}>
+          <Text style={styles.sectionTitle}>Chính sách đền bù</Text>
+          <Text style={styles.policyDescription}>
+            Vui lòng xem chính sách trước khi gửi yêu cầu đặt xe.
+          </Text>
+          <TouchableOpacity
+            style={[styles.policyAgreement, agreedPolicy && styles.policyAgreementActive]}
+            onPress={() => setAgreedPolicy((value) => !value)}
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: agreedPolicy }}
+            activeOpacity={PRESS_OPACITY}
+          >
+            <View style={[styles.checkbox, agreedPolicy && styles.checkedBox]}>
+              {agreedPolicy ? <Ionicons name="checkmark" size={14} color={THEME_COLORS.textInverse} /> : null}
+            </View>
+            <Text style={styles.policyAgreementText}>Tôi đã đọc và đồng ý chính sách đền bù</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.viewPolicyButton}
+            onPress={() => setShowPolicyModal(true)}
+            activeOpacity={PRESS_OPACITY}
+          >
+            <Ionicons name="document-text-outline" size={18} color={THEME_COLORS.primary} />
+            <Text style={styles.viewPolicyText}>Xem chính sách</Text>
+            <Ionicons name="chevron-forward" size={18} color={THEME_COLORS.primary} />
+          </TouchableOpacity>
+        </View>
+
         {/* Price Breakdown */}
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>Chi tiết giá</Text>
@@ -366,12 +394,39 @@ export default function CheckoutScreen() {
           <PrimaryButton
             title={`Gửi yêu cầu đặt xe • ${formatCurrency(total)}`}
             onPress={handleConfirmBooking}
-            disabled={dateConflict}
+            disabled={dateConflict || !agreedPolicy}
             loading={submitting}
             icon="arrow-forward"
           />
         </View>
       </SafeAreaView>
+
+      <Modal
+        visible={showPolicyModal}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setShowPolicyModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.policyModal}>
+            <View style={styles.sheetHandle} />
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Chính sách đền bù</Text>
+              <TouchableOpacity
+                style={styles.iconButton}
+                onPress={() => setShowPolicyModal(false)}
+                accessibilityLabel="Đóng chính sách đền bù"
+                activeOpacity={PRESS_OPACITY}
+              >
+                <Ionicons name="close" size={20} color={THEME_COLORS.textSecondary} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.policyModalContent}>
+              <CompensationPolicy />
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
 
       {/* Location Modal */}
       <Modal
@@ -651,6 +706,42 @@ const styles = StyleSheet.create({
     backgroundColor: THEME_COLORS.primary,
     borderColor: THEME_COLORS.primary,
   },
+  policyDescription: {
+    ...TYPOGRAPHY.body,
+    fontSize: 14,
+    marginBottom: SPACE.md,
+  },
+  policyAgreement: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SPACE.md,
+    padding: SPACE.md,
+    borderWidth: 1,
+    borderColor: THEME_COLORS.border,
+    borderRadius: RADIUS.control,
+    backgroundColor: THEME_COLORS.surface,
+  },
+  policyAgreementActive: {
+    borderColor: THEME_COLORS.primary,
+    backgroundColor: THEME_COLORS.primarySoft,
+  },
+  policyAgreementText: {
+    ...TYPOGRAPHY.bodyStrong,
+    fontSize: 14,
+    flex: 1,
+  },
+  viewPolicyButton: {
+    ...UI.secondaryButton,
+    marginTop: SPACE.md,
+    height: 44,
+    flexDirection: "row",
+    gap: SPACE.sm,
+  },
+  viewPolicyText: {
+    ...UI.secondaryButtonText,
+    color: THEME_COLORS.primary,
+    flex: 1,
+  },
   priceRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -745,6 +836,18 @@ const styles = StyleSheet.create({
     paddingBottom: SPACE["3xl"],
     maxHeight: '80%',
     ...SHADOWS.raised,
+  },
+  policyModal: {
+    backgroundColor: THEME_COLORS.surface,
+    borderTopLeftRadius: RADIUS.sheet,
+    borderTopRightRadius: RADIUS.sheet,
+    paddingHorizontal: SPACE.screen,
+    paddingBottom: SPACE["3xl"],
+    height: "88%",
+    ...SHADOWS.raised,
+  },
+  policyModalContent: {
+    paddingBottom: SPACE["2xl"],
   },
   sheetHandle: {
     alignSelf: 'center',

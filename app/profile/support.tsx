@@ -12,11 +12,15 @@ import { useAuth } from "../../hooks/useAuth"
 import { useMyTickets } from "../../hooks/useSupportTickets"
 import { showAlert } from "../../utils/dialog"
 import { toDate } from "../../utils/booking"
-import { formatDate } from "../../utils/helpers"
-import { HOTLINE, SUPPORT_EMAIL, TICKET_STATUS_LABELS, PRIORITY_LABELS } from "../../utils/constants"
+import { formatCurrency, formatDate } from "../../utils/helpers"
+import { COMPENSATION_POLICY, HOTLINE, SUPPORT_EMAIL, TICKET_STATUS_LABELS, PRIORITY_LABELS } from "../../utils/constants"
 import { PRESS_OPACITY, RADIUS, SHADOWS, SPACE, THEME_COLORS, TYPOGRAPHY, UI } from "../../utils/theme"
 
 const BUG_REPORT_SUBJECT = "Báo lỗi ứng dụng"
+
+const compensationPolicySummary = COMPENSATION_POLICY.map((item) =>
+  `${item.label}: ${item.custom ? "theo thực tế" : `${formatCurrency(item.unit ?? 0)}/${item.unitLabel ?? "đơn vị"}`}`,
+).join("; ")
 
 // Hướng dẫn đặt xe theo đúng luồng trong app
 const bookingGuideSteps = [
@@ -93,6 +97,13 @@ const faqData = [
     question: "Giá thuê đã bao gồm bảo hiểm và xăng chưa?",
     answer:
       "Giá thuê đã bao gồm bảo hiểm vật chất xe cơ bản và thuế VAT. Xăng không bao gồm: xe được giao với mức nhiên liệu nhất định và bạn vui lòng trả xe với mức nhiên liệu tương đương. Phí cầu đường, gửi xe và phạt nguội (nếu có) do người thuê chi trả.",
+  },
+  {
+    id: 7,
+    question: "Chính sách đền bù được tính như thế nào?",
+    answer:
+      `Các hạng mục hiện áp dụng gồm: ${compensationPolicySummary}. ` +
+      "Tiền đền bù được trừ vào tiền cọc khi bạn trả xe; phần vượt tiền cọc, bạn thanh toán thêm trong vòng 7 ngày.",
   },
 ]
 
