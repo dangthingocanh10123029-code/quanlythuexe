@@ -123,7 +123,7 @@ service cloud.firestore {
         && request.resource.data.userId == request.auth.uid
         && get(/databases/$(database)/documents/bookings/$(bookingId)).data.userId == request.auth.uid
         && get(/databases/$(database)/documents/bookings/$(bookingId)).data.status.lower() == 'completed'
-        && request.resource.data.rating is int
+        && request.resource.data.rating is number
         && request.resource.data.rating >= 1 && request.resource.data.rating <= 5;
       allow update: if false;
       allow delete: if isManager();
