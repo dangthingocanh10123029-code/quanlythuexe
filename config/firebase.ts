@@ -1,6 +1,6 @@
 import { initializeApp, getApps, getApp } from "firebase/app"
-import { getAuth } from "firebase/auth"
-import { getFirestore } from "firebase/firestore"
+import { getAuth, connectAuthEmulator } from "firebase/auth"
+import { getFirestore, connectFirestoreEmulator } from "firebase/firestore"
 
 // Project Firebase của nhóm (rento-app-e2c08)
 const firebaseConfig = {
@@ -24,5 +24,11 @@ try {
 // Keep both auth and firestore exports
 export const auth = getAuth(app);
 export const db = getFirestore(app);
+
+// E2E: EXPO_PUBLIC_USE_EMULATOR=1 trỏ Auth/Firestore về emulator local. Mặc định dùng project thật.
+if (process.env.EXPO_PUBLIC_USE_EMULATOR === "1") {
+  connectAuthEmulator(auth, "http://127.0.0.1:9099", { disableWarnings: true });
+  connectFirestoreEmulator(db, "127.0.0.1", 8080);
+}
 
 export default app;
